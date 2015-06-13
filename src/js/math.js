@@ -1,0 +1,63 @@
+gb.math = 
+{
+	E: 2.71828182845904523536028747135266250,
+	PI: 3.14159265358979323846264338327950288,
+	TAU: 6.28318530718,
+	DEG2RAD: 0.01745329251,
+	RAD2DEG: 57.2957795,
+	PI_OVER_360: 0.00872664625,
+	EPSILON: 2.2204460492503131e-16,
+
+	min: function(a, b)
+	{
+		if(a < b) return a; else return b;
+	},
+	max: function(a, b)
+	{
+		if(a > b) return a; else return b;
+	},
+	abs: function(a)
+	{
+		return Math.abs(a);
+	},
+	square: function(a)
+	{
+		return a * a;
+	},
+	sqrt: function(a)
+	{
+		return Math.sqrt(a);
+	},
+	cos: function(a)
+	{
+		return Math.cos(a);
+	},
+	sin: function(a)
+	{
+		return Math.sin(a);
+	},
+	tan: function(a)
+	{
+		return Math.tan(a);
+	},
+	acos: function(a)
+	{
+		return Math.acos(a);
+	},
+	asin: function(a)
+	{
+		return Math.asin(a);
+	},
+	atan: function(a)
+	{
+		return Math.atan(a);
+	},
+	atan2: function(y, x)
+	{
+		return Math.atan2(y, x);
+	},
+	lerp: function(a,b,t)
+	{
+		return (1-t) * a + t * b;
+	},
+}

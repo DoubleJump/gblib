@@ -1,3 +1,7 @@
+*.dds
+*.blend
+*.mesh
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db

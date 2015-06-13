@@ -4,7 +4,7 @@ set JS_SRC=src\js\main.js
 set JS_DEST=build\main.js
 
 set ASSET_SRC=src\
-set ASSET_DEST=build\assets.gb
+set ASSET_DEST=build\assets.gl
 set ASSET_TARGET=desktop
 
 call cls

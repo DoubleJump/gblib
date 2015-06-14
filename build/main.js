@@ -1209,10 +1209,9 @@ gb.AABB = function()
     this.max = new gb.Vec3();
 }
 
-
 gb.aabb = 
 {
-	stack: new gb.Stack(gb.AABB, 5),
+	stack: new gb.Stack(gb.AABB, 16),
 
     set:function(r, min, max)
     {
@@ -1236,7 +1235,7 @@ gb.aabb =
 	{
         var _t = gb.aabb;
 		var v = _t.stack.get();
-		_t.set(v, min, max);
+		if(min || max) _t.set(v, min, max);
 		return v;
 	},
     contains: function(a, b)
@@ -1273,43 +1272,52 @@ gb.aabb =
     },
     mul_corner: function(p, m, min, max)
     {
-        var x = p[0]; var y = p[1]; var z = p[2];
-        p[0] = m.v[0] * x + m.v[4] * y + m.v[ 8] * z + m.v[12];
-        p[1] = m.v[1] * x + m.v[5] * y + m.v[ 9] * z + m.v[13];
-        p[2] = m.v[2] * x + m.v[6] * y + m.v[10] * z + m.v[14];
+        var x = p[0]; 
+        var y = p[1]; 
+        var z = p[2];
 
-        if(p[0] < min[0]) min[0] = p[0];
-        if(p[0] > max[0]) max[0] = p[0];
-        if(p[1] > min[1]) max[1] = p[1];
-        if(p[1] > max[1]) max[1] = p[1];
-        if(p[2] > min[2]) max[2] = p[2];
-        if(p[2] > max[2]) max[2] = p[2];
+        x = m[0] * p[0] + m[4] * p[1] + m[ 8] * p[2] + m[12];
+        y = m[1] * p[0] + m[5] * p[1] + m[ 9] * p[2] + m[13];
+        z = m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14];
+
+        if(x < min[0]) min[0] = x;
+        if(y < min[1]) min[1] = y;
+        if(z < min[2]) min[2] = z;
+
+        if(x > max[0]) max[0] = x;
+        if(y > max[1]) max[1] = y;
+        if(z > max[2]) max[2] = z;
     },
     transform: function(a, m)
     {
         var _t = gb.aabb;
         var v3 = gb.vec3;
+        
+        var stack = v3.push();
+
         var w = a.max[0] - a.min[0];
         var h = a.max[1] - a.min[1];
         var d = a.max[2] - a.min[2];
 
-        var v0 = v3.tmp(a.min[0], a.min[1], a.min[2]);
-        var v1 = v3.tmp(a.min[0] + w, a.min[1], a.min[2]);
-        var v2 = v3.tmp(a.min[0], a.min[1], a.min[2] + d);
-        var v3 = v3.tmp(a.min[0] + w, a.min[1], a.min[2] + d);
-        var v4 = v3.tmp(a.min[0], a.min[1] + h, a.min[2]);
-        var v5 = v3.tmp(a.min[0] + w, a.min[1] + h, a.min[2]);
-        var v6 = v3.tmp(a.min[0], a.min[1] + h, a.min[2] + d);
-        var v7 = v3.tmp(a.min[0] + w, a.min[1] + h, a.min[2] + d);
+        var p0 = v3.tmp(a.min[0], a.min[1], a.min[2]);
+        var p1 = v3.tmp(a.min[0] + w, a.min[1], a.min[2]);
+        var p2 = v3.tmp(a.min[0], a.min[1], a.min[2] + d);
+        var p3 = v3.tmp(a.min[0] + w, a.min[1], a.min[2] + d);
+        var p4 = v3.tmp(a.min[0], a.min[1] + h, a.min[2]);
+        var p5 = v3.tmp(a.min[0] + w, a.min[1] + h, a.min[2]);
+        var p6 = v3.tmp(a.min[0], a.min[1] + h, a.min[2] + d);
+        var p7 = v3.tmp(a.min[0] + w, a.min[1] + h, a.min[2] + d);
         
-        _t.mul_corner(v0, m, a.min, a.max);
-        _t.mul_corner(v1, m, a.min, a.max);
-        _t.mul_corner(v2, m, a.min, a.max);
-        _t.mul_corner(v3, m, a.min, a.max);
-        _t.mul_corner(v4, m, a.min, a.max);
-        _t.mul_corner(v5, m, a.min, a.max);
-        _t.mul_corner(v6, m, a.min, a.max);
-        _t.mul_corner(v7, m, a.min, a.max);
+        _t.mul_corner(p0, m, a.min, a.max);
+        _t.mul_corner(p1, m, a.min, a.max);
+        _t.mul_corner(p2, m, a.min, a.max);
+        _t.mul_corner(p3, m, a.min, a.max);
+        _t.mul_corner(p4, m, a.min, a.max);
+        _t.mul_corner(p5, m, a.min, a.max);
+        _t.mul_corner(p6, m, a.min, a.max);
+        _t.mul_corner(p7, m, a.min, a.max);
+
+        v3.pop(stack);
     },
 }
 gb.Ray = function(point, dir)
@@ -1880,6 +1888,7 @@ gb.mesh =
 			stride += mr * (gb.vertex_attributes[i].size);
 			index *= 2;
 		}
+		return stride;
 	},
 	get_bounds: function(b, m)
 	{
@@ -1889,12 +1898,11 @@ gb.mesh =
 		v3.set(b.max, d[0], d[1], d[2]);
 
 		var stride = gb.mesh.get_stride(m.vertex_buffer);
-		var n = mesh.vertex_count;
+		var n = m.vertex_count;
 		var p = v3.tmp(0,0,0);
-		var c = 1;
-		for(var i = 0; i < n; ++i)
+		var c = stride;
+		for(var i = 1; i < n; ++i)
 		{
-			c = i * stride;
 			v3.set(p, d[c], d[c+1], d[c+2]);
 
 			if(p[0] < b.min[0]) b.min[0] = p[0];
@@ -1904,6 +1912,8 @@ gb.mesh =
 			if(p[0] > b.max[0]) b.max[0] = p[0];
 			if(p[1] > b.max[1]) b.max[1] = p[1];
 			if(p[2] > b.max[2]) b.max[2] = p[2];
+
+			c += stride;
 		}
 	},
 }
@@ -2792,9 +2802,9 @@ gb.gl_draw =
 		w.set_shader(_t.shader);
 		w.update_mesh(_t.mesh);
 		w.link_attributes(_t.shader, _t.mesh);
-		var mvp = gb.mat4.tmp();
-		gb.mat4.mul(mvp, _t.matrix, camera.view_projection);
-		w.set_shader_mat4(_t.shader, "mvp", mvp);
+		//var mvp = gb.mat4.tmp();
+		//gb.mat4.mul(mvp, _t.matrix, camera.view_projection);
+		w.set_shader_mat4(_t.shader, "mvp", camera.view_projection);
 		w.draw_mesh_arrays(_t.mesh);
 	},
 	cube: function(width, height, depth)
@@ -2908,14 +2918,14 @@ gb.gl_draw =
 		var center = gb.vec3.tmp();
 		gb.aabb.center(center, b);
 
-		gb.mat4.set_position(_t.matrix, center);
+		//gb.mat4.set_position(_t.matrix, center);
 
-		var w = gb.aabb.width();
-		var h = gb.aabb.height();
-		var d = gb.aabb.depth();
+		var w = gb.aabb.width(b);
+		var h = gb.aabb.height(b);
+		var d = gb.aabb.depth(b);
 
 		_t.cube(w,h,d);
-		gb.mat4.identity(_t.matrix);
+		//gb.mat4.identity(_t.matrix);
 	},
 	clear: function()
 	{
@@ -3300,6 +3310,7 @@ var render_target;
 var scene;
 var bob;
 var fred;
+var bounds;
 
 window.addEventListener('load', init, false);
 
@@ -3398,6 +3409,8 @@ function link_complete()
 	render_group.entities.push(bob);
 
 	rotation = 0;
+	bounds = new gb.AABB();
+	gb.mesh.get_bounds(bounds, bob.mesh);
 
 	render_target = gb.new_render_target(gb.webgl.view, 1 | 2);
 	requestAnimationFrame(upA);
@@ -3407,17 +3420,16 @@ function link_complete()
 
 function update(timestamp)
 {
+	// TODO register each stack to do this automatically
 	gb.vec2.stack.index = 0;
 	gb.vec3.stack.index = 0;
 	gb.quat.stack.index = 0;
 	gb.mat3.stack.index = 0;
 	gb.mat4.stack.index = 0;
+	gb.aabb.stack.index = 0;
 	gb.color.stack.index = 0;
 	gb.ray.stack.index = 0;
 	gb.rect.stack.index = 0;
-
-
-
 
 	/*
 	var touch = gb.input.touches[0];
@@ -3429,24 +3441,31 @@ function update(timestamp)
 
 	rotation += 1.0 * gb.time.dt;
 
-	gb.entity.set_position(bob, 0,0,-2.0);
-	gb.entity.set_rotation(bob, rotation, rotation * 30, rotation * 10);
+	gb.entity.set_position(bob, 0,0,-4.0);
+	//gb.entity.set_rotation(bob, rotation, rotation * 30, rotation * 10);
 
-	gb.entity.set_position(fred, 0,0,-4.0);
+	gb.entity.set_position(fred, 2.0,0,-2.0);
 	gb.entity.set_rotation(fred, rotation * -10, rotation * -20, rotation * 10);
 
 	gb.scene.update(scene);
 
+	var t_bounds = gb.aabb.tmp();
+	gb.aabb.eq(t_bounds, bounds);
+	gb.aabb.transform(t_bounds, bob.world_matrix);
+
 	gb.gl_draw.clear();
 	gb.gl_draw.set_color(0.7,0.2,0.3,0.5);
-	gb.gl_draw.set_position(gb.vec3.tmp(0,0,-0.5));
+	//gb.gl_draw.set_position(gb.vec3.tmp(0,0,-2.0));
 	//	gb.gl_draw.rect(gb.rect.tmp(-0.3,-0.3,0.6,0.6));
 	//gb.gl_draw.line(gb.vec3.tmp(0,0,-2), gb.vec3.tmp(1,1,-2));
-	gb.gl_draw.circle(0.3, 32);
+	//gb.gl_draw.circle(0.2, 32);
 	//gb.gl_draw.transform(bob.world_matrix);
-	//gb.gl_draw.bounds(bob.bounds);
+	//gb.gl_draw.bounds(t_bounds);
 	//gb.gl_draw.sphere(0.2, 12,12);
-	gb.gl_draw.cube(0.5,0.5,0.6);
+	gb.gl_draw.set_position(bob.position);
+	//gb.gl_draw.cube(1.36,0.5,1.0);
+	gb.gl_draw.cube(gb.aabb.width(bounds), gb.aabb.height(bounds), gb.aabb.depth(bounds));
+
 
 	gb.input.update();
 

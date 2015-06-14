@@ -100,9 +100,9 @@ gb.gl_draw =
 		w.set_shader(_t.shader);
 		w.update_mesh(_t.mesh);
 		w.link_attributes(_t.shader, _t.mesh);
-		var mvp = gb.mat4.tmp();
-		gb.mat4.mul(mvp, _t.matrix, camera.view_projection);
-		w.set_shader_mat4(_t.shader, "mvp", mvp);
+		//var mvp = gb.mat4.tmp();
+		//gb.mat4.mul(mvp, _t.matrix, camera.view_projection);
+		w.set_shader_mat4(_t.shader, "mvp", camera.view_projection);
 		w.draw_mesh_arrays(_t.mesh);
 	},
 	cube: function(width, height, depth)
@@ -216,14 +216,14 @@ gb.gl_draw =
 		var center = gb.vec3.tmp();
 		gb.aabb.center(center, b);
 
-		gb.mat4.set_position(_t.matrix, center);
+		//gb.mat4.set_position(_t.matrix, center);
 
-		var w = gb.aabb.width();
-		var h = gb.aabb.height();
-		var d = gb.aabb.depth();
+		var w = gb.aabb.width(b);
+		var h = gb.aabb.height(b);
+		var d = gb.aabb.depth(b);
 
 		_t.cube(w,h,d);
-		gb.mat4.identity(_t.matrix);
+		//gb.mat4.identity(_t.matrix);
 	},
 	clear: function()
 	{

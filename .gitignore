@@ -1,6 +1,8 @@
 *.dds
 *.blend
 *.mesh
+*.sublime-project
+*.sublime-workspace
 
 # Windows image file caches
 Thumbs.db

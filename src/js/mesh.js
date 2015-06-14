@@ -67,6 +67,7 @@ gb.mesh =
 			stride += mr * (gb.vertex_attributes[i].size);
 			index *= 2;
 		}
+		return stride;
 	},
 	get_bounds: function(b, m)
 	{
@@ -76,12 +77,11 @@ gb.mesh =
 		v3.set(b.max, d[0], d[1], d[2]);
 
 		var stride = gb.mesh.get_stride(m.vertex_buffer);
-		var n = mesh.vertex_count;
+		var n = m.vertex_count;
 		var p = v3.tmp(0,0,0);
-		var c = 1;
-		for(var i = 0; i < n; ++i)
+		var c = stride;
+		for(var i = 1; i < n; ++i)
 		{
-			c = i * stride;
 			v3.set(p, d[c], d[c+1], d[c+2]);
 
 			if(p[0] < b.min[0]) b.min[0] = p[0];
@@ -91,6 +91,8 @@ gb.mesh =
 			if(p[0] > b.max[0]) b.max[0] = p[0];
 			if(p[1] > b.max[1]) b.max[1] = p[1];
 			if(p[2] > b.max[2]) b.max[2] = p[2];
+
+			c += stride;
 		}
 	},
 }

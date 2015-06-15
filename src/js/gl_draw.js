@@ -213,17 +213,19 @@ gb.gl_draw =
 	bounds: function(b)
 	{
 		var _t = gb.gl_draw;
+		gb.mat4.identity(_t.matrix);
+		
 		var center = gb.vec3.tmp();
 		gb.aabb.center(center, b);
 
-		//gb.mat4.set_position(_t.matrix, center);
+		gb.mat4.set_position(_t.matrix, center);
 
 		var w = gb.aabb.width(b);
 		var h = gb.aabb.height(b);
 		var d = gb.aabb.depth(b);
 
 		_t.cube(w,h,d);
-		//gb.mat4.identity(_t.matrix);
+		gb.mat4.identity(_t.matrix);
 	},
 	clear: function()
 	{

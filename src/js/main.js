@@ -183,7 +183,7 @@ function update(timestamp)
 	rotation += 1.0 * gb.time.dt;
 
 	gb.entity.set_position(bob, 0,0,-4.0);
-	//gb.entity.set_rotation(bob, rotation, rotation * 30, rotation * 10);
+	gb.entity.set_rotation(bob, rotation, rotation * 30, rotation * 10);
 
 	gb.entity.set_position(fred, 2.0,0,-2.0);
 	gb.entity.set_rotation(fred, rotation * -10, rotation * -20, rotation * 10);
@@ -201,11 +201,11 @@ function update(timestamp)
 	//gb.gl_draw.line(gb.vec3.tmp(0,0,-2), gb.vec3.tmp(1,1,-2));
 	//gb.gl_draw.circle(0.2, 32);
 	//gb.gl_draw.transform(bob.world_matrix);
-	//gb.gl_draw.bounds(t_bounds);
+	gb.gl_draw.bounds(t_bounds);
 	//gb.gl_draw.sphere(0.2, 12,12);
-	gb.gl_draw.set_position(bob.position);
+	//gb.gl_draw.set_position(bob.position);
 	//gb.gl_draw.cube(1.36,0.5,1.0);
-	gb.gl_draw.cube(gb.aabb.width(bounds), gb.aabb.height(bounds), gb.aabb.depth(bounds));
+	//gb.gl_draw.cube(gb.aabb.width(t_bounds), gb.aabb.height(t_bounds), gb.aabb.depth(t_bounds));
 
 
 	gb.input.update();

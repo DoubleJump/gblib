@@ -1270,6 +1270,26 @@ gb.aabb =
     {
         return a.max[2] - a.min[2];
     },
+    /*
+    mul_corner: function(p, m, min, max)
+    {
+        var x = p[0]; 
+        var y = p[1]; 
+        var z = p[2];
+
+        x = m[0] * p[0] + m[4] * p[1] + m[ 8] * p[2] + m[12];
+        y = m[1] * p[0] + m[5] * p[1] + m[ 9] * p[2] + m[13];
+        z = m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14];
+
+        if(x < min[0]) min[0] = x;
+        if(y < min[1]) min[1] = y;
+        if(z < min[2]) min[2] = z;
+
+        if(x > max[0]) max[0] = x;
+        if(y > max[1]) max[1] = y;
+        if(z > max[2]) max[2] = z;
+    },
+    */
     mul_corner: function(p, m, min, max)
     {
         var x = p[0]; 
@@ -1295,27 +1315,31 @@ gb.aabb =
         
         var stack = v3.push();
 
-        var w = a.max[0] - a.min[0];
-        var h = a.max[1] - a.min[1];
-        var d = a.max[2] - a.min[2];
+        var min = v3.tmp();
+        var max = v3.tmp();
 
-        var p0 = v3.tmp(a.min[0], a.min[1], a.min[2]);
-        var p1 = v3.tmp(a.min[0] + w, a.min[1], a.min[2]);
-        var p2 = v3.tmp(a.min[0], a.min[1], a.min[2] + d);
-        var p3 = v3.tmp(a.min[0] + w, a.min[1], a.min[2] + d);
-        var p4 = v3.tmp(a.min[0], a.min[1] + h, a.min[2]);
-        var p5 = v3.tmp(a.min[0] + w, a.min[1] + h, a.min[2]);
-        var p6 = v3.tmp(a.min[0], a.min[1] + h, a.min[2] + d);
-        var p7 = v3.tmp(a.min[0] + w, a.min[1] + h, a.min[2] + d);
+        gb.mat4.mul_point(min, m, a.min);
+        gb.mat4.mul_point(max, m, a.max);
         
-        _t.mul_corner(p0, m, a.min, a.max);
-        _t.mul_corner(p1, m, a.min, a.max);
-        _t.mul_corner(p2, m, a.min, a.max);
-        _t.mul_corner(p3, m, a.min, a.max);
-        _t.mul_corner(p4, m, a.min, a.max);
-        _t.mul_corner(p5, m, a.min, a.max);
-        _t.mul_corner(p6, m, a.min, a.max);
-        _t.mul_corner(p7, m, a.min, a.max);
+        var e = a.min;
+        var f = a.max;
+
+        var p0 = v3.tmp(e[0],f[1],e[2]); 
+        var p1 = v3.tmp(f[0],f[1],e[2]);
+        var p2 = v3.tmp(f[0],e[1],e[2]);
+        var p3 = v3.tmp(e[0],e[1],f[2]); 
+        var p4 = v3.tmp(e[0],f[1],f[2]);
+        var p5 = v3.tmp(f[0],e[1],f[2]);
+
+        _t.mul_corner(p0, m, min, max);
+        _t.mul_corner(p1, m, min, max);
+        _t.mul_corner(p2, m, min, max);
+        _t.mul_corner(p3, m, min, max);
+        _t.mul_corner(p4, m, min, max);
+        _t.mul_corner(p5, m, min, max);
+
+        v3.eq(a.min, min);
+        v3.eq(a.max, max);
 
         v3.pop(stack);
     },
@@ -2915,17 +2939,19 @@ gb.gl_draw =
 	bounds: function(b)
 	{
 		var _t = gb.gl_draw;
+		gb.mat4.identity(_t.matrix);
+		
 		var center = gb.vec3.tmp();
 		gb.aabb.center(center, b);
 
-		//gb.mat4.set_position(_t.matrix, center);
+		gb.mat4.set_position(_t.matrix, center);
 
 		var w = gb.aabb.width(b);
 		var h = gb.aabb.height(b);
 		var d = gb.aabb.depth(b);
 
 		_t.cube(w,h,d);
-		//gb.mat4.identity(_t.matrix);
+		gb.mat4.identity(_t.matrix);
 	},
 	clear: function()
 	{
@@ -3442,7 +3468,7 @@ function update(timestamp)
 	rotation += 1.0 * gb.time.dt;
 
 	gb.entity.set_position(bob, 0,0,-4.0);
-	//gb.entity.set_rotation(bob, rotation, rotation * 30, rotation * 10);
+	gb.entity.set_rotation(bob, rotation, rotation * 30, rotation * 10);
 
 	gb.entity.set_position(fred, 2.0,0,-2.0);
 	gb.entity.set_rotation(fred, rotation * -10, rotation * -20, rotation * 10);
@@ -3460,11 +3486,11 @@ function update(timestamp)
 	//gb.gl_draw.line(gb.vec3.tmp(0,0,-2), gb.vec3.tmp(1,1,-2));
 	//gb.gl_draw.circle(0.2, 32);
 	//gb.gl_draw.transform(bob.world_matrix);
-	//gb.gl_draw.bounds(t_bounds);
+	gb.gl_draw.bounds(t_bounds);
 	//gb.gl_draw.sphere(0.2, 12,12);
-	gb.gl_draw.set_position(bob.position);
+	//gb.gl_draw.set_position(bob.position);
 	//gb.gl_draw.cube(1.36,0.5,1.0);
-	gb.gl_draw.cube(gb.aabb.width(bounds), gb.aabb.height(bounds), gb.aabb.depth(bounds));
+	//gb.gl_draw.cube(gb.aabb.width(t_bounds), gb.aabb.height(t_bounds), gb.aabb.depth(t_bounds));
 
 
 	gb.input.update();

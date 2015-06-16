@@ -1158,17 +1158,19 @@ gb.mat4 =
 
 	mul_point: function(r, m, p)
 	{
-		r[0] = m[0] * p[0] + m[4] * p[1] + m[ 8] * p[2] + m[12];
-		r[1] = m[1] * p[0] + m[5] * p[1] + m[ 9] * p[2] + m[13];
-		r[2] = m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14];
+		var x = m[0] * p[0] + m[4] * p[1] + m[ 8] * p[2] + m[12];
+		var y = m[1] * p[0] + m[5] * p[1] + m[ 9] * p[2] + m[13];
+		var z = m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14];
+		r[0] = x; r[1] = y; r[2] = z;
 	},
 
 	mul_projection: function(r, m, p)
 	{
 		var d = 1 / (m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]);
-		r[0] = (m[0] * p[0] + m[4] * p[1] + m[ 8] * p[2] + m[12]) * d;
-		r[1] = (m[1] * p[0] + m[5] * p[1] + m[ 9] * p[2] + m[13]) * d;
-		r[2] = (m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]) * d;
+		var x = (m[0] * p[0] + m[4] * p[1] + m[ 8] * p[2] + m[12]) * d;
+		var y = (m[1] * p[0] + m[5] * p[1] + m[ 9] * p[2] + m[13]) * d;
+		var z = (m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]) * d;
+		r[0] = x; r[1] = y; r[2] = z;
 	},
 }
 gb.Rect = function(x,y,w,h)
@@ -1270,76 +1272,59 @@ gb.aabb =
     {
         return a.max[2] - a.min[2];
     },
-    /*
-    mul_corner: function(p, m, min, max)
+    test_min_max: function(p, min, max)
     {
-        var x = p[0]; 
-        var y = p[1]; 
-        var z = p[2];
+        if(p[0] < min[0]) min[0] = p[0];
+        if(p[1] < min[1]) min[1] = p[1];
+        if(p[2] < min[2]) min[2] = p[2];
 
-        x = m[0] * p[0] + m[4] * p[1] + m[ 8] * p[2] + m[12];
-        y = m[1] * p[0] + m[5] * p[1] + m[ 9] * p[2] + m[13];
-        z = m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14];
-
-        if(x < min[0]) min[0] = x;
-        if(y < min[1]) min[1] = y;
-        if(z < min[2]) min[2] = z;
-
-        if(x > max[0]) max[0] = x;
-        if(y > max[1]) max[1] = y;
-        if(z > max[2]) max[2] = z;
-    },
-    */
-    mul_corner: function(p, m, min, max)
-    {
-        var x = p[0]; 
-        var y = p[1]; 
-        var z = p[2];
-
-        x = m[0] * p[0] + m[4] * p[1] + m[ 8] * p[2] + m[12];
-        y = m[1] * p[0] + m[5] * p[1] + m[ 9] * p[2] + m[13];
-        z = m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14];
-
-        if(x < min[0]) min[0] = x;
-        if(y < min[1]) min[1] = y;
-        if(z < min[2]) min[2] = z;
-
-        if(x > max[0]) max[0] = x;
-        if(y > max[1]) max[1] = y;
-        if(z > max[2]) max[2] = z;
+        if(p[0] > max[0]) max[0] = p[0];
+        if(p[1] > max[1]) max[1] = p[1];
+        if(p[2] > max[2]) max[2] = p[2];        
     },
     transform: function(a, m)
     {
         var _t = gb.aabb;
         var v3 = gb.vec3;
+        var m4 = gb.mat4;
         
         var stack = v3.push();
 
-        var min = v3.tmp();
-        var max = v3.tmp();
-
-        gb.mat4.mul_point(min, m, a.min);
-        gb.mat4.mul_point(max, m, a.max);
-        
         var e = a.min;
         var f = a.max;
 
-        var p0 = v3.tmp(e[0],f[1],e[2]); 
-        var p1 = v3.tmp(f[0],f[1],e[2]);
-        var p2 = v3.tmp(f[0],e[1],e[2]);
-        var p3 = v3.tmp(e[0],e[1],f[2]); 
-        var p4 = v3.tmp(e[0],f[1],f[2]);
+        var p0 = v3.tmp(e[0],e[1],e[2]); 
+        var p1 = v3.tmp(f[0],e[1],e[2]);
+        var p2 = v3.tmp(e[0],f[1],e[2]);
+        var p3 = v3.tmp(f[0],f[1],e[2]);
+
+        var p4 = v3.tmp(e[0],e[1],f[2]); 
         var p5 = v3.tmp(f[0],e[1],f[2]);
+        var p6 = v3.tmp(e[0],f[1],f[2]);
+        var p7 = v3.tmp(f[0],f[1],f[2]);
 
-        _t.mul_corner(p0, m, min, max);
-        _t.mul_corner(p1, m, min, max);
-        _t.mul_corner(p2, m, min, max);
-        _t.mul_corner(p3, m, min, max);
-        _t.mul_corner(p4, m, min, max);
-        _t.mul_corner(p5, m, min, max);
+        m4.mul_point(p0, m, p0);
+        m4.mul_point(p1, m, p1);
+        m4.mul_point(p2, m, p2);
+        m4.mul_point(p3, m, p3);
+        m4.mul_point(p4, m, p4);
+        m4.mul_point(p5, m, p5);
+        m4.mul_point(p6, m, p6);
+        m4.mul_point(p7, m, p7);
 
-        v3.eq(a.min, min);
-        v3.eq(a.max, max);
+        e = v3.tmp(p0[0], p0[1], p0[2]);
+        f = v3.tmp(p0[0], p0[1], p0[2]);
+        
+        _t.test_min_max(p1, e, f);
+        _t.test_min_max(p2, e, f);
+        _t.test_min_max(p3, e, f);
+        _t.test_min_max(p4, e, f);
+        _t.test_min_max(p5, e, f);
+        _t.test_min_max(p6, e, f);
+        _t.test_min_max(p7, e, f);
+
+        v3.eq(a.min, e);
+        v3.eq(a.max, f);
 
         v3.pop(stack);
     },
@@ -1577,7 +1562,6 @@ gb.new_camera = function(projection, near, far, fov, mask)
     c.mask = mask || 0;
     c.dirty = true;
     c.entity = new gb.Entity();
-    gb.camera.update_projection(c, gb.webgl.view);
     return c;
 }
 gb.time = 
@@ -1710,6 +1694,7 @@ gb.scene =
 		s.cameras.push(c);
 		s.entities.push(c.entity);
 		s.num_cameras++;
+    	gb.camera.update_projection(c, gb.webgl.view);
 	},
 
 	update_camera: function(c)
@@ -2939,19 +2924,22 @@ gb.gl_draw =
 	bounds: function(b)
 	{
 		var _t = gb.gl_draw;
-		gb.mat4.identity(_t.matrix);
+		var m4 = gb.mat4;
+		var ab = gb.aabb;
 		
+		m4.identity(_t.matrix);
+
 		var center = gb.vec3.tmp();
-		gb.aabb.center(center, b);
+		ab.center(center, b);
 
-		gb.mat4.set_position(_t.matrix, center);
+		m4.set_position(_t.matrix, center);
 
-		var w = gb.aabb.width(b);
-		var h = gb.aabb.height(b);
-		var d = gb.aabb.depth(b);
+		var w = ab.width(b);
+		var h = ab.height(b);
+		var d = ab.depth(b);
 
 		_t.cube(w,h,d);
-		gb.mat4.identity(_t.matrix);
+		m4.identity(_t.matrix);
 	},
 	clear: function()
 	{
@@ -3420,7 +3408,7 @@ function link_complete()
 {
 	scene = new gb.Scene();
 	
-	bob = gb.new_entity(assets.meshes.monkey, scene);
+	bob = gb.new_entity(assets.meshes.cube, scene);
 	fred = gb.new_entity(assets.meshes.cube, scene);
 	//bob.mesh.layout = gb.webgl.ctx.LINES;
 	
@@ -3428,6 +3416,7 @@ function link_complete()
 	shader = assets.shaders.flat;
 
 	camera = gb.new_camera();
+	//camera.fov = 60;
 	gb.scene.add_camera(scene, camera);
 
 	render_group = new RenderGroup();
@@ -3468,7 +3457,7 @@ function update(timestamp)
 	rotation += 1.0 * gb.time.dt;
 
 	gb.entity.set_position(bob, 0,0,-4.0);
-	gb.entity.set_rotation(bob, rotation, rotation * 30, rotation * 10);
+	gb.entity.set_rotation(bob, rotation * 10, rotation * 30, rotation * 10);
 
 	gb.entity.set_position(fred, 2.0,0,-2.0);
 	gb.entity.set_rotation(fred, rotation * -10, rotation * -20, rotation * 10);
@@ -3482,13 +3471,13 @@ function update(timestamp)
 	gb.gl_draw.clear();
 	gb.gl_draw.set_color(0.7,0.2,0.3,0.5);
 	//gb.gl_draw.set_position(gb.vec3.tmp(0,0,-2.0));
-	//	gb.gl_draw.rect(gb.rect.tmp(-0.3,-0.3,0.6,0.6));
+	//gb.gl_draw.rect(gb.rect.tmp(-0.3,-0.3,0.6,0.6));
 	//gb.gl_draw.line(gb.vec3.tmp(0,0,-2), gb.vec3.tmp(1,1,-2));
 	//gb.gl_draw.circle(0.2, 32);
 	//gb.gl_draw.transform(bob.world_matrix);
+	//gb.gl_draw.set_position(bob.position);
 	gb.gl_draw.bounds(t_bounds);
 	//gb.gl_draw.sphere(0.2, 12,12);
-	//gb.gl_draw.set_position(bob.position);
 	//gb.gl_draw.cube(1.36,0.5,1.0);
 	//gb.gl_draw.cube(gb.aabb.width(t_bounds), gb.aabb.height(t_bounds), gb.aabb.depth(t_bounds));
 

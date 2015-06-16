@@ -70,6 +70,5 @@ gb.new_camera = function(projection, near, far, fov, mask)
     c.mask = mask || 0;
     c.dirty = true;
     c.entity = new gb.Entity();
-    gb.camera.update_projection(c, gb.webgl.view);
     return c;
 }

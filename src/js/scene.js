@@ -104,6 +104,7 @@ gb.scene =
 		s.cameras.push(c);
 		s.entities.push(c.entity);
 		s.num_cameras++;
+    	gb.camera.update_projection(c, gb.webgl.view);
 	},
 
 	update_camera: function(c)

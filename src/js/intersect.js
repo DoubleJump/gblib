@@ -48,10 +48,10 @@ gb.intersect =
 
 		var v = gb.vec3.tmp();
 		gb.vec3.mulf(v, r.dir, tmin);
-		gb.vec3.add(h.end, r.point, v);
+		gb.vec3.add(h.point, r.point, v);
 		h.hit = true;
-		h.normal = null;
-		h.t = t;
+		gb.vec3.set(h.normal, 0,1,0);
+		h.t = tmin;
 	},
 
 	point_triangle: function(p, a,b,c)
@@ -73,12 +73,17 @@ gb.intersect =
 
 		v3.sub(e0, b,a);
 		v3.sub(e1, c,a);
+
 		v3.cross(cross, e0, e1);
 		v3.normalized(n, cross);
-		var t = -(v3.dot(n,r.point) + v3.dot(n,a)) / v3.dot(n, r.dir);
+
+		v3.inverse(n, n);
+
+		var ndot = v3.dot(n, r.dir);
+		var t = -(v3.dot(n,r.point) + v3.dot(n,a)) / ndot;
 
 		v3.mulf(e0, r.dir, t);
-		v3.add(e1, r.point, dist);
+		v3.add(e1, r.point, e0);
 
 		if(gb.intersect.point_triangle(e1, a,b,c))
 		{
@@ -90,6 +95,34 @@ gb.intersect =
 		else
 		{
 			h.hit = false;
+		}
+	},
+
+	mesh_ray: function(h, m, matrix, r)
+	{
+		var _t = gb.intersect;
+		var stride = gb.mesh.get_stride(m);
+
+		var n = m.vertex_count / 3;
+		var d = m.vertex_buffer.data;
+		var c = 0;
+		//var t_min = Math.Infinity;
+		for(var i = 0; i < n; ++i)
+		{
+			var stack = gb.vec3.push();
+			var ta = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			gb.mat4.mul_point(ta, matrix, ta);
+			c += stride;
+			var tb = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			gb.mat4.mul_point(tb, matrix, tb);
+			c += stride;
+			var tc = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			gb.mat4.mul_point(tc, matrix, tc);
+			c += stride;
+			
+			_t.triangle_ray(h, ta,tb,tc, r);
+			gb.vec3.pop(stack);
+			if(h.hit) return; //TODO need to compare tmin value to find closest hit
 		}
 	},
 }

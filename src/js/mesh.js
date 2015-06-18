@@ -57,13 +57,13 @@ gb.new_mesh = function(vertex_count, vertices, mask, indices)
 }
 gb.mesh = 
 {
-	get_stride: function(vb)
+	get_stride: function(m)
 	{
 		var stride = 0;
 		var index = 1;
 		for(var i = 0; i < 5; ++i)
 		{
-			var mr = (index & vb.mask) === index;
+			var mr = (index & m.vertex_buffer.mask) === index;
 			stride += mr * (gb.vertex_attributes[i].size);
 			index *= 2;
 		}
@@ -76,7 +76,7 @@ gb.mesh =
 		v3.set(b.min, d[0], d[1], d[2]);
 		v3.set(b.max, d[0], d[1], d[2]);
 
-		var stride = gb.mesh.get_stride(m.vertex_buffer);
+		var stride = gb.mesh.get_stride(m);
 		var n = m.vertex_count;
 		var p = v3.tmp(0,0,0);
 		var c = stride;

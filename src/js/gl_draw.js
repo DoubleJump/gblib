@@ -79,6 +79,20 @@ gb.gl_draw =
 		_t.offset += 14;
 		_t.mesh.vertex_count += 2;
 	},
+	ray: function(r)
+	{
+		var _t = gb.gl_draw;
+		var end = gb.vec3.tmp();
+		gb.vec3.add(end, r.point, r.dir);
+		_t.line(r.point, end);
+	},
+	hit: function(h)
+	{
+		var _t = gb.gl_draw;
+		var end = gb.vec3.tmp();
+		gb.vec3.add(end, h.point, h.normal);
+		_t.line(h.point, end);
+	},
 	rect: function(r)
 	{
 		var _t = gb.gl_draw;

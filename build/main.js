@@ -2,6 +2,8 @@
 
 /*
 TODO: 
+- Auto stack registration
+- Mesh find stride for specific attribute
 - split input by devices
 - fire and forget animations
 - pvrtc
@@ -431,11 +433,12 @@ gb.vec3 =
 		r[1] = a[1] / f;
 		r[2] = a[2] / f;
 	},
-	inverse: function(r, a)
+	inverse: function(r, v)
 	{
-		r[0] = -a[0];
-		r[1] = -a[1];
-		r[2] = -a[2];
+		var x = -v[0];
+		var y = -v[1];
+		var z = -v[2];
+		gb.vec3.set(r, x,y,z);
 	},
 	sqr_length: function(v)
 	{
@@ -445,26 +448,26 @@ gb.vec3 =
 	{
 		return gb.math.sqrt(gb.vec3.sqr_length(v));
 	},
-	normalized: function(r, a) 
+	normalized: function(r, v) 
 	{
 		var _t = gb.vec3;
 		var l = _t.sqr_length(v);
 		if(l > gb.math.EPSILON)
 		{
-			_t.mulf(r, a, 1 / l);
+			_t.mulf(r, v, 1 / l);
 		} 
 		else
 		{
-			_t.eq(r,a);
+			_t.eq(r,v);
 		}
 	},
 	dot: function(a, b)
 	{
 		return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 	},
-	cross: function(v, a, b)
+	cross: function(r, a, b)
 	{
-		r[0] = a[1] * b[2] - a[2] * b[0];
+		r[0] = a[1] * b[2] - a[2] * b[1];
 		r[1] = a[2] * b[0] - a[0] * b[2];
 		r[2] = a[0] * b[1] - a[1] * b[0];
 	},
@@ -1329,30 +1332,25 @@ gb.aabb =
         v3.pop(stack);
     },
 }
-gb.Ray = function(point, dir)
+gb.Ray = function()
 {
 	this.point = new gb.Vec3();
 	this.dir = new gb.Vec3();
-}
-gb.Ray.prototype.set = function(point, dir)
-{
-	this.point.eq(point); 
-	this.dir.eq(dir);
 }
 gb.ray = 
 {
 	stack: new gb.Stack(gb.Ray, 5),
 
-	tmp: function(point, ray)
+	tmp: function(point, dir)
 	{
 		var v = gb.ray.stack.get();
-		gb.ray.set(v, point,ray);
+		gb.ray.set(v, point,dir);
 		return v;
 	},
-	set: function(r, point, ray)
+	set: function(r, point, dir)
 	{
 		gb.vec3.eq(r.point, point);
-		gb.vec3.eq(r.ray, ray);
+		gb.vec3.eq(r.dir, dir);
 	},
 	eq: function(a,b)
 	{
@@ -1409,10 +1407,10 @@ gb.intersect =
 
 		var v = gb.vec3.tmp();
 		gb.vec3.mulf(v, r.dir, tmin);
-		gb.vec3.add(h.end, r.point, v);
+		gb.vec3.add(h.point, r.point, v);
 		h.hit = true;
-		h.normal = null;
-		h.t = t;
+		gb.vec3.set(h.normal, 0,1,0);
+		h.t = tmin;
 	},
 
 	point_triangle: function(p, a,b,c)
@@ -1434,12 +1432,17 @@ gb.intersect =
 
 		v3.sub(e0, b,a);
 		v3.sub(e1, c,a);
+
 		v3.cross(cross, e0, e1);
 		v3.normalized(n, cross);
-		var t = -(v3.dot(n,r.point) + v3.dot(n,a)) / v3.dot(n, r.dir);
+
+		v3.inverse(n, n);
+
+		var ndot = v3.dot(n, r.dir);
+		var t = -(v3.dot(n,r.point) + v3.dot(n,a)) / ndot;
 
 		v3.mulf(e0, r.dir, t);
-		v3.add(e1, r.point, dist);
+		v3.add(e1, r.point, e0);
 
 		if(gb.intersect.point_triangle(e1, a,b,c))
 		{
@@ -1451,6 +1454,34 @@ gb.intersect =
 		else
 		{
 			h.hit = false;
+		}
+	},
+
+	mesh_ray: function(h, m, matrix, r)
+	{
+		var _t = gb.intersect;
+		var stride = gb.mesh.get_stride(m);
+
+		var n = m.vertex_count / 3;
+		var d = m.vertex_buffer.data;
+		var c = 0;
+		//var t_min = Math.Infinity;
+		for(var i = 0; i < n; ++i)
+		{
+			var stack = gb.vec3.push();
+			var ta = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			gb.mat4.mul_point(ta, matrix, ta);
+			c += stride;
+			var tb = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			gb.mat4.mul_point(tb, matrix, tb);
+			c += stride;
+			var tc = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			gb.mat4.mul_point(tc, matrix, tc);
+			c += stride;
+			
+			_t.triangle_ray(h, ta,tb,tc, r);
+			gb.vec3.pop(stack);
+			if(h.hit) return; //TODO need to compare tmin value to find closest hit
 		}
 	},
 }
@@ -1693,6 +1724,7 @@ gb.scene =
 	{
 		s.cameras.push(c);
 		s.entities.push(c.entity);
+		s.num_entities++;
 		s.num_cameras++;
     	gb.camera.update_projection(c, gb.webgl.view);
 	},
@@ -1887,13 +1919,13 @@ gb.new_mesh = function(vertex_count, vertices, mask, indices)
 }
 gb.mesh = 
 {
-	get_stride: function(vb)
+	get_stride: function(m)
 	{
 		var stride = 0;
 		var index = 1;
 		for(var i = 0; i < 5; ++i)
 		{
-			var mr = (index & vb.mask) === index;
+			var mr = (index & m.vertex_buffer.mask) === index;
 			stride += mr * (gb.vertex_attributes[i].size);
 			index *= 2;
 		}
@@ -1906,7 +1938,7 @@ gb.mesh =
 		v3.set(b.min, d[0], d[1], d[2]);
 		v3.set(b.max, d[0], d[1], d[2]);
 
-		var stride = gb.mesh.get_stride(m.vertex_buffer);
+		var stride = gb.mesh.get_stride(m);
 		var n = m.vertex_count;
 		var p = v3.tmp(0,0,0);
 		var c = stride;
@@ -2790,6 +2822,20 @@ gb.gl_draw =
 		_t.offset += 14;
 		_t.mesh.vertex_count += 2;
 	},
+	ray: function(r)
+	{
+		var _t = gb.gl_draw;
+		var end = gb.vec3.tmp();
+		gb.vec3.add(end, r.point, r.dir);
+		_t.line(r.point, end);
+	},
+	hit: function(h)
+	{
+		var _t = gb.gl_draw;
+		var end = gb.vec3.tmp();
+		gb.vec3.add(end, h.point, h.normal);
+		_t.line(h.point, end);
+	},
 	rect: function(r)
 	{
 		var _t = gb.gl_draw;
@@ -3323,8 +3369,9 @@ var render_target;
 
 var scene;
 var bob;
-var fred;
 var bounds;
+var hit;
+var ray;
 
 window.addEventListener('load', init, false);
 
@@ -3409,8 +3456,6 @@ function link_complete()
 	scene = new gb.Scene();
 	
 	bob = gb.new_entity(assets.meshes.cube, scene);
-	fred = gb.new_entity(assets.meshes.cube, scene);
-	//bob.mesh.layout = gb.webgl.ctx.LINES;
 	
 	texture = assets.textures.dxt5;
 	shader = assets.shaders.flat;
@@ -3420,12 +3465,15 @@ function link_complete()
 	gb.scene.add_camera(scene, camera);
 
 	render_group = new RenderGroup();
-	render_group.entities.push(fred);
 	render_group.entities.push(bob);
 
 	rotation = 0;
 	bounds = new gb.AABB();
 	gb.mesh.get_bounds(bounds, bob.mesh);
+
+	hit = new gb.Hit();
+	ray = new gb.Ray();
+	gb.ray.set(ray, gb.vec3.tmp(0,0,1), gb.vec3.tmp(0,0,-1));
 
 	render_target = gb.new_render_target(gb.webgl.view, 1 | 2);
 	requestAnimationFrame(upA);
@@ -3435,7 +3483,6 @@ function link_complete()
 
 function update(timestamp)
 {
-	// TODO register each stack to do this automatically
 	gb.vec2.stack.index = 0;
 	gb.vec3.stack.index = 0;
 	gb.quat.stack.index = 0;
@@ -3456,31 +3503,36 @@ function update(timestamp)
 
 	rotation += 1.0 * gb.time.dt;
 
-	gb.entity.set_position(bob, 0,0,-4.0);
+	//gb.entity.set_position(bob, 0,0,-1.0);
 	gb.entity.set_rotation(bob, rotation * 10, rotation * 30, rotation * 10);
 
-	gb.entity.set_position(fred, 2.0,0,-2.0);
-	gb.entity.set_rotation(fred, rotation * -10, rotation * -20, rotation * 10);
+	gb.entity.set_position(camera.entity, 1.5,0,2);
+	gb.entity.set_rotation(camera.entity, 0,43,0);
+
 
 	gb.scene.update(scene);
 
 	var t_bounds = gb.aabb.tmp();
 	gb.aabb.eq(t_bounds, bounds);
+
 	gb.aabb.transform(t_bounds, bob.world_matrix);
 
-	gb.gl_draw.clear();
-	gb.gl_draw.set_color(0.7,0.2,0.3,0.5);
-	//gb.gl_draw.set_position(gb.vec3.tmp(0,0,-2.0));
-	//gb.gl_draw.rect(gb.rect.tmp(-0.3,-0.3,0.6,0.6));
-	//gb.gl_draw.line(gb.vec3.tmp(0,0,-2), gb.vec3.tmp(1,1,-2));
-	//gb.gl_draw.circle(0.2, 32);
-	//gb.gl_draw.transform(bob.world_matrix);
-	//gb.gl_draw.set_position(bob.position);
-	gb.gl_draw.bounds(t_bounds);
-	//gb.gl_draw.sphere(0.2, 12,12);
-	//gb.gl_draw.cube(1.36,0.5,1.0);
-	//gb.gl_draw.cube(gb.aabb.width(t_bounds), gb.aabb.height(t_bounds), gb.aabb.depth(t_bounds));
+	gb.intersect.mesh_ray(hit, bob.mesh, bob.world_matrix, ray);
+	//gb.intersect.aabb_ray(hit, t_bounds, ray);
 
+	gb.gl_draw.clear();
+	gb.gl_draw.set_color(0.0,0.8,0.0,0.5);
+	gb.gl_draw.ray(ray);
+	
+	gb.gl_draw.set_color(0.2,0.2,0.2,1.0);
+	gb.gl_draw.bounds(t_bounds);
+
+
+	if(hit.hit)
+	{
+		gb.gl_draw.set_color(0.8,0.8,0.8,1.0);
+		gb.gl_draw.hit(hit);
+	}
 
 	gb.input.update();
 

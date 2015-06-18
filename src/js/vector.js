@@ -167,11 +167,12 @@ gb.vec3 =
 		r[1] = a[1] / f;
 		r[2] = a[2] / f;
 	},
-	inverse: function(r, a)
+	inverse: function(r, v)
 	{
-		r[0] = -a[0];
-		r[1] = -a[1];
-		r[2] = -a[2];
+		var x = -v[0];
+		var y = -v[1];
+		var z = -v[2];
+		gb.vec3.set(r, x,y,z);
 	},
 	sqr_length: function(v)
 	{
@@ -181,26 +182,26 @@ gb.vec3 =
 	{
 		return gb.math.sqrt(gb.vec3.sqr_length(v));
 	},
-	normalized: function(r, a) 
+	normalized: function(r, v) 
 	{
 		var _t = gb.vec3;
 		var l = _t.sqr_length(v);
 		if(l > gb.math.EPSILON)
 		{
-			_t.mulf(r, a, 1 / l);
+			_t.mulf(r, v, 1 / l);
 		} 
 		else
 		{
-			_t.eq(r,a);
+			_t.eq(r,v);
 		}
 	},
 	dot: function(a, b)
 	{
 		return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 	},
-	cross: function(v, a, b)
+	cross: function(r, a, b)
 	{
-		r[0] = a[1] * b[2] - a[2] * b[0];
+		r[0] = a[1] * b[2] - a[2] * b[1];
 		r[1] = a[2] * b[0] - a[0] * b[2];
 		r[2] = a[0] * b[1] - a[1] * b[0];
 	},

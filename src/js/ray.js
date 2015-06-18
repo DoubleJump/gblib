@@ -1,27 +1,22 @@
-gb.Ray = function(point, dir)
+gb.Ray = function()
 {
 	this.point = new gb.Vec3();
 	this.dir = new gb.Vec3();
-}
-gb.Ray.prototype.set = function(point, dir)
-{
-	this.point.eq(point); 
-	this.dir.eq(dir);
 }
 gb.ray = 
 {
 	stack: new gb.Stack(gb.Ray, 5),
 
-	tmp: function(point, ray)
+	tmp: function(point, dir)
 	{
 		var v = gb.ray.stack.get();
-		gb.ray.set(v, point,ray);
+		gb.ray.set(v, point,dir);
 		return v;
 	},
-	set: function(r, point, ray)
+	set: function(r, point, dir)
 	{
 		gb.vec3.eq(r.point, point);
-		gb.vec3.eq(r.ray, ray);
+		gb.vec3.eq(r.dir, dir);
 	},
 	eq: function(a,b)
 	{

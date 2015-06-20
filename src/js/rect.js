@@ -25,8 +25,9 @@ gb.rect =
 	},
 	tmp: function(x,y,w,h)
 	{
-		var r = gb.rect.stack.get();
-		gb.rect.set(r, x || 0, y || 0, w || 0, h || 0);
+		var _t = gb.rect;
+		var r = gb.stack.get(_t.stack);
+		_t.set(r, x || 0, y || 0, w || 0, h || 0);
 		return r;
 	},
 }

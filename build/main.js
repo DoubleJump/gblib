@@ -104,6 +104,7 @@ gb.dom =
 		return document.querySelector(query);
 	},
 }
+gb.stack_array = [];
 gb.Stack = function(type, count)
 {
 	this.data = [];
@@ -112,24 +113,28 @@ gb.Stack = function(type, count)
 
 	for(var i = 0; i < count; ++i)
 		this.data.push(new type());
+
+	gb.stack.active_stacks.push(this);
 }
-gb.Stack.prototype.begin = function()
+gb.stack = 
 {
-	return this.index;
-}
-gb.Stack.prototype.end = function(index)
-{
-	this.index = index;
-}
-gb.Stack.prototype.get = function()
-{
-	var r = this.data[this.index];
-	this.index += 1;
-	if(this.index === this.count)
+	active_stacks : [],
+	get: function(s)
 	{
-		console.error("Stack overflow");
-	}
-	return r;	
+		var r = s.data[s.index];
+		s.index += 1;
+		if(s.index === s.count)
+		{
+			console.error("Stack overflow");
+		}
+		return r;
+	},
+	clear_all: function()
+	{
+		var n = gb.stack.active_stacks.length;
+		for(var i = 0; i < n; ++i)
+			gb.stack.active_stacks[i].index = 0;
+	},
 }
 gb.math = 
 {
@@ -140,6 +145,7 @@ gb.math =
 	RAD2DEG: 57.2957795,
 	PI_OVER_360: 0.00872664625,
 	EPSILON: 2.2204460492503131e-16,
+	MAX_F32: 3.4028234e38,
 
 	min: function(a, b)
 	{
@@ -297,7 +303,7 @@ gb.vec2 =
 	tmp: function(x,y)
 	{
 		var _t = gb.vec2;
-		var r = _t.stack.get();
+		var r = gb.stack.get(_t.stack);
 		_t.set(r, x || 0, y || 0);
 		return r;
 	},
@@ -405,7 +411,7 @@ gb.vec3 =
 	tmp: function(x,y,z)
 	{
 		var _t = gb.vec3;
-		var r = _t.stack.get();
+		var r = gb.stack.get(_t.stack);
 		_t.set(r, x || 0, y || 0, z || 0);
 		return r;
 	},
@@ -559,7 +565,7 @@ gb.quat =
 	tmp: function(x,y,z,w)
 	{
 		var _t = gb.quat;
-		var r = _t.stack.get();
+		var r = gb.stack.get(_t.stack);
 		_t.set(r, x || 0, y || 0, z || 0, w || 1);
 		return r;
 	},
@@ -780,9 +786,9 @@ gb.mat3 =
 	tmp: function()
 	{
 		var _t = gb.mat3;
-		var t = _t.stack.get();
-		_t.identity(t);
-		return t;
+		var r = gb.stack.get(_t.stack);
+		_t.identity(r);
+		return r;
 	},
 
 	identity: function(m)
@@ -889,9 +895,9 @@ gb.mat4 =
 	tmp: function()
 	{
 		var _t = gb.mat4;
-		var t = _t.stack.get();
-		_t.identity(t);
-		return t;
+		var r = gb.stack.get(_t.stack);
+		_t.identity(r);
+		return r;
 	},
 	identity: function(m)
 	{
@@ -1203,8 +1209,9 @@ gb.rect =
 	},
 	tmp: function(x,y,w,h)
 	{
-		var r = gb.rect.stack.get();
-		gb.rect.set(r, x || 0, y || 0, w || 0, h || 0);
+		var _t = gb.rect;
+		var r = gb.stack.get(_t.stack);
+		_t.set(r, x || 0, y || 0, w || 0, h || 0);
 		return r;
 	},
 }
@@ -1239,7 +1246,7 @@ gb.aabb =
 	tmp: function(min, max)
 	{
         var _t = gb.aabb;
-		var v = _t.stack.get();
+        var v = gb.stack.get(_t.stack);
 		if(min || max) _t.set(v, min, max);
 		return v;
 	},
@@ -1343,7 +1350,7 @@ gb.ray =
 
 	tmp: function(point, dir)
 	{
-		var v = gb.ray.stack.get();
+		var r = gb.stack.get(gb.ray.stack);
 		gb.ray.set(v, point,dir);
 		return v;
 	},
@@ -1363,6 +1370,27 @@ gb.Hit = function()
 	this.point = new gb.Vec3();
 	this.normal = new gb.Vec3();
 	this.t = 0;
+}
+gb.hit = 
+{
+	stack: new gb.Stack(gb.Hit, 5),
+
+	eq: function(a,b)
+	{
+		a.hit = b.hit;
+		gb.vec3.eq(a.point, b.point);
+		gb.vec3.eq(a.normal, b.normal);
+		a.t = b.t;
+	},
+	tmp: function()
+	{
+		var r = gb.stack.get(gb.hit.stack);
+		r.hit = false;
+		gb.vec3.set(r.point, 0,0,0);
+		gb.vec3.set(r.normal, 0,0,0);
+		r.t = 0;
+		return r;
+	},
 }
 
 
@@ -1435,7 +1463,6 @@ gb.intersect =
 
 		v3.cross(cross, e0, e1);
 		v3.normalized(n, cross);
-
 		v3.inverse(n, n);
 
 		var ndot = v3.dot(n, r.dir);
@@ -1444,7 +1471,7 @@ gb.intersect =
 		v3.mulf(e0, r.dir, t);
 		v3.add(e1, r.point, e0);
 
-		if(gb.intersect.point_triangle(e1, a,b,c))
+		if(gb.intersect.point_triangle(e1, a,b,c) === true)
 		{
 			h.hit = true;
 			v3.eq(h.point, e1);
@@ -1461,11 +1488,13 @@ gb.intersect =
 	{
 		var _t = gb.intersect;
 		var stride = gb.mesh.get_stride(m);
+		h.t = gb.math.MAX_F32;
+
+		var hit = gb.hit.tmp();
 
 		var n = m.vertex_count / 3;
 		var d = m.vertex_buffer.data;
 		var c = 0;
-		//var t_min = Math.Infinity;
 		for(var i = 0; i < n; ++i)
 		{
 			var stack = gb.vec3.push();
@@ -1478,10 +1507,13 @@ gb.intersect =
 			var tc = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
 			gb.mat4.mul_point(tc, matrix, tc);
 			c += stride;
-			
-			_t.triangle_ray(h, ta,tb,tc, r);
+
+			_t.triangle_ray(hit, ta,tb,tc, r);
 			gb.vec3.pop(stack);
-			if(h.hit) return; //TODO need to compare tmin value to find closest hit
+			if(hit.hit === true && hit.t < h.t)
+			{
+				gb.hit.eq(h, hit);
+			}
 		}
 	},
 }
@@ -1516,7 +1548,7 @@ gb.color =
 	},
 	tmp: function(r,g,b,a)
 	{
-		var c = gb.color.stack.get();
+		var c = gb.stack.get(gb.color.stack);
 		gb.color.set(c, r || 0, g || 0, b || 0, a || 0);
 		return c;
 	},
@@ -2987,6 +3019,30 @@ gb.gl_draw =
 		_t.cube(w,h,d);
 		m4.identity(_t.matrix);
 	},
+	wire_mesh: function(mesh, matrix)
+	{
+		var _t = gb.gl_draw;
+		gb.mat4.eq(_t.matrix, matrix);
+		var stride = gb.mesh.get_stride(mesh);
+		var n = mesh.vertex_count / 3;
+		var d = mesh.vertex_buffer.data;
+		var c = 0;
+		for(var i = 0; i < n; ++i)
+		{
+			var stack = gb.vec3.push();
+			var ta = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			c += stride;
+			var tb = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			c += stride;
+			var tc = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			c += stride;
+			gb.gl_draw.line(ta, tb);
+			gb.gl_draw.line(tb, tc);
+			gb.gl_draw.line(tc, ta);
+			gb.vec3.pop(stack);
+		}
+		gb.mat4.identity(_t.matrix);
+	},
 	clear: function()
 	{
 		var _t = gb.gl_draw;
@@ -3483,15 +3539,7 @@ function link_complete()
 
 function update(timestamp)
 {
-	gb.vec2.stack.index = 0;
-	gb.vec3.stack.index = 0;
-	gb.quat.stack.index = 0;
-	gb.mat3.stack.index = 0;
-	gb.mat4.stack.index = 0;
-	gb.aabb.stack.index = 0;
-	gb.color.stack.index = 0;
-	gb.ray.stack.index = 0;
-	gb.rect.stack.index = 0;
+	gb.stack.clear_all();
 
 	/*
 	var touch = gb.input.touches[0];
@@ -3517,18 +3565,20 @@ function update(timestamp)
 
 	gb.aabb.transform(t_bounds, bob.world_matrix);
 
-	gb.intersect.mesh_ray(hit, bob.mesh, bob.world_matrix, ray);
 	//gb.intersect.aabb_ray(hit, t_bounds, ray);
 
 	gb.gl_draw.clear();
 	gb.gl_draw.set_color(0.0,0.8,0.0,0.5);
 	gb.gl_draw.ray(ray);
 	
+	gb.gl_draw.set_color(0.2,0.3,0.4,0.5);
+	gb.gl_draw.wire_mesh(bob.mesh, bob.world_matrix);
+	gb.intersect.mesh_ray(hit, bob.mesh, bob.world_matrix, ray);
+	
 	gb.gl_draw.set_color(0.2,0.2,0.2,1.0);
 	gb.gl_draw.bounds(t_bounds);
 
-
-	if(hit.hit)
+	if(hit.hit === true)
 	{
 		gb.gl_draw.set_color(0.8,0.8,0.8,1.0);
 		gb.gl_draw.hit(hit);

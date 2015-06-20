@@ -244,6 +244,30 @@ gb.gl_draw =
 		_t.cube(w,h,d);
 		m4.identity(_t.matrix);
 	},
+	wire_mesh: function(mesh, matrix)
+	{
+		var _t = gb.gl_draw;
+		gb.mat4.eq(_t.matrix, matrix);
+		var stride = gb.mesh.get_stride(mesh);
+		var n = mesh.vertex_count / 3;
+		var d = mesh.vertex_buffer.data;
+		var c = 0;
+		for(var i = 0; i < n; ++i)
+		{
+			var stack = gb.vec3.push();
+			var ta = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			c += stride;
+			var tb = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			c += stride;
+			var tc = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			c += stride;
+			gb.gl_draw.line(ta, tb);
+			gb.gl_draw.line(tb, tc);
+			gb.gl_draw.line(tc, ta);
+			gb.vec3.pop(stack);
+		}
+		gb.mat4.identity(_t.matrix);
+	},
 	clear: function()
 	{
 		var _t = gb.gl_draw;

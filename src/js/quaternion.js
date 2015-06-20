@@ -28,7 +28,7 @@ gb.quat =
 	tmp: function(x,y,z,w)
 	{
 		var _t = gb.quat;
-		var r = _t.stack.get();
+		var r = gb.stack.get(_t.stack);
 		_t.set(r, x || 0, y || 0, z || 0, w || 1);
 		return r;
 	},

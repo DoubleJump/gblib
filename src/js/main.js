@@ -166,15 +166,7 @@ function link_complete()
 
 function update(timestamp)
 {
-	gb.vec2.stack.index = 0;
-	gb.vec3.stack.index = 0;
-	gb.quat.stack.index = 0;
-	gb.mat3.stack.index = 0;
-	gb.mat4.stack.index = 0;
-	gb.aabb.stack.index = 0;
-	gb.color.stack.index = 0;
-	gb.ray.stack.index = 0;
-	gb.rect.stack.index = 0;
+	gb.stack.clear_all();
 
 	/*
 	var touch = gb.input.touches[0];
@@ -200,18 +192,20 @@ function update(timestamp)
 
 	gb.aabb.transform(t_bounds, bob.world_matrix);
 
-	gb.intersect.mesh_ray(hit, bob.mesh, bob.world_matrix, ray);
 	//gb.intersect.aabb_ray(hit, t_bounds, ray);
 
 	gb.gl_draw.clear();
 	gb.gl_draw.set_color(0.0,0.8,0.0,0.5);
 	gb.gl_draw.ray(ray);
 	
+	gb.gl_draw.set_color(0.2,0.3,0.4,0.5);
+	gb.gl_draw.wire_mesh(bob.mesh, bob.world_matrix);
+	gb.intersect.mesh_ray(hit, bob.mesh, bob.world_matrix, ray);
+	
 	gb.gl_draw.set_color(0.2,0.2,0.2,1.0);
 	gb.gl_draw.bounds(t_bounds);
 
-
-	if(hit.hit)
+	if(hit.hit === true)
 	{
 		gb.gl_draw.set_color(0.8,0.8,0.8,1.0);
 		gb.gl_draw.hit(hit);

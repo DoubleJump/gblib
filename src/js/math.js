@@ -7,6 +7,7 @@ gb.math =
 	RAD2DEG: 57.2957795,
 	PI_OVER_360: 0.00872664625,
 	EPSILON: 2.2204460492503131e-16,
+	MAX_F32: 3.4028234e38,
 
 	min: function(a, b)
 	{

@@ -1,3 +1,4 @@
+gb.stack_array = [];
 gb.Stack = function(type, count)
 {
 	this.data = [];
@@ -6,22 +7,26 @@ gb.Stack = function(type, count)
 
 	for(var i = 0; i < count; ++i)
 		this.data.push(new type());
+
+	gb.stack.active_stacks.push(this);
 }
-gb.Stack.prototype.begin = function()
+gb.stack = 
 {
-	return this.index;
-}
-gb.Stack.prototype.end = function(index)
-{
-	this.index = index;
-}
-gb.Stack.prototype.get = function()
-{
-	var r = this.data[this.index];
-	this.index += 1;
-	if(this.index === this.count)
+	active_stacks : [],
+	get: function(s)
 	{
-		console.error("Stack overflow");
-	}
-	return r;	
+		var r = s.data[s.index];
+		s.index += 1;
+		if(s.index === s.count)
+		{
+			console.error("Stack overflow");
+		}
+		return r;
+	},
+	clear_all: function()
+	{
+		var n = gb.stack.active_stacks.length;
+		for(var i = 0; i < n; ++i)
+			gb.stack.active_stacks[i].index = 0;
+	},
 }

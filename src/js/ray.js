@@ -9,7 +9,7 @@ gb.ray =
 
 	tmp: function(point, dir)
 	{
-		var v = gb.ray.stack.get();
+		var r = gb.stack.get(gb.ray.stack);
 		gb.ray.set(v, point,dir);
 		return v;
 	},

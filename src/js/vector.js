@@ -31,7 +31,7 @@ gb.vec2 =
 	tmp: function(x,y)
 	{
 		var _t = gb.vec2;
-		var r = _t.stack.get();
+		var r = gb.stack.get(_t.stack);
 		_t.set(r, x || 0, y || 0);
 		return r;
 	},
@@ -139,7 +139,7 @@ gb.vec3 =
 	tmp: function(x,y,z)
 	{
 		var _t = gb.vec3;
-		var r = _t.stack.get();
+		var r = gb.stack.get(_t.stack);
 		_t.set(r, x || 0, y || 0, z || 0);
 		return r;
 	},

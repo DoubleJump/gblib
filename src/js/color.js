@@ -28,7 +28,7 @@ gb.color =
 	},
 	tmp: function(r,g,b,a)
 	{
-		var c = gb.color.stack.get();
+		var c = gb.stack.get(gb.color.stack);
 		gb.color.set(c, r || 0, g || 0, b || 0, a || 0);
 		return c;
 	},

@@ -29,7 +29,7 @@ gb.aabb =
 	tmp: function(min, max)
 	{
         var _t = gb.aabb;
-		var v = _t.stack.get();
+        var v = gb.stack.get(_t.stack);
 		if(min || max) _t.set(v, min, max);
 		return v;
 	},

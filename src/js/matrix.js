@@ -46,9 +46,9 @@ gb.mat3 =
 	tmp: function()
 	{
 		var _t = gb.mat3;
-		var t = _t.stack.get();
-		_t.identity(t);
-		return t;
+		var r = gb.stack.get(_t.stack);
+		_t.identity(r);
+		return r;
 	},
 
 	identity: function(m)
@@ -155,9 +155,9 @@ gb.mat4 =
 	tmp: function()
 	{
 		var _t = gb.mat4;
-		var t = _t.stack.get();
-		_t.identity(t);
-		return t;
+		var r = gb.stack.get(_t.stack);
+		_t.identity(r);
+		return r;
 	},
 	identity: function(m)
 	{

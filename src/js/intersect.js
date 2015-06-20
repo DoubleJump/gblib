@@ -5,6 +5,27 @@ gb.Hit = function()
 	this.normal = new gb.Vec3();
 	this.t = 0;
 }
+gb.hit = 
+{
+	stack: new gb.Stack(gb.Hit, 5),
+
+	eq: function(a,b)
+	{
+		a.hit = b.hit;
+		gb.vec3.eq(a.point, b.point);
+		gb.vec3.eq(a.normal, b.normal);
+		a.t = b.t;
+	},
+	tmp: function()
+	{
+		var r = gb.stack.get(gb.hit.stack);
+		r.hit = false;
+		gb.vec3.set(r.point, 0,0,0);
+		gb.vec3.set(r.normal, 0,0,0);
+		r.t = 0;
+		return r;
+	},
+}
 
 
 gb.intersect = 
@@ -76,7 +97,6 @@ gb.intersect =
 
 		v3.cross(cross, e0, e1);
 		v3.normalized(n, cross);
-
 		v3.inverse(n, n);
 
 		var ndot = v3.dot(n, r.dir);
@@ -85,7 +105,7 @@ gb.intersect =
 		v3.mulf(e0, r.dir, t);
 		v3.add(e1, r.point, e0);
 
-		if(gb.intersect.point_triangle(e1, a,b,c))
+		if(gb.intersect.point_triangle(e1, a,b,c) === true)
 		{
 			h.hit = true;
 			v3.eq(h.point, e1);
@@ -102,11 +122,13 @@ gb.intersect =
 	{
 		var _t = gb.intersect;
 		var stride = gb.mesh.get_stride(m);
+		h.t = gb.math.MAX_F32;
+
+		var hit = gb.hit.tmp();
 
 		var n = m.vertex_count / 3;
 		var d = m.vertex_buffer.data;
 		var c = 0;
-		//var t_min = Math.Infinity;
 		for(var i = 0; i < n; ++i)
 		{
 			var stack = gb.vec3.push();
@@ -119,10 +141,13 @@ gb.intersect =
 			var tc = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
 			gb.mat4.mul_point(tc, matrix, tc);
 			c += stride;
-			
-			_t.triangle_ray(h, ta,tb,tc, r);
+
+			_t.triangle_ray(hit, ta,tb,tc, r);
 			gb.vec3.pop(stack);
-			if(h.hit) return; //TODO need to compare tmin value to find closest hit
+			if(hit.hit === true && hit.t < h.t)
+			{
+				gb.hit.eq(h, hit);
+			}
 		}
 	},
 }

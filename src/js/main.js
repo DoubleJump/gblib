@@ -2,8 +2,6 @@
 
 /*
 TODO: 
-- Auto stack registration
-- Mesh find stride for specific attribute
 - split input by devices
 - fire and forget animations
 - pvrtc

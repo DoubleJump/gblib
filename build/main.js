@@ -2,8 +2,6 @@
 
 /*
 TODO: 
-- Auto stack registration
-- Mesh find stride for specific attribute
 - split input by devices
 - fire and forget animations
 - pvrtc
@@ -2170,27 +2168,10 @@ gb.serialize.r_dds = function(br)
 
     return t;
 }
-/*
+
 gb.serialize.r_pvrtc = function(br)
 {
 	//https://developer.apple.com/library/ios/samplecode/PVRTextureLoader/Listings/Classes_PVRTexture_m.html#//apple_ref/doc/uid/DTS40008121-Classes_PVRTexture_m-DontLinkElementID_12
-
-	typedef struct _PVRTexHeader
-	{
-	    uint32_t headerLength;
-	    uint32_t height;
-	    uint32_t width;
-	    uint32_t numMipmaps;
-	    uint32_t flags;
-	    uint32_t dataLength;
-	    uint32_t bpp;
-	    uint32_t bitmaskRed;
-	    uint32_t bitmaskGreen;
-	    uint32_t bitmaskBlue;
-	    uint32_t bitmaskAlpha;
-	    uint32_t pvrTag;
-	    uint32_t numSurfs;
-	} PVRTexHeader;
 
 	var s = gb.serialize;
 	var pvr = gb.webgl.extensions.pvr;
@@ -2212,25 +2193,16 @@ gb.serialize.r_pvrtc = function(br)
 	if(version === PVRTC_2)
 	{
 		block_size = 16;
+		t.format = pvr.COMPRESSED_RGBA_PVRTC_2BPPV1_IMG;
+		t.byte_size = 2; 
 	}
 	else
 	{
 		 block_size = 24;
+		 t.format = pvr.COMPRESSED_RGBA_PVRTC_4BPPV1_IMG ;
+		 t.byte_size = 4;
 	}
 
-	var bpp = header[6];
-	switch(bpp)
-	{
-		case :
-			t.format = ;
-			t.byte_size = ;
-		break;
-		case :
-			t.format = ;
-			t.byte_size = ;
-		break;
-	}
-	 
 	br.offset += header[0];
 	var size = header[5];
     t.pixels = new Uint8Array(br.buffer, br.offset, size);
@@ -2240,7 +2212,7 @@ gb.serialize.r_pvrtc = function(br)
     gb.textures[n] = t;
     return t;
 }
-*/
+
 gb.Shader_Attribute = function()
 {
 	this.location;

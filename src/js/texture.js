@@ -129,7 +129,7 @@ gb.serialize.r_pvrtc = function(br)
 	else
 	{
 		 block_size = 24;
-		 t.format = pvr.COMPRESSED_RGBA_PVRTC_4BPPV1_IMG ;
+		 t.format = pvr.COMPRESSED_RGBA_PVRTC_4BPPV1_IMG;
 		 t.byte_size = 4;
 	}
 

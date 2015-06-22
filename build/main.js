@@ -2,10 +2,8 @@
 
 /*
 TODO: 
-- split input by devices
 - fire and forget animations
-- pvrtc
-- defered rendering
+- deferred rendering
 - basic sound
 - particles
 */
@@ -1362,6 +1360,38 @@ gb.ray =
 		gb.ray.set(a, b.point, b.dir);
 	},
 }
+gb.Bezier = function(a,b,c,d)
+{
+	this.a = new gb.Vec3(0,0,0);
+	this.b = new gb.Vec3(0,0,0);
+	this.c = new gb.Vec3(0,0,0);
+	this.d = new gb.Vec3(0,0,0);
+}
+gb.bezier = 
+{
+	stack: new gb.Stack(gb.Bezier, 5),
+
+	tmp: function()
+	{
+		var _t = gb.bezier;
+		var r = gb.stack.get(_t.stack);
+		return r;
+	},
+	eval: function(r, b, t)
+	{
+		var u = 1.0 - t;
+		var tt = t * t;
+		var uu = u * u;
+		var uuu = uu * u;
+		var ttt = tt * t;
+
+		for(var i = 0; i < 3; ++i)
+			r[i] = (uuu * b.a[i]) + 
+				   (3 * uu * t * b.b[i]) + 
+				   (3 * u * tt * b.c[i]) + 
+				   (ttt * b.d[i]);
+	}
+}
 gb.Hit = function()
 {
 	this.hit = false;
@@ -2199,7 +2229,7 @@ gb.serialize.r_pvrtc = function(br)
 	else
 	{
 		 block_size = 24;
-		 t.format = pvr.COMPRESSED_RGBA_PVRTC_4BPPV1_IMG ;
+		 t.format = pvr.COMPRESSED_RGBA_PVRTC_4BPPV1_IMG;
 		 t.byte_size = 4;
 	}
 
@@ -2861,8 +2891,6 @@ gb.gl_draw =
 		w.set_shader(_t.shader);
 		w.update_mesh(_t.mesh);
 		w.link_attributes(_t.shader, _t.mesh);
-		//var mvp = gb.mat4.tmp();
-		//gb.mat4.mul(mvp, _t.matrix, camera.view_projection);
 		w.set_shader_mat4(_t.shader, "mvp", camera.view_projection);
 		w.draw_mesh_arrays(_t.mesh);
 	},
@@ -2921,36 +2949,20 @@ gb.gl_draw =
 		}
 		v3.pop(stack);
 	},
-	/*
-	sphere: function(radius, rings, segments)
+	sphere: function(radius)
 	{
-		var last = gb.vec3.tmp(0,0,0);
-		var current = gb.vec3.tmp(0,0,0);
-		var lat, lng;
-
-		for(lat = 0; lat <= rings; ++lat)
-		{      
-            var theta = lat * gb.math.PI / rings;
-            var sintheta = gb.math.sin(theta);
-            var costheta = gb.math.cos(theta);
-
-            for(lng = 0; lng <= segments; ++lng)
-            {
-                var phi = lng * 2.0 * gb.math.PI / segments;
-                var sinphi = gb.math.sin(phi);
-                var cosphi = gb.math.cos(phi);
-
-               	var x = cosphi * sintheta;
-              	var y = costheta;
-                var z = sinphi * sintheta;
-
-                gb.vec3.set(current, x * radius, y * radius, z * radius);
-                _t.line(last, current);
-                gb.vec3.eq(last, current);
-            }
-        }
+		var _t = gb.gl_draw;
+		var v3 = gb.vec3;
+		var q = gb.quat.tmp();
+		_t.circle(radius, 32);
+		gb.quat.euler(q, 0,90,0);
+		gb.mat4.set_rotation(_t.matrix, q);
+		_t.circle(radius, 32);
+		gb.quat.euler(q, 90,0,0);
+		gb.mat4.set_rotation(_t.matrix, q);
+		_t.circle(radius, 32);
+		gb.mat4.identity(_t.matrix);
 	},
-	*/
 	transform: function(m)
 	{
 		var _t = gb.gl_draw;
@@ -2994,6 +3006,7 @@ gb.gl_draw =
 	wire_mesh: function(mesh, matrix)
 	{
 		var _t = gb.gl_draw;
+		var v3 = gb.vec3;
 		gb.mat4.eq(_t.matrix, matrix);
 		var stride = gb.mesh.get_stride(mesh);
 		var n = mesh.vertex_count / 3;
@@ -3001,19 +3014,39 @@ gb.gl_draw =
 		var c = 0;
 		for(var i = 0; i < n; ++i)
 		{
-			var stack = gb.vec3.push();
-			var ta = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			var stack = v3.push();
+			var ta = v3.tmp(d[c], d[c+1], d[c+2]);
 			c += stride;
-			var tb = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			var tb = v3.tmp(d[c], d[c+1], d[c+2]);
 			c += stride;
-			var tc = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			var tc = v3.tmp(d[c], d[c+1], d[c+2]);
 			c += stride;
-			gb.gl_draw.line(ta, tb);
-			gb.gl_draw.line(tb, tc);
-			gb.gl_draw.line(tc, ta);
-			gb.vec3.pop(stack);
+			_t.line(ta, tb);
+			_t.line(tb, tc);
+			_t.line(tc, ta);
+			v3.pop(stack);
 		}
 		gb.mat4.identity(_t.matrix);
+	},
+	bezier: function(b, segments)
+	{
+		var _t = gb.gl_draw;
+		var c = gb.bezier;
+		var v3 = gb.vec3;
+		var stack = v3.push();
+		var last = v3.tmp();
+		c.eval(last, b, 0);
+		var step = 1 / segments;
+		var t = step;
+		for(var i = 1; i < segments+1; ++i)
+		{
+			var point = v3.tmp();
+			c.eval(point, b, t);
+			_t.line(last, point);
+			v3.eq(last, point);
+			t += step;
+		}
+		v3.pop(stack);
 	},
 	clear: function()
 	{
@@ -3385,6 +3418,61 @@ gb.link_asset_group = function(asset_group, callback)
     //audio
     callback();
 }
+gb.Tween = function()
+{
+	this.from = new Float32Array(4);
+	this.to = new Float32Array(4);
+	this.current = new Float32Array(4); 
+	this.len;
+	this.duration;
+	this.step;
+	this.t;
+	this.playing;
+}
+
+gb.animate = 
+{
+	tweens: [],
+
+	from_to: function(from, to, len, duration, modifier, next)
+	{
+		var tween = new gb.Tween();
+		tween.len = len;
+		for(var i = 0; i < len; ++i)
+		{
+			tween.from[i] = from[i];
+			twee.current[i] = from[i];
+			tween.to[i] = to[i];
+		}
+		tween.duration = duration;
+		tween.playing = false;
+		tween.step = 1 / duration;
+		tween.t = 0;
+		gb.animate.tween.push(tween);
+		return tween;
+	},
+	update: function(dt)
+	{
+		var _t = gb.animate;
+		var n = _t.tweens.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var t = _t.tweens[i];
+			if(t.playing === false) continue;
+			t.t += dt;
+			if(t.t > 1.0)
+			{
+				t.t = 1.0;
+				playing = false;
+			}
+			for(var j = 0; j < t.len; ++j)
+			{
+				t.current[j] = t.modifier(t.from[j], t.to[j], t.t);
+			}
+			if(t.playing === false) t.next();
+		}
+	},
+}
 
 var focus = true;
 var assets;
@@ -3400,6 +3488,7 @@ var bob;
 var bounds;
 var hit;
 var ray;
+var curve;
 
 window.addEventListener('load', init, false);
 
@@ -3503,6 +3592,13 @@ function link_complete()
 	ray = new gb.Ray();
 	gb.ray.set(ray, gb.vec3.tmp(0,0,1), gb.vec3.tmp(0,0,-1));
 
+	curve = new gb.Bezier();
+	gb.vec3.set(curve.a, 0,0,0);
+	gb.vec3.set(curve.b, 0.3,0.0,0);
+	gb.vec3.set(curve.c, 0.5,0.5,0);
+	gb.vec3.set(curve.d, 0.5,0,0);
+
+
 	render_target = gb.new_render_target(gb.webgl.view, 1 | 2);
 	requestAnimationFrame(upA);
 }
@@ -3526,8 +3622,9 @@ function update(timestamp)
 	//gb.entity.set_position(bob, 0,0,-1.0);
 	gb.entity.set_rotation(bob, rotation * 10, rotation * 30, rotation * 10);
 
-	gb.entity.set_position(camera.entity, 1.5,0,2);
-	gb.entity.set_rotation(camera.entity, 0,43,0);
+	gb.entity.set_position(camera.entity, 0,0,2);
+	//gb.entity.set_position(camera.entity, 1.5,0.2,2);
+	//gb.entity.set_rotation(camera.entity, 0,43,0);
 
 
 	gb.scene.update(scene);
@@ -3541,14 +3638,17 @@ function update(timestamp)
 
 	gb.gl_draw.clear();
 	gb.gl_draw.set_color(0.0,0.8,0.0,0.5);
-	gb.gl_draw.ray(ray);
+	//gb.gl_draw.ray(ray);
 	
 	gb.gl_draw.set_color(0.2,0.3,0.4,0.5);
 	gb.gl_draw.wire_mesh(bob.mesh, bob.world_matrix);
 	gb.intersect.mesh_ray(hit, bob.mesh, bob.world_matrix, ray);
 	
-	gb.gl_draw.set_color(0.2,0.2,0.2,1.0);
-	gb.gl_draw.bounds(t_bounds);
+	gb.gl_draw.set_color(1.0,0.2,0.2,1.0);
+	//gb.gl_draw.bounds(t_bounds);
+
+	gb.gl_draw.bezier(curve, 10);
+
 
 	if(hit.hit === true)
 	{
@@ -3598,7 +3698,7 @@ function render(t)
 	var r = gb.webgl;
 
 	r.set_render_target(render_target, true);
-	draw_objects(render_group, shader, camera);
+	//draw_objects(render_group, shader, camera);
 	gb.gl_draw.draw(camera);
 }
 

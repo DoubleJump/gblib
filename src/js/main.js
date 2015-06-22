@@ -2,10 +2,8 @@
 
 /*
 TODO: 
-- split input by devices
 - fire and forget animations
-- pvrtc
-- defered rendering
+- deferred rendering
 - basic sound
 - particles
 */
@@ -24,6 +22,7 @@ TODO:
 //INCLUDE rect.js
 //INCLUDE aabb.js
 //INCLUDE ray.js
+//INCLUDE bezier.js
 //INCLUDE intersect.js
 //INCLUDE color.js
 //INCLUDE camera.js
@@ -38,6 +37,7 @@ TODO:
 //INCLUDE input.js
 //INCLUDE random.js
 //INCLUDE asset_group.js
+//INCLUDE animate.js
 
 var focus = true;
 var assets;
@@ -53,6 +53,7 @@ var bob;
 var bounds;
 var hit;
 var ray;
+var curve;
 
 window.addEventListener('load', init, false);
 
@@ -156,6 +157,13 @@ function link_complete()
 	ray = new gb.Ray();
 	gb.ray.set(ray, gb.vec3.tmp(0,0,1), gb.vec3.tmp(0,0,-1));
 
+	curve = new gb.Bezier();
+	gb.vec3.set(curve.a, 0,0,0);
+	gb.vec3.set(curve.b, 0.3,0.0,0);
+	gb.vec3.set(curve.c, 0.5,0.5,0);
+	gb.vec3.set(curve.d, 0.5,0,0);
+
+
 	render_target = gb.new_render_target(gb.webgl.view, 1 | 2);
 	requestAnimationFrame(upA);
 }
@@ -179,8 +187,9 @@ function update(timestamp)
 	//gb.entity.set_position(bob, 0,0,-1.0);
 	gb.entity.set_rotation(bob, rotation * 10, rotation * 30, rotation * 10);
 
-	gb.entity.set_position(camera.entity, 1.5,0,2);
-	gb.entity.set_rotation(camera.entity, 0,43,0);
+	gb.entity.set_position(camera.entity, 0,0,2);
+	//gb.entity.set_position(camera.entity, 1.5,0.2,2);
+	//gb.entity.set_rotation(camera.entity, 0,43,0);
 
 
 	gb.scene.update(scene);
@@ -194,14 +203,17 @@ function update(timestamp)
 
 	gb.gl_draw.clear();
 	gb.gl_draw.set_color(0.0,0.8,0.0,0.5);
-	gb.gl_draw.ray(ray);
+	//gb.gl_draw.ray(ray);
 	
 	gb.gl_draw.set_color(0.2,0.3,0.4,0.5);
 	gb.gl_draw.wire_mesh(bob.mesh, bob.world_matrix);
 	gb.intersect.mesh_ray(hit, bob.mesh, bob.world_matrix, ray);
 	
-	gb.gl_draw.set_color(0.2,0.2,0.2,1.0);
-	gb.gl_draw.bounds(t_bounds);
+	gb.gl_draw.set_color(1.0,0.2,0.2,1.0);
+	//gb.gl_draw.bounds(t_bounds);
+
+	gb.gl_draw.bezier(curve, 10);
+
 
 	if(hit.hit === true)
 	{
@@ -251,7 +263,7 @@ function render(t)
 	var r = gb.webgl;
 
 	r.set_render_target(render_target, true);
-	draw_objects(render_group, shader, camera);
+	//draw_objects(render_group, shader, camera);
 	gb.gl_draw.draw(camera);
 }
 

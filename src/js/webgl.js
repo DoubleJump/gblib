@@ -212,6 +212,8 @@ gb.webgl =
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
+
+		/*
 		switch(t.format)
 		{
 			case _t.extensions.dxt.COMPRESSED_RGBA_S3TC_DXT1_EXT:
@@ -223,6 +225,15 @@ gb.webgl =
 			default:
 				gl.texImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.format, t.byte_size, t.pixels);
 			break;
+		}
+		*/
+		if(t.compressed === true)
+		{
+			gl.compressedTexImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.pixels);
+		}
+		else
+		{
+			gl.texImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.format, t.byte_size, t.pixels);
 		}
 
 		if(t.mipmaps > 1) 
@@ -453,23 +464,24 @@ gb.webgl =
         r[1] = ((1.0 - wp[1]) / 2.0) * view.height;
     },
 
-    screen_to_view: function(r, screen, view)
+    screen_to_view: function(r, point, view)
     {
-        r[0] = screen[0] / view.width;
-        r[0] = 1.0 - (screen[1] / view.height);
-        r[2] = screen[2];
+        r[0] = point[0] / view.width;
+        r[0] = 1.0 - (point[1] / view.height);
+        r[2] = point[2];
         return r;
     },
 
-    screen_to_world: function(r, camera, sreen, view)
+    screen_to_world: function(r, camera, point, view)
     {
         var t = gb.vec3.tmp();
-        t[0] = 2.0 * screen[0] / view.width - 1.0;
-        t[1] = -2.0 * screen[1] / view.height + 1.0;
-        t[2] = screen[2];
+        t[0] = 2.0 * point[0] / view.width - 1.0;
+        t[1] = -2.0 * point[1] / view.height + 1.0;
+        t[2] = point[2];
             
         var inv = gb.mat4.tmp();
         gb.mat4.inverse(inv, camera.view_projection);
         gb.mat4.mul_projection(r, inv, t);
+        //gb.mat4.mul_point(r, inv, t);
     },
 }

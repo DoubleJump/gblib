@@ -145,7 +145,7 @@ gb.mat3 =
 
 gb.mat4 =
 {
-	stack: new gb.Stack(gb.Mat4, 5),
+	stack: new gb.Stack(gb.Mat4, 16),
 
 	eq: function(a,b)
 	{

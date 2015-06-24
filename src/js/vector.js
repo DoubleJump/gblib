@@ -114,7 +114,7 @@ gb.vec2 =
 
 gb.vec3 = 
 {
-	stack: new gb.Stack(gb.Vec3, 32),
+	stack: new gb.Stack(gb.Vec3, 64),
 
 	push: function()
 	{

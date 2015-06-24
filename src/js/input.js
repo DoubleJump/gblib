@@ -1,5 +1,6 @@
 gb.Touch = function()
 {
+	this.id = -1;
 	this.touching = false;
 	this.position = new gb.Vec3();
 }
@@ -17,7 +18,8 @@ gb.input =
 	mouse_position: new gb.Vec3(),
 	mouse_scroll: 0,
 
-	touches: [null, null, null, null, null],
+	touches: [],
+	MAX_TOUCHES: 5,
 	acceleration: new gb.Vec3(),
 	angular_acceleration: new gb.Vec3(),
 	rotation: new gb.Quat(),
@@ -47,7 +49,7 @@ gb.input =
 			_t.keys[keycodes[i]] = gb.KeyState.RELEASED;
 		}
 
-		for(var i = 0; i < 5; ++i)
+		for(var i = 0; i < _t.MAX_TOUCHES; ++i)
 		{
 			_t.touches[i] = new gb.Touch();
 		}
@@ -137,33 +139,62 @@ gb.input =
 
 	touch_start: function(e)
 	{
-		var n = e.touches.length;
+		var _t = gb.input;
+		var n = e.changedTouches.length;
 		for(var i = 0; i < n; ++i)
 		{
-			var it = e.touches[i];
-			var t = gb.input.touches[i];
-			gb.vec3.set(t.position, it.screenX, it.screenY, 0);
-			t.touching = true;
+			var it = e.changedTouches[i];
+
+			for(var j = 0; j < _t.MAX_TOUCHES; ++j)
+			{
+				var t = _t.touches[j];
+				if(t.touching === true) continue;
+				gb.vec3.set(t.position, it.screenX, it.screenY, 0);
+				t.touching = true;
+				t.id = it.identifier;
+				break;
+			}
 		}
 		e.preventDefault();
 	},
 	touch_move: function(e)
 	{
-		var n = e.touches.length;
+		var _t = gb.input;
+		var n = e.changedTouches.length;
 		for(var i = 0; i < n; ++i)
 		{
-			var it = e.touches[i];
-			var t = gb.input.touches[i];
-			gb.vec3.set(t.position, it.screenX, it.screenY, 0);
+			var it = e.changedTouches[i];
+
+			for(var j = 0; j < _t.MAX_TOUCHES; ++j)
+			{
+				var t = gb.input.touches[j];
+				if(it.identifier === t.id)
+				{
+					t.touching = true;
+					gb.vec3.set(t.position, it.screenX, it.screenY, 0);
+					break;
+				}
+			}
 		}
 		e.preventDefault();
 	},
 	touch_end: function(e)
 	{
-		var n = e.touches.length;
+		var _t = gb.input;
+		var n = e.changedTouches.length;
 		for(var i = 0; i < n; ++i)
 		{
-			gb.input.touches[i].touching = false;
+			var id = e.changedTouches[i].identifier;
+			for(var j = 0; j < _t.MAX_TOUCHES; ++j)
+			{
+				var t = gb.input.touches[j];
+				if(id === t.id)
+				{
+					t.touching = false;
+					t.id = -1;
+					break;
+				}
+			}
 		}
 		e.preventDefault();
 	},

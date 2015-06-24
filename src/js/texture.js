@@ -8,6 +8,7 @@ gb.Texture = function()
 	this.byte_size;
 	this.mipmaps = 0;
 	this.sampler;
+	this.compressed = false;
 }
 gb.Sampler = function()
 {
@@ -89,6 +90,7 @@ gb.serialize.r_dds = function(br)
 	br.offset += h[1] + 4;
     t.pixels = new Uint8Array(br.buffer, br.offset, size);
     t.sampler = gb.webgl.default_sampler;
+    t.compressed = true;
 
     if(h[2] & 0x20000) 
     {
@@ -136,6 +138,7 @@ gb.serialize.r_pvrtc = function(br)
 	br.offset += header[0];
 	var size = header[5];
     t.pixels = new Uint8Array(br.buffer, br.offset, size);
+    t.compressed = true;
     br.offset += size * bpp;
 
 	gb.renderer.link_texture(t, gb.default_sampler);

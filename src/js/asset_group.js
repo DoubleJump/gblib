@@ -54,10 +54,13 @@ gb.on_asset_load = function(e)
         }
         
         //test pvrtc / dds
-        for(var i = 0; i < n_textures; ++i)
+        if(gb.webgl.extensions.dxt === true)
         {
-        	var name = s.r_string(br);
-            ag.textures[name] = s.r_dds(br);
+            for(var i = 0; i < n_textures; ++i)
+            {
+            	var name = s.r_string(br);
+                ag.textures[name] = s.r_dds(br);
+            }
         }
 
 

@@ -21,7 +21,7 @@ gb.animate =
 		for(var i = 0; i < len; ++i)
 		{
 			tween.from[i] = from[i];
-			twee.current[i] = from[i];
+			tween.current[i] = from[i];
 			tween.to[i] = to[i];
 		}
 		tween.duration = duration;

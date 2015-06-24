@@ -194,32 +194,33 @@ function update(timestamp)
 
 	gb.scene.update(scene);
 
-	var t_bounds = gb.aabb.tmp();
-	gb.aabb.eq(t_bounds, bounds);
-
-	gb.aabb.transform(t_bounds, bob.world_matrix);
-
 	//gb.intersect.aabb_ray(hit, t_bounds, ray);
 
 	gb.gl_draw.clear();
-	gb.gl_draw.set_color(0.0,0.8,0.0,0.5);
 	//gb.gl_draw.ray(ray);
 	
 	gb.gl_draw.set_color(0.2,0.3,0.4,0.5);
 	gb.gl_draw.wire_mesh(bob.mesh, bob.world_matrix);
-	gb.intersect.mesh_ray(hit, bob.mesh, bob.world_matrix, ray);
+	//gb.intersect.mesh_ray(hit, bob.mesh, bob.world_matrix, ray);
 	
 	gb.gl_draw.set_color(1.0,0.2,0.2,1.0);
-	//gb.gl_draw.bounds(t_bounds);
 
-	gb.gl_draw.bezier(curve, 10);
-
-
+	var zero = gb.vec3.tmp(0,0,0);
+	var ws_pos = gb.vec3.tmp(0,0,0);
+	for(var i = 0; i < gb.input.MAX_TOUCHES; ++i)
+	{
+		var touch = gb.input.touches[i];
+		if(touch.touching === false) continue;
+		gb.webgl.screen_to_world(ws_pos, camera, touch.position, gb.webgl.view);
+		gb.gl_draw.line(zero, ws_pos);
+	}
+	/*
 	if(hit.hit === true)
 	{
 		gb.gl_draw.set_color(0.8,0.8,0.8,1.0);
 		gb.gl_draw.hit(hit);
 	}
+	*/
 
 	gb.input.update();
 

@@ -34,6 +34,11 @@ gb.gl_draw =
         wgl.link_shader(_t.shader);
 	    _t.mesh = m;
 	},
+	set_position_f: function(x,y,z)
+	{
+		var p = gb.vec3.tmp(x,y,z);
+		gb.mat4.set_position(gb.gl_draw.matrix, p);
+	},
 	set_position: function(p)
 	{
 		gb.mat4.set_position(gb.gl_draw.matrix, p);

@@ -382,7 +382,7 @@ gb.vec2 =
 
 gb.vec3 = 
 {
-	stack: new gb.Stack(gb.Vec3, 32),
+	stack: new gb.Stack(gb.Vec3, 64),
 
 	push: function()
 	{
@@ -881,7 +881,7 @@ gb.mat3 =
 
 gb.mat4 =
 {
-	stack: new gb.Stack(gb.Mat4, 5),
+	stack: new gb.Stack(gb.Mat4, 16),
 
 	eq: function(a,b)
 	{
@@ -2108,6 +2108,7 @@ gb.Texture = function()
 	this.byte_size;
 	this.mipmaps = 0;
 	this.sampler;
+	this.compressed = false;
 }
 gb.Sampler = function()
 {
@@ -2189,6 +2190,7 @@ gb.serialize.r_dds = function(br)
 	br.offset += h[1] + 4;
     t.pixels = new Uint8Array(br.buffer, br.offset, size);
     t.sampler = gb.webgl.default_sampler;
+    t.compressed = true;
 
     if(h[2] & 0x20000) 
     {
@@ -2236,6 +2238,7 @@ gb.serialize.r_pvrtc = function(br)
 	br.offset += header[0];
 	var size = header[5];
     t.pixels = new Uint8Array(br.buffer, br.offset, size);
+    t.compressed = true;
     br.offset += size * bpp;
 
 	gb.renderer.link_texture(t, gb.default_sampler);
@@ -2513,6 +2516,8 @@ gb.webgl =
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
+
+		/*
 		switch(t.format)
 		{
 			case _t.extensions.dxt.COMPRESSED_RGBA_S3TC_DXT1_EXT:
@@ -2524,6 +2529,15 @@ gb.webgl =
 			default:
 				gl.texImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.format, t.byte_size, t.pixels);
 			break;
+		}
+		*/
+		if(t.compressed === true)
+		{
+			gl.compressedTexImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.pixels);
+		}
+		else
+		{
+			gl.texImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.format, t.byte_size, t.pixels);
 		}
 
 		if(t.mipmaps > 1) 
@@ -2754,24 +2768,25 @@ gb.webgl =
         r[1] = ((1.0 - wp[1]) / 2.0) * view.height;
     },
 
-    screen_to_view: function(r, screen, view)
+    screen_to_view: function(r, point, view)
     {
-        r[0] = screen[0] / view.width;
-        r[0] = 1.0 - (screen[1] / view.height);
-        r[2] = screen[2];
+        r[0] = point[0] / view.width;
+        r[0] = 1.0 - (point[1] / view.height);
+        r[2] = point[2];
         return r;
     },
 
-    screen_to_world: function(r, camera, sreen, view)
+    screen_to_world: function(r, camera, point, view)
     {
         var t = gb.vec3.tmp();
-        t[0] = 2.0 * screen[0] / view.width - 1.0;
-        t[1] = -2.0 * screen[1] / view.height + 1.0;
-        t[2] = screen[2];
+        t[0] = 2.0 * point[0] / view.width - 1.0;
+        t[1] = -2.0 * point[1] / view.height + 1.0;
+        t[2] = point[2];
             
         var inv = gb.mat4.tmp();
         gb.mat4.inverse(inv, camera.view_projection);
         gb.mat4.mul_projection(r, inv, t);
+        //gb.mat4.mul_point(r, inv, t);
     },
 }
 //DEBUG
@@ -2810,6 +2825,11 @@ gb.gl_draw =
         _t.shader = gb.new_shader(v_src, f_src);
         wgl.link_shader(_t.shader);
 	    _t.mesh = m;
+	},
+	set_position_f: function(x,y,z)
+	{
+		var p = gb.vec3.tmp(x,y,z);
+		gb.mat4.set_position(gb.gl_draw.matrix, p);
 	},
 	set_position: function(p)
 	{
@@ -3125,6 +3145,7 @@ gb.audio =
 }
 gb.Touch = function()
 {
+	this.id = -1;
 	this.touching = false;
 	this.position = new gb.Vec3();
 }
@@ -3142,7 +3163,8 @@ gb.input =
 	mouse_position: new gb.Vec3(),
 	mouse_scroll: 0,
 
-	touches: [null, null, null, null, null],
+	touches: [],
+	MAX_TOUCHES: 5,
 	acceleration: new gb.Vec3(),
 	angular_acceleration: new gb.Vec3(),
 	rotation: new gb.Quat(),
@@ -3172,7 +3194,7 @@ gb.input =
 			_t.keys[keycodes[i]] = gb.KeyState.RELEASED;
 		}
 
-		for(var i = 0; i < 5; ++i)
+		for(var i = 0; i < _t.MAX_TOUCHES; ++i)
 		{
 			_t.touches[i] = new gb.Touch();
 		}
@@ -3262,33 +3284,62 @@ gb.input =
 
 	touch_start: function(e)
 	{
-		var n = e.touches.length;
+		var _t = gb.input;
+		var n = e.changedTouches.length;
 		for(var i = 0; i < n; ++i)
 		{
-			var it = e.touches[i];
-			var t = gb.input.touches[i];
-			gb.vec3.set(t.position, it.screenX, it.screenY, 0);
-			t.touching = true;
+			var it = e.changedTouches[i];
+
+			for(var j = 0; j < _t.MAX_TOUCHES; ++j)
+			{
+				var t = _t.touches[j];
+				if(t.touching === true) continue;
+				gb.vec3.set(t.position, it.screenX, it.screenY, 0);
+				t.touching = true;
+				t.id = it.identifier;
+				break;
+			}
 		}
 		e.preventDefault();
 	},
 	touch_move: function(e)
 	{
-		var n = e.touches.length;
+		var _t = gb.input;
+		var n = e.changedTouches.length;
 		for(var i = 0; i < n; ++i)
 		{
-			var it = e.touches[i];
-			var t = gb.input.touches[i];
-			gb.vec3.set(t.position, it.screenX, it.screenY, 0);
+			var it = e.changedTouches[i];
+
+			for(var j = 0; j < _t.MAX_TOUCHES; ++j)
+			{
+				var t = gb.input.touches[j];
+				if(it.identifier === t.id)
+				{
+					t.touching = true;
+					gb.vec3.set(t.position, it.screenX, it.screenY, 0);
+					break;
+				}
+			}
 		}
 		e.preventDefault();
 	},
 	touch_end: function(e)
 	{
-		var n = e.touches.length;
+		var _t = gb.input;
+		var n = e.changedTouches.length;
 		for(var i = 0; i < n; ++i)
 		{
-			gb.input.touches[i].touching = false;
+			var id = e.changedTouches[i].identifier;
+			for(var j = 0; j < _t.MAX_TOUCHES; ++j)
+			{
+				var t = gb.input.touches[j];
+				if(id === t.id)
+				{
+					t.touching = false;
+					t.id = -1;
+					break;
+				}
+			}
 		}
 		e.preventDefault();
 	},
@@ -3381,10 +3432,13 @@ gb.on_asset_load = function(e)
         }
         
         //test pvrtc / dds
-        for(var i = 0; i < n_textures; ++i)
+        if(gb.webgl.extensions.dxt === true)
         {
-        	var name = s.r_string(br);
-            ag.textures[name] = s.r_dds(br);
+            for(var i = 0; i < n_textures; ++i)
+            {
+            	var name = s.r_string(br);
+                ag.textures[name] = s.r_dds(br);
+            }
         }
 
 
@@ -3441,7 +3495,7 @@ gb.animate =
 		for(var i = 0; i < len; ++i)
 		{
 			tween.from[i] = from[i];
-			twee.current[i] = from[i];
+			tween.current[i] = from[i];
 			tween.to[i] = to[i];
 		}
 		tween.duration = duration;
@@ -3629,32 +3683,33 @@ function update(timestamp)
 
 	gb.scene.update(scene);
 
-	var t_bounds = gb.aabb.tmp();
-	gb.aabb.eq(t_bounds, bounds);
-
-	gb.aabb.transform(t_bounds, bob.world_matrix);
-
 	//gb.intersect.aabb_ray(hit, t_bounds, ray);
 
 	gb.gl_draw.clear();
-	gb.gl_draw.set_color(0.0,0.8,0.0,0.5);
 	//gb.gl_draw.ray(ray);
 	
 	gb.gl_draw.set_color(0.2,0.3,0.4,0.5);
 	gb.gl_draw.wire_mesh(bob.mesh, bob.world_matrix);
-	gb.intersect.mesh_ray(hit, bob.mesh, bob.world_matrix, ray);
+	//gb.intersect.mesh_ray(hit, bob.mesh, bob.world_matrix, ray);
 	
 	gb.gl_draw.set_color(1.0,0.2,0.2,1.0);
-	//gb.gl_draw.bounds(t_bounds);
 
-	gb.gl_draw.bezier(curve, 10);
-
-
+	var zero = gb.vec3.tmp(0,0,0);
+	var ws_pos = gb.vec3.tmp(0,0,0);
+	for(var i = 0; i < gb.input.MAX_TOUCHES; ++i)
+	{
+		var touch = gb.input.touches[i];
+		if(touch.touching === false) continue;
+		gb.webgl.screen_to_world(ws_pos, camera, touch.position, gb.webgl.view);
+		gb.gl_draw.line(zero, ws_pos);
+	}
+	/*
 	if(hit.hit === true)
 	{
 		gb.gl_draw.set_color(0.8,0.8,0.8,1.0);
 		gb.gl_draw.hit(hit);
 	}
+	*/
 
 	gb.input.update();
 

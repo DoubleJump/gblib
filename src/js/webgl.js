@@ -79,7 +79,7 @@ gb.webgl =
 
 		var ex = _t.extensions;
 		ex.depth_texture = gl.getExtension("WEBGL_depth_texture");
-		ex.dxt = gl.getExtension("WEBGL_compressed_texture_s3tc"); //works on osx!
+		ex.dxt = gl.getExtension("WEBGL_compressed_texture_s3tc"); 
 		ex.fp_texture = gl.getExtension("OES_texture_float");
 		ex.uint = gl.getExtension("OES_element_index_uint");
 

@@ -17,6 +17,12 @@ gb.math =
 	{
 		if(a > b) return a; else return b;
 	},
+	clamp: function(a, min, max)
+	{
+		if(a < min) return min;
+		else if(a > max) return max;
+		else return a;
+	},
 	abs: function(a)
 	{
 		return Math.abs(a);

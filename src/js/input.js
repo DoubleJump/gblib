@@ -67,9 +67,8 @@ gb.input =
 		var _t = gb.input;
 		for(var i = 0; i < 256; ++i)
 		{
-			var k = _t.keys[i];
-			if(k === gb.KeyState.DOWN) _t.keys[k] = gb.KeyState.HELD;
-			else if(_t.keys[k] === gb.KeyState.UP) _t.keys[k] = gb.KeyState.RELEASED;
+			if(_t.keys[i] === gb.KeyState.DOWN) _t.keys[i] = gb.KeyState.HELD;
+			else if(_t.keys[i] === gb.KeyState.UP) _t.keys[i] = gb.KeyState.RELEASED;
 		}
 	},
 

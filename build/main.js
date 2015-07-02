@@ -1,13 +1,6 @@
 'use strict';
 
-/*
-TODO: 
-- fire and forget animations
-- deferred rendering
-- basic sound
-- particles
-*/
-
+///INCLUDE wgl_dev.js
 //DEBUG
 function ASSERT(expr, message)
 {
@@ -99,6 +92,23 @@ gb.dom =
 	{
 		return document.querySelector(query);
 	},
+	set_transform: function(el, sx, sy, tx, ty, r)
+	{
+		var ang = r * gb.math.DEG2RAD;
+		var a = Math.cos(ang) * sx;
+		var b = -Math.sin(ang);
+		var c = tx;
+		var d = Math.sin(ang);
+		var e = Math.cos(ang) * sy;
+		var f = ty;
+
+		var matrix = "matrix("+a+","+b+","+d+","+e+","+c+","+f+")";
+
+		el.style["webkitTransform"] = matrix;
+		el.style.MozTransform = matrix;
+		el.style["oTransform"] = matrix;
+		el.style["msTransform"] = matrix;
+	}
 }
 gb.stack_array = [];
 gb.Stack = function(type, count)
@@ -151,6 +161,12 @@ gb.math =
 	{
 		if(a > b) return a; else return b;
 	},
+	clamp: function(a, min, max)
+	{
+		if(a < min) return min;
+		else if(a > max) return max;
+		else return a;
+	},
 	abs: function(a)
 	{
 		return Math.abs(a);
@@ -196,76 +212,6 @@ gb.math =
 		return (1-t) * a + t * b;
 	},
 }
-gb.Binary_Reader = function(buffer)
-{
-	this.buffer = buffer;
-	this.bytes = new DataView(buffer);
-	this.offset = 0;
-}
-
-gb.serialize =
-{
-	r_i32: function(br)
-	{
-		var r = br.bytes.getInt32(br.offset, true);
-		br.offset += 4;
-		return r;
-	},
-	r_f32: function(br)
-	{
-		var r = br.bytes.getFloat32(br.offset, true);
-		br.offset += 4;
-		return r;
-	},
-	r_string: function(br)
-	{
-		var _t = gb.serialize;
-		var pad = _t.r_i32(br);
-        var l = _t.r_i32(br);
-    	var r = String.fromCharCode.apply(null, new Uint8Array(br.buffer, br.offset, l));
-        br.offset += l;
-        br.offset += pad;
-        return r;
-	},
-	r_f32_array: function(br, l)
-	{
-		var r = new Float32Array(br.buffer, br.offset, l);
-		br.offset += l * 4;
-		return r;
-	},
-	r_u32_array: function(br, l)
-	{
-		var r = new Uint32Array(br.buffer, br.offset, l);
-		br.offset += l * 4;
-		return r;
-	},
-	r_i32_array: function(br, l)
-	{
-		var r = new Int32Array(br.buffer, br.offset, l);
-		br.offset += l * 4;
-		return r;
-	},
-}
-
-/*
-	r_wav: function(br)
-	{
-		var s = gb.Searalize;
-        var n = s.r_string(br);
-		var header = new Uint32Array(br.buffer, br.offset, 13);
-		var sound = new gb.Sound();
-		sound.data = 
-	},
-	r_ogg: function(br)
-	{
-		var s = gb.Searalize;
-        var n = s.r_string(br);
-		var header = new Uint32Array(br.buffer, br.offset, 13);
-		var sound = new gb.Sound();
-		sound.data = 
-
-	},
-	*/
 gb.Vec2 = function(x,y)
 {
 	var v = new Float32Array(2);
@@ -1335,31 +1281,6 @@ gb.aabb =
         v3.pop(stack);
     },
 }
-gb.Ray = function()
-{
-	this.point = new gb.Vec3();
-	this.dir = new gb.Vec3();
-}
-gb.ray = 
-{
-	stack: new gb.Stack(gb.Ray, 5),
-
-	tmp: function(point, dir)
-	{
-		var r = gb.stack.get(gb.ray.stack);
-		gb.ray.set(v, point,dir);
-		return v;
-	},
-	set: function(r, point, dir)
-	{
-		gb.vec3.eq(r.point, point);
-		gb.vec3.eq(r.dir, dir);
-	},
-	eq: function(a,b)
-	{
-		gb.ray.set(a, b.point, b.dir);
-	},
-}
 gb.Bezier = function(a,b,c,d)
 {
 	this.a = new gb.Vec3(0,0,0);
@@ -1392,160 +1313,6 @@ gb.bezier =
 				   (ttt * b.d[i]);
 	}
 }
-gb.Hit = function()
-{
-	this.hit = false;
-	this.point = new gb.Vec3();
-	this.normal = new gb.Vec3();
-	this.t = 0;
-}
-gb.hit = 
-{
-	stack: new gb.Stack(gb.Hit, 5),
-
-	eq: function(a,b)
-	{
-		a.hit = b.hit;
-		gb.vec3.eq(a.point, b.point);
-		gb.vec3.eq(a.normal, b.normal);
-		a.t = b.t;
-	},
-	tmp: function()
-	{
-		var r = gb.stack.get(gb.hit.stack);
-		r.hit = false;
-		gb.vec3.set(r.point, 0,0,0);
-		gb.vec3.set(r.normal, 0,0,0);
-		r.t = 0;
-		return r;
-	},
-}
-
-
-gb.intersect = 
-{
-	aabb_aabb: function(a, b)
-    {
-       	if(a.min[0] > b.max[0]) return false;
-       	if(a.max[0] < b.min[0]) return false;
-
-       	if(a.min[1] > b.max[1]) return false;
-       	if(a.max[1] < b.min[1]) return false;
-
-       	if(a.min[2] > b.max[2]) return false;
-       	if(a.max[2] < b.min[2]) return false;
-
-        return true;
-    },
-
-    aabb_ray: function(h, a, r)
-	{
-		var fx = 1 / r.dir[0];
-		var fy = 1 / r.dir[1];
-		var fz = 1 / r.dir[2];
-
-		var t1 = (a.min[0] - r.point[0]) * fx;
-		var t2 = (a.max[0] - r.point[0]) * fx;
-		var t3 = (a.min[1] - r.point[1]) * fy;
-		var t4 = (a.max[1] - r.point[1]) * fy;
-		var t5 = (a.min[2] - r.point[2]) * fz;
-		var t6 = (a.max[2] - r.point[2]) * fz;
-
-		var m = gb.math;
-		var tmin = m.max(m.max(m.min(t1, t2), m.min(t3, t4)), m.min(t5, t6));
-		var tmax = m.min(m.min(m.max(t1, t2), m.max(t3, t4)), m.max(t5, t6));
-
-		if(tmax < 0 || tmin > tmax)
-		{
-			h.hit = false;
-			return;
-		}
-
-		var v = gb.vec3.tmp();
-		gb.vec3.mulf(v, r.dir, tmin);
-		gb.vec3.add(h.point, r.point, v);
-		h.hit = true;
-		gb.vec3.set(h.normal, 0,1,0);
-		h.t = tmin;
-	},
-
-	point_triangle: function(p, a,b,c)
-	{
-		var A =  (-b[1] * c[0] + a[1] * (-b[0] + c[0]) + a[0] * (b[1] - c[1]) + b[0] * c[1]) / 2;
-		var sign = A < 0 ? -1 : 1;
-		var s = (a[1] * c[0] - a[0] * c[1] + (c[1] - a[1]) * p[0] + (a[0] - c[0]) * p[1]) * sign;
-		var t = (a[0] * b[1] - a[1] * b[0] + (a[1] - b[1]) * p[0] + (b[0] - a[0]) * p[1]) * sign;
-		return s > 0 && t > 0 && s + t < 2 * A * sign;
-	},
-
-	triangle_ray: function(h, a,b,c, r)
-	{
-		var v3 = gb.vec3;
-		var e0 = v3.tmp();
-		var e1 = v3.tmp();
-		var cross = v3.tmp();
-		var n = v3.tmp();
-
-		v3.sub(e0, b,a);
-		v3.sub(e1, c,a);
-
-		v3.cross(cross, e0, e1);
-		v3.normalized(n, cross);
-		v3.inverse(n, n);
-
-		var ndot = v3.dot(n, r.dir);
-		var t = -(v3.dot(n,r.point) + v3.dot(n,a)) / ndot;
-
-		v3.mulf(e0, r.dir, t);
-		v3.add(e1, r.point, e0);
-
-		if(gb.intersect.point_triangle(e1, a,b,c) === true)
-		{
-			h.hit = true;
-			v3.eq(h.point, e1);
-			v3.eq(h.normal, n);
-			h.t = t;
-		}
-		else
-		{
-			h.hit = false;
-		}
-	},
-
-	mesh_ray: function(h, m, matrix, r)
-	{
-		var _t = gb.intersect;
-		var stride = gb.mesh.get_stride(m);
-		h.t = gb.math.MAX_F32;
-
-		var hit = gb.hit.tmp();
-
-		var n = m.vertex_count / 3;
-		var d = m.vertex_buffer.data;
-		var c = 0;
-		for(var i = 0; i < n; ++i)
-		{
-			var stack = gb.vec3.push();
-			var ta = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
-			gb.mat4.mul_point(ta, matrix, ta);
-			c += stride;
-			var tb = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
-			gb.mat4.mul_point(tb, matrix, tb);
-			c += stride;
-			var tc = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
-			gb.mat4.mul_point(tc, matrix, tc);
-			c += stride;
-
-			_t.triangle_ray(hit, ta,tb,tc, r);
-			gb.vec3.pop(stack);
-			if(hit.hit === true && hit.t < h.t)
-			{
-				gb.hit.eq(h, hit);
-			}
-		}
-	},
-}
-
 gb.Color = function(r,g,b,a)
 {
 	var v = new Float32Array(4);
@@ -1581,80 +1348,6 @@ gb.color =
 		return c;
 	},
 }
-gb.Camera = function()
-{
-	this.projection_type = null;
-	this.projection = new gb.Mat4();
-	this.view = new gb.Mat4();
-	this.view_projection = new gb.Mat4();
-	this.mask;
-	this.dirty;
-	this.aspect;
-	this.near;
-	this.far;
-	this.fov;
-	this.entity;
-}
-
-gb.camera = 
-{
-	update_projection: function(c, view)
-	{
-		c.aspect = view.width / view.height;
-
-		var m = c.projection;
-
-		if(c.projection_type === gb.Projection.ORTHO)
-		{
-			m[ 0] = 2.0 / view.width;
-			m[ 5] = 2.0 / view.height;
-			m[10] = -2.0 / (c.far - c.near);
-			m[14] = 0.0;
-			m[15] = 1.0;	
-		}
-		else
-		{
-			var h = 1.0 / gb.math.tan(c.fov * gb.math.PI_OVER_360);
-			var y = c.near - c.far;
-			
-			m[ 0] = h / c.aspect;
-			m[ 5] = h;
-			m[10] = (c.far + c.near) / y;
-			m[11] = -1.0;
-			m[14] = 2.0 * (c.near * c.far) / y;
-			m[15] = 0.0;
-		}
-
-		c.dirty = false;
-	},
-
-	set_clip_range: function(c, near, far)
-	{
-		c.near = near;
-		c.far = far;
-		c.dirty = true;
-	},
-
-}
-
-gb.Projection = 
-{
-    ORTHO: 0,
-    PERSPECTIVE: 1,
-}
-
-gb.new_camera = function(projection, near, far, fov, mask)
-{
-    var c = new gb.Camera();
-    c.projection_type = projection || gb.Projection.PERSPECTIVE;
-    c.near = near || 0.1;
-    c.far = far || 100;
-    c.fov = fov || 60;
-    c.mask = mask || 0;
-    c.dirty = true;
-    c.entity = new gb.Entity();
-    return c;
-}
 gb.time = 
 {
 	began: 0,
@@ -1679,155 +1372,6 @@ gb.time =
     	_t.last = t;
     },
 }
-gb.Entity = function()
-{
-	this.parent = null;
-	this.children = [];
-
-	this.active = true;
-	this.layer = 0;
-	this.dirty = true;
-
-	this.position = new gb.Vec3(0,0,0);
-	this.scale = new gb.Vec3(1,1,1);
-	this.rotation = new gb.Quat(0,0,0,1);
-
-	this.local_matrix = new gb.Mat4();
-	this.world_matrix = new gb.Mat4();
-	this.bounds = new gb.AABB();
-
-	this.mesh = null;
-}
-gb.entity = 
-{
-	set_active: function(e, val)
-	{
-		e.active = val;
-		var n = e.children.length;
-		for(var i = 0; i < n; ++i)
-		{
-			gb.entity.set_active(e.children[i], val);
-		}
-	},
-	set_parent: function(e, parent)
-	{
-		if (e.parent === parent) return;
-
-		if (e.parent !== null && parent === null) // clearing parent
-		{
-			e.parent.remove_child(e);
-			e.parent = null;
-		}
-		else if (e.parent !== null && parent !== null) // swapping parent
-		{
-			e.parent.remove_child(e);
-			e.parent = parent;
-			e.parent.add_child(e);
-		}
-		else // setting new parent from null
-		{
-			e.parent = parent;
-			e.parent.add_child(e);
-		}
-	},
-	add_child: function(e, child)
-	{
-		e.children.push(child);
-	},
-	remove_child: function(e, child)
-	{
-		var index = e.children.indexOf(child, 0);
-		ASSERT(index == undefined, "Cannot remove child - not found!");
-		e.children.splice(index, 1);
-	},
-	set_position: function(e, x,y,z)
-	{
-		gb.vec3.set(e.position, x,y,z);
-		e.dirty = true;
-	},
-	set_scale: function(e, x,y,z)
-	{
-		gb.vec3.set(e.scale, x,y,z);
-		e.dirty = true;
-	},
-	set_rotation: function(e, x,y,z)
-	{
-		gb.quat.euler(e.rotation, x,y,z);
-		e.dirty = true;
-	},
-}
-gb.new_entity = function(mesh, scene)
-{
-	var e = new gb.Entity();
-	e.mesh = mesh;
-	gb.scene.add_entity(scene, e);
-	return e;
-}
-
-gb.Scene = function()
-{
-	this.num_entities = 0;
-	this.num_cameras = 0;
-	this.entities = [];
-	this.cameras = [];
-	//this.render_groups: [],
-}
-gb.scene = 
-{
-	add_entity: function(s, e, rg)
-	{
-		s.entities.push(e);
-		s.num_entities++;
-	},
-	
-	add_camera: function(s, c)
-	{
-		s.cameras.push(c);
-		s.entities.push(c.entity);
-		s.num_entities++;
-		s.num_cameras++;
-    	gb.camera.update_projection(c, gb.webgl.view);
-	},
-
-	update_camera: function(c)
-	{
-		ASSERT(c.entity != null, "Camera has no transform!");
-		if(c.dirty === true)
-		{
-			gb.camera.update_projection(c);
-		}
-		gb.mat4.inverse(c.view, c.entity.world_matrix);
-		gb.mat4.mul(c.view_projection, c.view, c.projection);
-	},
-
-	update_entity: function(e)
-	{
-		if(e.active === false || e.dirty === false) return;
-		gb.mat4.compose(e.world_matrix, e.position, e.scale, e.rotation);
-		if(e.parent !== null)
-		{
-			gb.mat4.mul(e.world_matrix, e.parent.world_matrix);
-		}
-		for(var i = 0; i < e.num_children; ++i)
-		{
-			gb.scene.update_entity(e.children[i]);
-		}
-	},
-
-	update: function(s)
-	{
-		var ne = s.num_entities;
-		for(var i = 0; i < ne; ++i) 
-		{
-			gb.scene.update_entity(s.entities[i]);
-		}
-		var nc = s.num_cameras;
-		for(var i = 0; i < nc; ++i)
-		{
-			gb.scene.update_camera(s.cameras[i]);
-		}
-	},
-}
 gb.Canvas2D = function()
 {
 	this.view = null;
@@ -1847,60 +1391,77 @@ gb.new_canvas = function(container, config)
 gb.canvas = 
 {
 	ctx: null,
+	view: null,
 
 	set_context: function(canvas)
 	{
-		this.ctx = canvas.ctx;
+		gb.canvas.ctx = canvas.ctx;
+		gb.canvas.view = canvas.view;
 	},
 
 	clear: function(color)
 	{
-
+		var ctx = gb.canvas.ctx;
+		var v = gb.canvas.view;
+		ctx.fillStyle = color;
+		ctx.setTransform(1, 0, 0, 1, 0, 0);
+		ctx.clearRect(v.x, v.y, v.width, v.height);
 	},
 
 	fill: function(color)
 	{
-		this.ctx.fillStyle = color;
-		this.ctx.fill();
+		var ctx = gb.canvas.ctx;
+		ctx.fillStyle = color;
+		ctx.fill();
 	},
 
 	stroke: function(color, thickness)
 	{
-		this.ctx.lineWidth = thickness;
-		this.ctx.strokeStyle = color;
-		this.ctx.stroke();
+		var ctx = gb.canvas.ctx;
+		ctx.lineWidth = thickness;
+		ctx.strokeStyle = color;
+		ctx.stroke();
 	},
 
 	rect: function(r, color)
 	{
-		this.ctx.fillStyle = color;
-		this.ctx.fillRect(r.x, r.y, r.width, r.height);
+		var ctx = gb.canvas.ctx;
+		ctx.fillStyle = color;
+		ctx.fillRect(r.x, r.y, r.width, r.height);
+	},
+	rectf: function(x,y,w,h, color)
+	{
+		var ctx = gb.canvas.ctx;
+		ctx.fillStyle = color;
+		ctx.fillRect(x, y, w, h);	
 	},
 	line: function(start, end, width, color)
 	{
-		this.ctx.fillStyle = color;
-		this.ctx.moveTo(start.x, start.y);
-		this.ctx.lineTo(end.x, end.y);
+		var ctx = gb.canvas.ctx;
+		ctx.fillStyle = color;
+		ctx.moveTo(start.x, start.y);
+		ctx.lineTo(end.x, end.y);
 	},
 	polygon: function(points)
 	{
+		var ctx = gb.canvas.ctx;
 		var n = points.length;
 		var p = points[0];
-		this.ctx.beginPath();
-		this.ctx.moveTo(p.x, p.y);
+		ctx.beginPath();
+		ctx.moveTo(p.x, p.y);
 		for(var i = 1; i < n; ++i)
 		{
 			p = points[i];
-		    this.ctx.lineTo(p.x, p.y);
+		    ctx.lineTo(p.x, p.y);
 		}
 	},
 	circle: function(pos, radius)
 	{
-		this.ctx.arc(pos.x, pos.y, radius, 0, 360 * gb.math.DEG2RAD, true);
+		gb.canvas.ctx.arc(pos.x, pos.y, radius, 0, 360 * gb.math.DEG2RAD, true);
 	},
 	arc: function(pos, radius, start, end, cw)
 	{
-		this.ctx.arc(pos.x, pos.y, radius, start * gb.math.DEG2RAD, end * gb.math.RAD2DEG, cw);
+		gb.canvas.ctx.arc(pos.x, pos.y, radius, start * gb.math.DEG2RAD, end * gb.math.RAD2DEG, cw);
 	},
 	curve: function()
 	{
@@ -1908,886 +1469,18 @@ gb.canvas =
 	},
 	rounded_rect: function(r, radius)
 	{
-		this.ctx.beginPath();
-		this.ctx.moveTo(r.x, r.y + radius);
-		this.ctx.lineTo(r.x, r.y + r.height-radius);
-		this.ctx.quadraticCurveTo(r.x, r.y + r.height, r.x + radius, r.y + r.height);
-		this.ctx.lineTo(r.x + r.width - radius, r.y + r.height);
-		this.ctx.quadraticCurveTo(r.x + r.width, r.y + r.height, r.x + r.width, r.y + r.height - radius);
-		this.ctx.lineTo(r.x + r.width, r.y + radius);
-		this.ctx.quadraticCurveTo(r.x + r.width, r.y, r.x + r.width-radius, r.y);
-		this.ctx.lineTo(r.x + radius, r.y);
-		this.ctx.quadraticCurveTo(r.x, r.y, r.x, r.y + radius);
+		var ctx = gb.canvas.ctx;
+		ctx.beginPath();
+		ctx.moveTo(r.x, r.y + radius);
+		ctx.lineTo(r.x, r.y + r.height-radius);
+		ctx.quadraticCurveTo(r.x, r.y + r.height, r.x + radius, r.y + r.height);
+		ctx.lineTo(r.x + r.width - radius, r.y + r.height);
+		ctx.quadraticCurveTo(r.x + r.width, r.y + r.height, r.x + r.width, r.y + r.height - radius);
+		ctx.lineTo(r.x + r.width, r.y + radius);
+		ctx.quadraticCurveTo(r.x + r.width, r.y, r.x + r.width-radius, r.y);
+		ctx.lineTo(r.x + radius, r.y);
+		ctx.quadraticCurveTo(r.x, r.y, r.x, r.y + radius);
 	},
-}
-gb.Vertex_Attribute_Info = function(name, size, normalized)
-{
-	this.name = name;
-	this.size = size;
-	this.normalized = normalized;
-}
-gb.vertex_attributes =
-[
-	new gb.Vertex_Attribute_Info("position", 3, false),
-	new gb.Vertex_Attribute_Info("normal", 3, false),
-	new gb.Vertex_Attribute_Info("uv", 2, false),
-	new gb.Vertex_Attribute_Info("uv2", 2, false),
-	new gb.Vertex_Attribute_Info("color", 4, true),
-];
-gb.Vertex_Buffer = function()
-{
-	this.id = 0;
-	this.data;
-	this.mask;
-	this.update_mode;
-}
-gb.Index_Buffer = function()
-{
-	this.id = 0;
-	this.data;
-	this.update_mode;
-}
-gb.Mesh = function()
-{
-	this.layout;
-	this.vertex_buffer;
-	this.vertex_count;
-	this.index_buffer;
-	this.index_count;
-	this.dirty;
-}
-gb.new_mesh = function(vertex_count, vertices, mask, indices)
-{
-    var m = new gb.Mesh();
-    m.layout = gb.webgl.ctx.TRIANGLES;
-
-    var vb = new gb.Vertex_Buffer();
-    vb.data = vertices;
-    vb.mask = mask;
-    vb.update_mode = gb.webgl.ctx.STATIC_DRAW;
-    m.vertex_buffer = vb;
-    m.vertex_count = vertex_count;
-
-    var ib = new gb.Index_Buffer();
-    ib.data = indices;
-    ib.update_mode = gb.webgl.ctx.STATIC_DRAW;    
-    m.index_buffer = ib;
-
-    m.index_count = indices.length;
-    m.dirty = true;
-    return m;
-}
-gb.mesh = 
-{
-	get_stride: function(m)
-	{
-		var stride = 0;
-		var index = 1;
-		for(var i = 0; i < 5; ++i)
-		{
-			var mr = (index & m.vertex_buffer.mask) === index;
-			stride += mr * (gb.vertex_attributes[i].size);
-			index *= 2;
-		}
-		return stride;
-	},
-	get_bounds: function(b, m)
-	{
-		var v3 = gb.vec3;
-		var d = m.vertex_buffer.data;
-		v3.set(b.min, d[0], d[1], d[2]);
-		v3.set(b.max, d[0], d[1], d[2]);
-
-		var stride = gb.mesh.get_stride(m);
-		var n = m.vertex_count;
-		var p = v3.tmp(0,0,0);
-		var c = stride;
-		for(var i = 1; i < n; ++i)
-		{
-			v3.set(p, d[c], d[c+1], d[c+2]);
-
-			if(p[0] < b.min[0]) b.min[0] = p[0];
-			if(p[1] < b.min[1]) b.min[1] = p[1];
-			if(p[2] < b.min[2]) b.min[2] = p[2];
-
-			if(p[0] > b.max[0]) b.max[0] = p[0];
-			if(p[1] > b.max[1]) b.max[1] = p[1];
-			if(p[2] > b.max[2]) b.max[2] = p[2];
-
-			c += stride;
-		}
-	},
-}
-gb.serialize.r_mesh = function(br)
-{
-	var s = gb.serialize;
-	var h = s.r_i32_array(br, 4);
-	var vertices = s.r_f32_array(br, h[1]);
-	var indices = s.r_u32_array(br, h[2]);
-	return gb.new_mesh(h[0], vertices, h[3], indices);
-}
-gb.mesh_tools = 
-{
-	quad: function(width, height, depth)
-	{
-		var x = width / 2;
-	    var y = height / 2;
-	    var z = (depth / 2) || 0;
-	    
-	    var data = new Float32Array(
-	    [
-	    	// POS    UV
-	        -x,-y, z, 0,0,
-	         x,-y, z, 1,0,
-	        -x, y,-z, 0,1,
-	         x, y,-z, 1,1
-	    ]);
-
-	    var tris = new Uint32Array([0,1,3,0,3,2]);
-	    var mask = 1 | 4;
-	    return gb.new_mesh(4, data, mask, tris);
-	},
-
-	cube: function(width, height, depth)
-	{
-		var x = width / 2;
-		var y = height / 2;
-		var z = depth / 2;
-
-		var data = new Float32Array(
-		[
-			// POS    NORMAL  UV
-			-x,-y, z, 0,0,1, 0,0, 
-			 x,-y, z, 0,0,1, 1,0, 
-			-x, y, z, 0,0,1, 0,1, 
-			 x, y, z, 0,0,1, 1,1, 
-			 x,-y, z, 1,0,0, 0,0, 
-			 x,-y,-z, 1,0,0, 1,0, 
-			 x, y, z, 1,0,0, 0,1, 
-			 x, y,-z, 1,0,0, 1,1, 
-			-x,-y,-z, 0,-1,0,0,0, 
-			 x,-y,-z, 0,-1,0,1,0, 
-			-x,-y, z, 0,-1,0,0,1, 
-			 x,-y, z, 0,-1,0,1,1, 
-			-x,-y,-z, -1,0,0,0,0, 			
-			-x,-y, z, -1,0,0,1,0, 			
-			-x, y,-z, -1,0,0,0,1, 			
-			-x, y, z, -1,0,0,1,1, 			
-			-x, y, z, 0,1,1, 0,0, 
-			 x, y, z, 0,1,1, 1,0, 
-			-x, y,-z, 0,1,1, 0,1, 
-			 x, y,-z, 0,1,1, 1,1, 
-			 x,-y,-z, 0,0,-1,0,0, 
-			-x,-y,-z, 0,0,-1,1,0, 
-			 x, y,-z, 0,0,-1,0,1, 
-			-x, y,-z, 0,0,-1,1,1 		
-		]);
-				
-		var tris = new Uint32Array(
-		[
-			0,1,3,0,3,2, 
-			4,5,7,4,7,6, 
-			8,9,11,8,11,10, 
-			12,13,15,12,15,14, 
-			16,17,19,16,19,18, 
-			20,21,23,20,23,22 
-		]);
-
-	    var mask = 1 | 2 | 4;
-	    return gb.new_mesh(24, data, mask, tris);
-	},
-	
-}
-gb.Texture = function()
-{
-	this.id = 0;
-	this.width;
-	this.height;
-	this.pixels;
-	this.format;
-	this.byte_size;
-	this.mipmaps = 0;
-	this.sampler;
-	this.compressed = false;
-}
-gb.Sampler = function()
-{
-	this.x;
-	this.y;
-	this.up;
-	this.down;
-}
-gb.new_sampler = function(x,y,up,down)
-{
-    var s = new gb.Sampler();
-    s.x = x;
-    s.y = y;
-    s.up = up;
-    s.down = down;
-    return s;
-}
-gb.new_rgba_texture = function(width, height, pixels, sampler, mipmaps)
-{
-    var t = new gb.Texture();
-    t.width = width;
-    t.height = height;
-    t.pixels = pixels;
-    t.format = gb.webgl.ctx.RGBA;
-    t.byte_size = gb.webgl.ctx.UNSIGNED_BYTE;
-    t.mipmaps = mipmaps;
-    t.sampler = sampler;
-    return t;
-}
-gb.new_depth_texture = function(width, height)
-{
-    var t = new gb.Texture();
-    t.width = width;
-    t.height = height;
-    t.pixels = null;
-    t.format = gb.webgl.ctx.DEPTH_COMPONENT;
-    t.byte_size = gb.webgl.ctx.UNSIGNED_SHORT;
-    t.mipmaps = 0;
-  	t.sampler = gb.webgl.default_sampler;
-    return t;
-}
-gb.serialize.r_dds = function(br)
-{
-	// http://msdn.microsoft.com/en-us/library/bb943991.aspx/
-	var s = gb.serialize;
-	var dxt = gb.webgl.extensions.dxt;
-    var DXT1 = 827611204;
-   	var DXT5 = 894720068;
-
-	var h = new Int32Array(br.buffer, br.offset, 31);
-
-	ASSERT(h[0] === 0x20534444, "Invalid magic number in DDS header");
-	ASSERT(!h[20] & 0x4, "Unsupported format, must contain a FourCC code");
-
-	var t = new gb.Texture();
-    t.height = h[3];
-	t.width = h[4];
-	
-	var four_cc = h[21];
-	ASSERT(four_cc === DXT1 || four_cc === DXT5, "Invalid FourCC code");
-	
-	var block_size = 0;
-	switch(four_cc)
-	{
-		case DXT1:
-			block_size = 8;
-			t.format = dxt.COMPRESSED_RGBA_S3TC_DXT1_EXT;
-			t.byte_size = dxt.UNSIGNED_BYTE;
-		break;
-		case DXT5:
-			block_size = 16;
-			t.format = dxt.COMPRESSED_RGBA_S3TC_DXT5_EXT;
-			t.byte_size = dxt.UNSIGNED_SHORT;
-		break;
-	}
-	
-	var size = Math.max(4, t.width) / 4 * Math.max(4, t.height) / 4 * block_size;
-
-	br.offset += h[1] + 4;
-    t.pixels = new Uint8Array(br.buffer, br.offset, size);
-    t.sampler = gb.webgl.default_sampler;
-    t.compressed = true;
-
-    if(h[2] & 0x20000) 
-    {
-        t.mipmaps = Math.max(1, h[7]);
-    }
-    br.offset += size;
-
-    return t;
-}
-
-gb.serialize.r_pvrtc = function(br)
-{
-	//https://developer.apple.com/library/ios/samplecode/PVRTextureLoader/Listings/Classes_PVRTexture_m.html#//apple_ref/doc/uid/DTS40008121-Classes_PVRTexture_m-DontLinkElementID_12
-
-	var s = gb.serialize;
-	var pvr = gb.webgl.extensions.pvr;
-	var n = s.r_string(br);
-	var header = new Uint32Array(br.buffer, br.offset, 13);
-	var version = header[4] & 0xff;
-
-	var PVRTC_2 = 24;
-	var PVRTC_4 = 25;
-	ASSERT(version === PVRTC_2 || version === PVRTC_4, "Unsupported PVRTC format");
-
-	var t = new gb.Texture();
-	t.height = header[1]
-	t.width = header[2];
-	t.mipmaps = header[3];
-
-	var data_length = header[5];
-	var block_size = 0;
-	if(version === PVRTC_2)
-	{
-		block_size = 16;
-		t.format = pvr.COMPRESSED_RGBA_PVRTC_2BPPV1_IMG;
-		t.byte_size = 2; 
-	}
-	else
-	{
-		 block_size = 24;
-		 t.format = pvr.COMPRESSED_RGBA_PVRTC_4BPPV1_IMG;
-		 t.byte_size = 4;
-	}
-
-	br.offset += header[0];
-	var size = header[5];
-    t.pixels = new Uint8Array(br.buffer, br.offset, size);
-    t.compressed = true;
-    br.offset += size * bpp;
-
-	gb.renderer.link_texture(t, gb.default_sampler);
-    gb.textures[n] = t;
-    return t;
-}
-
-gb.Shader_Attribute = function()
-{
-	this.location;
-	this.index;
-}
-gb.Shader = function()
-{
-    this.id = 0;
-    this.vertex_src;
-    this.fragment_src;
-    this.num_attributes;
-    this.num_uniforms;
-    this.attributes = [null, null, null, null, null];
-    this.uniforms = {};
-}
-gb.new_shader = function(v_src, f_src)
-{
-    var s = new gb.Shader();
-    s.vertex_src = v_src;
-    s.fragment_src = f_src;
-    return s;
-}
-gb.serialize.r_shader = function(br)
-{
-	var s = gb.serialize;
-   	var vs = s.r_string(br);
-   	var fs = s.r_string(br);
-    return gb.new_shader(vs, fs);
-}
-gb.Render_Target = function()
-{
-	this.bounds;
-	this.frame_buffer;
-	this.render_buffer;
-	this.color;
-	this.depth;
-	this.stencil;
-}
-
-gb.new_render_target = function(view, mask, color)
-{
-    var rt = new gb.Render_Target();
-    rt.bounds = new gb.Rect();
-    gb.rect.eq(rt.bounds, view);
-    if((1 & mask) === 1) //color
-    {
-        rt.color = gb.new_rgba_texture(view.width, view.height, null, gb.webgl.default_sampler, 0);
-        gb.webgl.link_texture(rt.color);
-    }
-    if((2 & mask) === 2) //depth
-    {
-        rt.depth = gb.new_depth_texture(view.width, view.height);
-        gb.webgl.link_texture(rt.depth);
-    }
-    if((4 & mask) === 4)
-    {
-        //rt.stencil = this.new_stencil_texture(view.with, view.height);
-    }
-    gb.webgl.link_render_target(rt);
-    return rt;
-},
-
-gb.webgl = 
-{
-	extensions: 
-	{
-		depth_texture: null,
-		dxt: null,
-		fp_texture: null,
-		uint: null,
-	},
-	ctx: null,
-	m_offsets: null,
-	view: null,
-	default_sampler: null,
-    screen_mesh: null,
-    screen_shader: null,
-
-	init: function(container, config)
-	{
-		var _t = gb.webgl;
-		var gl;
-
-		var width = container.offsetWidth * config.resolution;
-        var height = container.offsetHeight * config.resolution;
-        var canvas = gb.dom.insert('canvas', container);
-        canvas.width = width;
-        canvas.height = height;
-        _t.view = new gb.Rect(0,0,width,height);
-
-        try
-        {
-            gl = canvas.getContext('experimental-webgl', config);
-            if(gl == null)
-            {
-                gl = canvas.getContext('webgl', config);
-            }
-        }
-        catch(e)
-        {
-            console.error("Not WebGL compatible: " + e);
-            return;
-        }
-
-        //DEBUG
-        ASSERT(gl != null, "Could not load WebGL");
-        gb.debug.get_context_info(gl);
-        //END
-
-		_t.ctx = gl;
-
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); //works with premultiplied alpha
-		//gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-        gl.enable(gl.DEPTH_TEST);
-		gl.depthFunc(gl.LEQUAL); 
-    	gl.clearDepth(1.0);
-		
-		gl.enable(gl.CULL_FACE);
-		gl.cullFace(gl.BACK);
-		gl.frontFace(gl.CCW);
-		gl.enable(gl.SCISSOR_TEST);
-		gl.scissor(0,0, canvas.width, canvas.height);
-		
-        gl.viewport(0,0, canvas.width, canvas.height);
-        gl.clearColor(0.0,0.0,0.0,0.0);
-        //gl.colorMask(true, true, true, false);
-    	//gl.clearStencil(0);
-    	//gl.depthMask(true);
-		//gl.depthRange(-100, 100); // znear zfar
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        _t.default_sampler = gb.new_sampler(gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE, gl.NEAREST, gl.NEAREST);
-
-		var ex = _t.extensions;
-		ex.depth_texture = gl.getExtension("WEBGL_depth_texture");
-		ex.dxt = gl.getExtension("WEBGL_compressed_texture_s3tc"); //works on osx!
-		ex.fp_texture = gl.getExtension("OES_texture_float");
-		ex.uint = gl.getExtension("OES_element_index_uint");
-
-		_t.screen_mesh = gb.mesh_tools.quad(2,2);
-		_t.link_mesh(_t.screen_mesh);
-
-        var v_src = "attribute vec3 position;\n attribute vec2 uv;\n varying vec2 _uv;\n void main()\n {\n _uv = uv;\n gl_Position = vec4(position, 1.0);\n }";
-        var f_src = "precision mediump float;\n varying vec2 _uv;\n uniform sampler2D tex;\n void main()\n {\n gl_FragColor = texture2D(tex, _uv);\n }";
-
-        _t.screen_shader = gb.new_shader(v_src, f_src);
-        _t.link_shader(_t.screen_shader);
-		_t.m_offsets = new Uint32Array(5);
-	},
-
-	link_mesh: function(m)
-	{
-		var _t = gb.webgl;
-		var gl = _t.ctx;
-		m.vertex_buffer.id = gl.createBuffer();
-		if(m.index_buffer)
-			m.index_buffer.id = gl.createBuffer();
-		_t.update_mesh(m);
-	},
-	update_mesh: function(m)
-	{
-		var gl = gb.webgl.ctx;
-		gl.bindBuffer(gl.ARRAY_BUFFER, m.vertex_buffer.id);
-		gl.bufferData(gl.ARRAY_BUFFER, m.vertex_buffer.data, m.vertex_buffer.update_mode);
-		if(m.index_buffer)
-		{
-			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.index_buffer.id);
-			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, m.index_buffer.data, m.index_buffer.update_mode);
-		}
-		m.dirty = false;
-	},
-	delete_mesh: function(m)
-	{
-		var gl = gb.webgl.ctx;
-		gl.deleteBuffer(m.vertex_buffer.id);
-		if(mesh.index_buffer)
-			gl.deleteBuffer(m.index_buffer.id);
-		m = null;
-	},
-
-	link_shader: function(s)
-	{
-		var gl = gb.webgl.ctx;
-		var vs = gl.createShader(gl.VERTEX_SHADER);
-	    gl.shaderSource(vs, s.vertex_src);
-	    gl.compileShader(vs);
-
-	    //DEBUG
-	    gb.debug.shader_compile_status(gl, vs);
-	    //END
-
-	    var fs = gl.createShader(gl.FRAGMENT_SHADER);
-	    gl.shaderSource(fs, s.fragment_src);
-	    gl.compileShader(fs);
-
-	    //DEBUG
-	    gb.debug.shader_compile_status(gl, fs);
-	    //END
-
-	    var id = gl.createProgram();
-	    gl.attachShader(id, vs);
-	    gl.attachShader(id, fs);
-	    gl.linkProgram(id);
-
-	    //DEBUG
-	    gb.debug.shader_link_status(gl, id);
-	    //END
-
-	    ASSERT(s.id === 0, "Shader already bound to id " + s.id); 
-	    s.id = id;
-	    s.num_attributes = gl.getProgramParameter(id, gl.ACTIVE_ATTRIBUTES);
-	    s.num_uniforms = gl.getProgramParameter(id, gl.ACTIVE_UNIFORMS);
-
-	    var c = 0;
-	    var n = gb.vertex_attributes.length;
-	    for(var i = 0; i < n; ++i)
-	    {
-	    	var attr = gb.vertex_attributes[i];
-	    	var loc = gl.getAttribLocation(id, attr.name);
-	    	if(loc !== -1) 
-	    	{
-	    		var sa = new gb.Shader_Attribute();
-	    		sa.location = loc;
-	    		sa.index = i;
-	    		s.attributes[c] = sa;
-	    		c++;
-	    	}
-	    }
-
-	    for(var i = 0; i < s.num_uniforms; ++i)
-	    {
-	        var uniform = gl.getActiveUniform(id, i);
-	        var location = gl.getUniformLocation(id, uniform.name);
-	        s.uniforms[uniform.name] = location;
-	    }
-
-	    return s;
-	},
-
-	set_shader: function(s)
-	{
-		gb.webgl.ctx.useProgram(s.id);
-	},
-	
-	link_texture: function(t)
-	{
-		var _t = gb.webgl;
-		var gl = _t.ctx;
-		ASSERT(t.id === 0, "Texture is already bound to id " + t.id);
-		t.id = gl.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, t.id);
-		_t.update_texture(t);
-		_t.set_sampler(t.sampler);
-	},
-
-	set_sampler:function(s)
-	{
-		var gl = gb.webgl.ctx;
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, s.x);
-    	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, s.y);
-    	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, s.up);
-    	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, s.down);
-	},
-	
-	update_texture: function(t)
-	{
-		var _t = gb.webgl;
-		var gl = _t.ctx;
-
-		/*
-		switch(t.format)
-		{
-			case _t.extensions.dxt.COMPRESSED_RGBA_S3TC_DXT1_EXT:
-				gl.compressedTexImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.pixels);
-			break;
-			case _t.extensions.dxt.COMPRESSED_RGBA_S3TC_DXT5_EXT:
-				gl.compressedTexImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.pixels);
-			break;
-			default:
-				gl.texImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.format, t.byte_size, t.pixels);
-			break;
-		}
-		*/
-		if(t.compressed === true)
-		{
-			gl.compressedTexImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.pixels);
-		}
-		else
-		{
-			gl.texImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.format, t.byte_size, t.pixels);
-		}
-
-		if(t.mipmaps > 1) 
-			gl.generateMipmap(gl.TEXTURE_2D);
-	},
-
-	set_viewport: function(v)
-	{
-		var gl = gb.webgl.ctx;
-		gl.viewport(v.x, v.y, v.width, v.height);
-		//scissor?
-	},
-
-	set_render_target: function(rt, clear)
-	{
-		var _t = gb.webgl;
-		var gl = _t.ctx;
-		if(rt === null)
-		{
-			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-			gl.bindRenderbuffer(gl.RENDERBUFFER, null);
-			_t.set_viewport(_t.view);
-			if(clear === true)
-			{
-				_t.ctx.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-			}
-		}
-		else
-		{
-			gl.bindFramebuffer(gl.FRAMEBUFFER, rt.frame_buffer);
-			if(rt.depth)
-			{
-				gl.enable(gl.DEPTH_TEST);
-			}
-			if(rt.render_buffer)
-				gl.bindRenderbuffer(gl.RENDERBUFFER, rt.render_buffer);
-			_t.set_viewport(rt.bounds);
-
-			if(clear === true)
-			{
-				_t.clear(rt);
-			}
-		}
-	},
-
-	set_render_target_attachment: function(rt, attachment, t)
-	{
-		var gl = gb.webgl.ctx;
-		gl.bindTexture(gl.TEXTURE_2D, t.id);
-		gl.framebufferTexture2D(gl.FRAMEBUFFER, attachment, gl.TEXTURE_2D, t.id, 0);
-	},
-
-	new_render_buffer: function(width, height)
-	{
-		var gl = gb.webgl.ctx;
-		var rb = gl.createRenderbuffer();
-		gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
-		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
-		return rb;
-	},
-
-	link_render_target: function(rt)
-	{
-		var _t = gb.webgl;
-		var gl = _t.ctx;
-		rt.frame_buffer = gl.createFramebuffer();
-		gl.bindFramebuffer(gl.FRAMEBUFFER, rt.frame_buffer);
-
-		if(rt.color)
-		{
-			_t.set_render_target_attachment(rt, gl.COLOR_ATTACHMENT0, rt.color);
-		}
-		if(rt.depth)
-		{
-			_t.set_render_target_attachment(rt, gl.DEPTH_ATTACHMENT, rt.depth);
-		}
-		else
-		{
-			rt.render_buffer = _t.new_render_buffer(rt.bounds.width, rt.bounds.height);
-		}
-
-		//DEBUG
-		gb.debug.verify_render_target(gl);
-		//END
-	},
-
-	clear: function(rt)
-	{
-		var gl = gb.webgl.ctx;
-		var mode = 0;
-		if(rt.color) mode |= gl.COLOR_BUFFER_BIT;
-		if(rt.depth) mode |= gl.DEPTH_BUFFER_BIT;
-		gl.clear(mode);
-	},
-
-	/*
-	render: function(draw_calls)
-	{
-		var i = 0;
-		var n = 0;
-		var r = gb.webgl;
-
-		n = draw_calls.length;
-		for(i = 0; i < n; ++i)
-		{
-			var dc = draw_calls[i];
-			var s = dc.shader;
-
-			gl.useProgram(s.id);
-
-			//could annotate the shader code e.g #CAM_MATS #N_MATS #LIGHTING etc
-			_t.link_camera(s, dc.camera);
-
-			//TODO: LIGHTS
-
-			_t.link_textures(s, dc.textures);
-
-			var ne = dc.entities.length;
-			for(var ii = 0; ii < ne; ++ii)
-			{
-				var e = dc.entities[ii];
-
-				r.set_shader_mat4(s, "model", e.matrix);
-				r.set_shader_mat4(s, "mv", model_view);
-				r.set_shader_mat4(s, "mvp", model_view_projection);
-
-				// TODO: NMATRIX
-
-				var m = e.mesh;
-				var na = s.num_attributes;
-				for(var iii = 0; iii < na; ++iii)
-		        {
-		        	_t.link_attributes(s,m);
-		        }
-
-		        //TODO: if(m.index_buffer) else 
-		    	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.index_buffer.id);
-		        gl.drawElements(gl.TRIANGLES, m.index_count, gl.UNSIGNED_SHORT, 0);
-			}
-		}
-	},
-	*/
-	draw_mesh_elements: function(mesh)
-	{
-		var gl = gb.webgl.ctx;
-        ASSERT(mesh.indices !== null, "Mesh has no index buffer");
-    	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.index_buffer.id);
-        gl.drawElements(mesh.layout, mesh.index_count, gl.UNSIGNED_INT, 0);
-	},
-
-	draw_mesh_arrays: function(mesh)
-	{
-		gb.webgl.ctx.drawArrays(mesh.layout, 0, mesh.vertex_count);
-	},
-	
-	link_attributes: function(shader, mesh)
-	{
-		var _t = gb.webgl;
-		var gl = _t.ctx;
-		var vb = mesh.vertex_buffer;
-		gl.bindBuffer(gl.ARRAY_BUFFER, vb.id);
-
-		var stride = 0;
-		var index = 1;
-		for(var i = 0; i < 5; ++i)
-		{
-			var mr = (index & vb.mask) === index;
-			_t.m_offsets[i] = stride;
-			stride += mr * (gb.vertex_attributes[i].size * 4);
-			index *= 2;
-		}
-
-		var offset = 0;
-		for(var i = 0; i < shader.num_attributes; ++i)
-		{
-			var sa = shader.attributes[i];
-			var attr = gb.vertex_attributes[sa.index]; 
-			gl.enableVertexAttribArray(sa.location);
-			gl.vertexAttribPointer(sa.location, attr.size, gl.FLOAT, attr.normalized, stride, _t.m_offsets[sa.index]);
-		}
-	},
-
-	set_shader_texture: function(shader, name, texture, index)
-	{
-		var gl = gb.webgl.ctx;
-		gl.bindTexture(gl.TEXTURE_2D, texture.id);
-		gl.activeTexture(gl.TEXTURE0 + index);
-		gl.uniform1i(shader.uniforms[name], texture.id);
-	},
-	set_shader_mat4: function(shader, name, m)
-	{
-		gb.webgl.ctx.uniformMatrix4fv(shader.uniforms[name], false, m);
-	},
-	set_shader_mat3: function(shader, name, m)
-	{
-		gb.webgl.ctx.uniformMatrix3fv(shader.uniforms[name], false, m);
-	},
-	set_shader_quat: function(shader, name, q)
-	{
-		gb.webgl.ctx.uniform4f(shader.uniforms[name], false, q[0], q[1], q[2], q[3]);
-	},
-	set_shader_color: function(shader, name, c)
-	{
-		gb.webgl.ctx.uniform4f(shader.uniforms[name], false, c[0], c[1], c[2], c[3]);
-	},
-	set_shader_vec3: function(shader, name, v)
-	{
-		gb.webgl.ctx.uniform3f(shader.uniforms[name], false, v[0], v[1], v[2]);
-	},
-	set_shader_vec2: function(shader, name, v)
-	{
-		gb.webgl.ctx.uniform2f(shader.uniforms[name], false, v[0], v[1]);
-	},
-	set_shader_float: function(shader, name, f)
-	{
-		gb.webgl.ctx.uniformf(shader.uniforms[name], false, f);
-	},
-	set_shader_int: function(shader, name, i)
-	{
-		gb.webgl.ctx.uniformi(shader.uniforms[name], false, i);
-	},
-
-	world_to_screen: function(r, camera, world, view)
-    {
-    	var wp = gb.vec3.tmp(); 
-        gb.mat4.mul_projection(wp, camera.view_projection, world);
-        r[0] = ((wp[0] + 1.0) / 2.0) * view.width;
-        r[1] = ((1.0 - wp[1]) / 2.0) * view.height;
-    },
-
-    screen_to_view: function(r, point, view)
-    {
-        r[0] = point[0] / view.width;
-        r[0] = 1.0 - (point[1] / view.height);
-        r[2] = point[2];
-        return r;
-    },
-
-    screen_to_world: function(r, camera, point, view)
-    {
-        var t = gb.vec3.tmp();
-        t[0] = 2.0 * point[0] / view.width - 1.0;
-        t[1] = -2.0 * point[1] / view.height + 1.0;
-        t[2] = point[2];
-            
-        var inv = gb.mat4.tmp();
-        gb.mat4.inverse(inv, camera.view_projection);
-        gb.mat4.mul_projection(r, inv, t);
-        //gb.mat4.mul_point(r, inv, t);
-    },
 }
 //DEBUG
 gb.gl_draw = 
@@ -3083,66 +1776,6 @@ gb.gl_draw =
 	},
 }
 //END
-gb.Sound = function()
-{
-	this.data;
-	this.volume;
-	//this.src;??
-}
-
-gb.audio = 
-{
-	ctx: null,
-	decode_count: 0,
-	//oscillator: null,
-	//gain: null,
-
-	init: function()
-	{
-		try 
-		{
-		    window.AudioContext = window.AudioContext || window.webkitAudioContext;
-		    this.ctx = new AudioContext();
-		}
-		catch(e) 
-		{
-		    console.error('Web Audio API could not be initialised: ' + e);
-		}
-	},
-
-	/*
-	decode: function(sounds)
-	{
-		this.decode_count = sounds.length;
-		for(var i = 0; i < this.decode_count; ++i)
-		{
-			this.ctx.decodeAudio(sounds[i].buffer, on_decode);
-		}
-	},
-
-	on_decode: function(n, buffer)
-	{
-		this.decode_count--;
-		if(this.decode_count === 0)
-		{
-			gb.load_complete(1);
-		}
-	}
-
-	play: function(s)
-	{
-		var src = this.ctx.createBufferSource();
-		src.buffer = s.buffer;
-		src.connect(this.ctx.destination);
-		src.start(0);
-	},
-
-	cross_face: function(s)
-	{
-
-	},
-	*/
-}
 gb.Touch = function()
 {
 	this.id = -1;
@@ -3161,6 +1794,9 @@ gb.KeyState =
 gb.input = 
 {
 	mouse_position: new gb.Vec3(),
+
+	_mdy:0,
+	_lmdy:0,
 	mouse_scroll: 0,
 
 	touches: [],
@@ -3212,9 +1848,18 @@ gb.input =
 		var _t = gb.input;
 		for(var i = 0; i < 256; ++i)
 		{
-			var k = _t.keys[i];
-			if(k === gb.KeyState.DOWN) _t.keys[k] = gb.KeyState.HELD;
-			else if(_t.keys[k] === gb.KeyState.UP) _t.keys[k] = gb.KeyState.RELEASED;
+			if(_t.keys[i] === gb.KeyState.DOWN) _t.keys[i] = gb.KeyState.HELD;
+			else if(_t.keys[i] === gb.KeyState.UP) _t.keys[i] = gb.KeyState.RELEASED;
+		}
+
+		if(_t._mdy === _t._ldy)
+		{
+			_t.mouse_scroll = 0;
+		}
+		else
+		{
+			_t.mouse_scroll = _t._mdy;
+			_t._ldy = _t._mdy;
 		}
 	},
 
@@ -3264,7 +1909,7 @@ gb.input =
 	},
 	mouse_wheel: function(e)
 	{
-		gb.input.mouse_scroll = e.deltaY;
+		gb.input._mdy = e.deltaY;
 	},
 
 	device_motion: function(e)
@@ -3376,102 +2021,6 @@ gb.random =
 		r[3] = Math.random() * (max_a - min_a) + min_a;
 	},
 }
-gb.Asset_Group = function()
-{
-    this.shaders = {};
-    this.meshes = {};
-    this.textures = {};
-    this.sounds = {};
-}
-gb.load_asset_group = function(url, asset_group, on_load, on_progress)
-{
-	var request = new XMLHttpRequest();
-    request.open('GET', url, true);
-    request.onload = gb.on_asset_load;
-    request.onprogress = on_progress;
-    request.responseType = 'arraybuffer';
-    request.upload.asset_group = asset_group; //hack
-    request.upload.callback = on_load;
-    request.send();
-    //console.log(request);
-}
-gb.on_asset_load = function(e)
-{
-	// NOTE: asset data encoded in little endian (x86)
-    if(e.target.status === 200)
-    {
-        var s = gb.serialize;
-        var br = new gb.Binary_Reader(e.target.response);
-        var ag = e.target.upload.asset_group;
-
-        //console.log(ag);
-
-        var header = s.r_i32_array(br, 3);
-        var n_shaders = header[0];
-        var n_meshes = header[1];
-        var n_textures = header[2];
-        //var n_sounds = header[3];
-
-        //DEBUG
-        console.log("Shaders: " + n_shaders);
-        console.log("Meshes: " + n_meshes);
-        console.log("Textures: " + n_textures);
-        //console.log("Sounds: " + n_sounds);
-        //END
-
-        for(var i = 0; i < n_shaders; ++i)
-        {
-        	var name = s.r_string(br);
-            ag.shaders[name] = s.r_shader(br);
-        }
-
-        for(var i = 0; i < n_meshes; ++i)
-        {
-        	var name = s.r_string(br);
-            ag.meshes[name] = s.r_mesh(br);
-        }
-        
-        //test pvrtc / dds
-        if(gb.webgl.extensions.dxt === true)
-        {
-            for(var i = 0; i < n_textures; ++i)
-            {
-            	var name = s.r_string(br);
-                ag.textures[name] = s.r_dds(br);
-            }
-        }
-
-
-        /*
-        //test wav / ogg
-        for(var i = 0; i < n_sounds; ++i)
-            s.r_wav(br);
-        */
-              
-        e.target.upload.callback(ag);    
-    }
-    else
-    {
-        console.error("Resource failed to load");
-    }
-}
-gb.link_asset_group = function(asset_group, callback)
-{
-    for(var s in asset_group.shaders)
-    {
-        gb.webgl.link_shader(asset_group.shaders[s]);
-    }
-    for(var m in asset_group.meshes)
-    {
-        gb.webgl.link_mesh(asset_group.meshes[m]);
-    }
-    for(var t in asset_group.textures)
-    {
-        gb.webgl.link_texture(asset_group.textures[t]);
-    }
-    //audio
-    callback();
-}
 gb.Tween = function()
 {
 	this.from = new Float32Array(4);
@@ -3529,31 +2078,8 @@ gb.animate =
 }
 
 var focus = true;
-var assets;
-var alpha;
-var camera;
-var texture;
-var shader;
-var rotation;
-var render_target;
-
-var scene;
-var bob;
-var bounds;
-var hit;
-var ray;
-var curve;
 
 window.addEventListener('load', init, false);
-
-var RenderGroup = function()
-{
-	//this.shader;
-	//this.textures = [null,null,null,null,null,null,null,null];
-	this.entities = [];
-}
-var render_group;
-
 
 function init()
 {
@@ -3562,45 +2088,13 @@ function init()
 	{
 		keycodes: [0,1],
 	});
-	/*
 	var canvas = gb.new_canvas(gb.dom.find('.container'));
 	gb.canvas.set_context(canvas);
-	*/
 	
-	gb.audio.init();
-
-	gb.webgl.init(gb.dom.find('.container'),
-	{
-		resolution: 1,
-		alpha: false,
-		depth: true,
-		stencil: false,
-		antialias: false,
-		premultipliedAlpha: true,
-		preserveDrawingBuffer: false,
-	});
-
-	//DEBUG
-	gb.gl_draw.init({buffer_size: 4096});
-	//END
-
-	assets = new gb.Asset_Group();
-	if(gb.webgl.extensions.dds !== null)
-	{
-		gb.load_asset_group("assets.gl", assets, load_complete, load_progress);
-	}
-
-	//document.body.addEventListener('touchmove', function(e) { e.preventDefault(); }, false); //scrolljack
 	window.onfocus = on_focus;
 	window.onblur = on_blur;
 
-	//update_canvas(0);
-}
-
-function update_canvas(t)
-{
-	gb.canvas.circle(gb.vec3.tmp(100,100), 50);
-	gb.canvas.stroke("#00ff00",5);
+	requestAnimationFrame(upA);
 }
 
 function on_focus(e)
@@ -3614,105 +2108,18 @@ function on_blur(e)
 	focus = false;
 }
 
-function load_progress(e)
-{
-	var percent = e.loaded / e.total;
-}
-function load_complete(asset_group)
-{
-	gb.link_asset_group(asset_group, link_complete);	
-}
-function link_complete()
-{
-	scene = new gb.Scene();
-	
-	bob = gb.new_entity(assets.meshes.cube, scene);
-	
-	texture = assets.textures.dxt5;
-	shader = assets.shaders.flat;
-
-	camera = gb.new_camera();
-	//camera.fov = 60;
-	gb.scene.add_camera(scene, camera);
-
-	render_group = new RenderGroup();
-	render_group.entities.push(bob);
-
-	rotation = 0;
-	bounds = new gb.AABB();
-	gb.mesh.get_bounds(bounds, bob.mesh);
-
-	hit = new gb.Hit();
-	ray = new gb.Ray();
-	gb.ray.set(ray, gb.vec3.tmp(0,0,1), gb.vec3.tmp(0,0,-1));
-
-	curve = new gb.Bezier();
-	gb.vec3.set(curve.a, 0,0,0);
-	gb.vec3.set(curve.b, 0.3,0.0,0);
-	gb.vec3.set(curve.c, 0.5,0.5,0);
-	gb.vec3.set(curve.d, 0.5,0,0);
-
-
-	render_target = gb.new_render_target(gb.webgl.view, 1 | 2);
-	requestAnimationFrame(upA);
-}
-
 
 
 function update(timestamp)
 {
 	gb.stack.clear_all();
 
-	/*
-	var touch = gb.input.touches[0];
-	if(touch.touching)
-	{
-		position.eq(gb.screen_to_world(camera, touch.position, gb.view));
-	}
-	*/
-
-	rotation += 1.0 * gb.time.dt;
-
-	//gb.entity.set_position(bob, 0,0,-1.0);
-	gb.entity.set_rotation(bob, rotation * 10, rotation * 30, rotation * 10);
-
-	gb.entity.set_position(camera.entity, 0,0,2);
-	//gb.entity.set_position(camera.entity, 1.5,0.2,2);
-	//gb.entity.set_rotation(camera.entity, 0,43,0);
-
-
-	gb.scene.update(scene);
-
-	//gb.intersect.aabb_ray(hit, t_bounds, ray);
-
-	gb.gl_draw.clear();
-	//gb.gl_draw.ray(ray);
-	
-	gb.gl_draw.set_color(0.2,0.3,0.4,0.5);
-	gb.gl_draw.wire_mesh(bob.mesh, bob.world_matrix);
-	//gb.intersect.mesh_ray(hit, bob.mesh, bob.world_matrix, ray);
-	
-	gb.gl_draw.set_color(1.0,0.2,0.2,1.0);
-
-	var zero = gb.vec3.tmp(0,0,0);
-	var ws_pos = gb.vec3.tmp(0,0,0);
-	for(var i = 0; i < gb.input.MAX_TOUCHES; ++i)
-	{
-		var touch = gb.input.touches[i];
-		if(touch.touching === false) continue;
-		gb.webgl.screen_to_world(ws_pos, camera, touch.position, gb.webgl.view);
-		gb.gl_draw.line(zero, ws_pos);
-	}
-	/*
-	if(hit.hit === true)
-	{
-		gb.gl_draw.set_color(0.8,0.8,0.8,1.0);
-		gb.gl_draw.hit(hit);
-	}
-	*/
+	gb.canvas.clear("#220022");
+	//gb.canvas.circle(gb.vec3.tmp(100,100), 50);
+	//gb.canvas.stroke("#00ff00",5);
+	gb.canvas.rectf(0,0,100,100, "#00ff00");
 
 	gb.input.update();
-
 }
 
 
@@ -3726,49 +2133,20 @@ function upA(t)
 	}
 
 	update(t);
-	render(t);
-	
-	requestAnimationFrame(display);
+	requestAnimationFrame(upB);
 }
 
-function draw_objects(group, shader, camera)
-{
-	gb.webgl.set_shader(shader);
 
-	var mvp = gb.mat4.tmp();
-	var ne = group.entities.length;
-	for(var i = 0; i < ne; ++i)
+function upB(t)
+{
+	gb.time.update(t);
+	if(gb.time.paused || focus === false)
 	{
-		var e = group.entities[i];
-		gb.webgl.link_attributes(shader, e.mesh);
-		gb.mat4.mul(mvp, e.world_matrix, camera.view_projection);
-		gb.webgl.set_shader_mat4(shader, "mvp", mvp);
-		//gb.webgl.draw_mesh_elements(e.mesh);
-		gb.webgl.draw_mesh_arrays(e.mesh);
+		requestAnimationFrame(upB);
+		return;
 	}
-}
 
-function render(t)
-{
-	var r = gb.webgl;
-
-	r.set_render_target(render_target, true);
-	//draw_objects(render_group, shader, camera);
-	gb.gl_draw.draw(camera);
-}
-
-function display(t)
-{
-	var r = gb.webgl;
-	var s = r.screen_shader;
-	var m = r.screen_mesh;
-	
-	r.ctx.disable(r.ctx.DEPTH_TEST);
-	r.set_render_target(null);
-	r.set_shader(s);
-	r.link_attributes(s, m);
-	r.set_shader_texture(s, "tex", render_target.color, 0);
-	r.draw_mesh_elements(m);
-
+	update(t);
 	requestAnimationFrame(upA);
 }
+

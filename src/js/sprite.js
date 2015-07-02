@@ -4,68 +4,93 @@ gb.Sprite = function()
 	this.end;
 	this.playing;
 	this.speed;
-	this.t;
-	this.texture;
-	this.mesh;
-	this.rect = gb.Rect();
+	this.frame;
+	this.loop_count;
+	this.rows;
+	this.cols;
+	//this.mesh;
 }
 
-gb.new_sprite = function(mesh, texture, cols, rows)
+gb.new_sprite = function(texture, cols, rows)
 {
 	var s = new gb.Sprite();
 	s.start = 0;
 	s.end = 0;
 	s.playing = false;
 	s.speed = 0;
-	s.t = 0;
-	s.texture = texture;
-	s.mesh = mesh;
-	var w = texture.width / cols;
-	var h = texture.height / rows;
-	gb.rect.set(s.rect, 0,0,w,h);
+	s.frame = 0;
+	s.loop_count = 0;
+	s.rows = 0;
+	s.cols = 0;
+	s.frame_skip = 0;
+	s.mesh = gb.mesh_tools.quad(1,1);
+	s.mesh.vertex_buffer.update_mode = gb.webgl.ctx.DYNAMIC_DRAW;
+	s.frame_width = (texture.width / cols) / texture.width; 
+	s.frame_height= (texture.height / rows) / texture.height;
 	return s;
 }
 
 gb.sprite = 
 {
-	set_texture: function(s, t, cols, rows)
+	set_animation: function(s, start, end, speed, loops)
 	{
-		var w = t.width / cols;
-		var h = t.height / rows;
-		gb.rect.set(0,0,w,h);
+		s.start = start;
+		s.frame = start;
+		s.end = end;
+		s.speed = speed;
+		s.loops = loops;
+	},
+	play: function(s)
+	{
+		s.playing = true;
+		s.frame_skip = s.speed;
+		s.frame = s.start;
 	},
 	update: function(s, dt)
 	{
-		s.t += dt * s.speed;
-		if(s.t > 1.0)
+		if (!playing) return;
+
+		s.frame_skip -=1 ;
+		if(s.frame_skip == 0)
 		{
-			var w = s.width;
-			s.x += w;
-			if(s.x + w > s.texture.width) 
+			s.frame++;
+			s.frame_skip = speed;
+
+			if(s.frame == s.end)
 			{
-				s.x = 0;
-				s.y += s.height;
-				if(s.y + s.height > s.texture.height)
-				{
-					s.y = 0;
-				}
+				s.loop_count -= 1;
+				if(s.loop_count === 0) // -1 = continuous loop
+					s.playing = false;
+
+				s.frame = s.start;
 			}
 
-			s.t = 0;
+			var ix = s.frame % s.cols;
+			var iy = s.frame / s.cols;
+
+			var x = ix * s.frame_width;
+			var y = iy * s.frame_height;
+			var w = x + s.frame_width;
+			var h = y + s.frame_height;
+
+			var stride = gb.mesh.get_stride(s.mesh, 3);
+			var vb = s.mesh.vertex_buffer.data;
+
+			var i = stride;
+			vb[i] = x;
+			vb[i+1] = y;
+
+			i += stride;
+			vb[i] = w;
+			vb[i+1] = y;
+
+			i += stride;
+			vb[i] = x;
+			vb[i+1] = h;
+
+			i += stride;
+			vb[i] = w;
+			vb[i+1] = h;
 		}
-
-		var vb = s.mesh.vertex_buffer.data;
-
-		vb[4] = s.rect.x;
-		vb[5] = s.rect.y;
-
-		vb[9] = s.rect.x + s.rect.width;
-		vb[10] = s.rect.y;
-
-		vb[14] = s.rect.x;
-		vb[15] = s.rect.y + s.rect.height;
-
-		vb[19] = s.rect.x + s.rect.width;
-		vb[20] = s.rect.y + s.rect.height;
 	},
 }

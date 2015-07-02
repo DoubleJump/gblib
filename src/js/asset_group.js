@@ -45,21 +45,30 @@ gb.on_asset_load = function(e)
         {
         	var name = s.r_string(br);
             ag.shaders[name] = s.r_shader(br);
+            //DEBUG
+            console.log("Loaded Shader: " + name);
+            //END
         }
 
         for(var i = 0; i < n_meshes; ++i)
         {
         	var name = s.r_string(br);
             ag.meshes[name] = s.r_mesh(br);
+             //DEBUG
+            console.log("Loaded Mesh: " + name);
+            //END
         }
         
         //test pvrtc / dds
-        if(gb.webgl.extensions.dxt === true)
+        if(gb.webgl.extensions.dxt !== null)
         {
             for(var i = 0; i < n_textures; ++i)
             {
             	var name = s.r_string(br);
                 ag.textures[name] = s.r_dds(br);
+                 //DEBUG
+                console.log("Loaded Texture: " + name);
+                //END
             }
         }
 

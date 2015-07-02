@@ -16,6 +16,9 @@ gb.KeyState =
 gb.input = 
 {
 	mouse_position: new gb.Vec3(),
+
+	_mdy:0,
+	_lmdy:0,
 	mouse_scroll: 0,
 
 	touches: [],
@@ -70,6 +73,16 @@ gb.input =
 			if(_t.keys[i] === gb.KeyState.DOWN) _t.keys[i] = gb.KeyState.HELD;
 			else if(_t.keys[i] === gb.KeyState.UP) _t.keys[i] = gb.KeyState.RELEASED;
 		}
+
+		if(_t._mdy === _t._ldy)
+		{
+			_t.mouse_scroll = 0;
+		}
+		else
+		{
+			_t.mouse_scroll = _t._mdy;
+			_t._ldy = _t._mdy;
+		}
 	},
 
 	up: function(code)
@@ -118,7 +131,7 @@ gb.input =
 	},
 	mouse_wheel: function(e)
 	{
-		gb.input.mouse_scroll = e.deltaY;
+		gb.input._mdy = e.deltaY;
 	},
 
 	device_motion: function(e)

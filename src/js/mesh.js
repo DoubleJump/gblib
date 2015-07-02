@@ -57,11 +57,12 @@ gb.new_mesh = function(vertex_count, vertices, mask, indices)
 }
 gb.mesh = 
 {
-	get_stride: function(m)
+	get_stride: function(m, n)
 	{
 		var stride = 0;
 		var index = 1;
-		for(var i = 0; i < 5; ++i)
+		n = n || 5;
+		for(var i = 0; i < n; ++i)
 		{
 			var mr = (index & m.vertex_buffer.mask) === index;
 			stride += mr * (gb.vertex_attributes[i].size);

@@ -1383,6 +1383,8 @@ gb.new_canvas = function(container, config)
     var canvas = gb.dom.insert('canvas', container);
 	var width = container.offsetWidth;
     var height = container.offsetHeight;
+    canvas.width = width;
+    canvas.height = height;
 	c.view = new gb.Rect(0,0,width,height);
 	c.ctx = canvas.getContext('2d');
 	return c;
@@ -1399,11 +1401,10 @@ gb.canvas =
 		gb.canvas.view = canvas.view;
 	},
 
-	clear: function(color)
+	clear: function()
 	{
 		var ctx = gb.canvas.ctx;
 		var v = gb.canvas.view;
-		ctx.fillStyle = color;
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.clearRect(v.x, v.y, v.width, v.height);
 	},
@@ -1439,8 +1440,8 @@ gb.canvas =
 	{
 		var ctx = gb.canvas.ctx;
 		ctx.fillStyle = color;
-		ctx.moveTo(start.x, start.y);
-		ctx.lineTo(end.x, end.y);
+		ctx.moveTo(start[0], start[1]);
+		ctx.lineTo(end[0], end[1]);
 	},
 	polygon: function(points)
 	{
@@ -1448,20 +1449,20 @@ gb.canvas =
 		var n = points.length;
 		var p = points[0];
 		ctx.beginPath();
-		ctx.moveTo(p.x, p.y);
+		ctx.moveTo(p[0], p[1]);
 		for(var i = 1; i < n; ++i)
 		{
 			p = points[i];
-		    ctx.lineTo(p.x, p.y);
+		    ctx.lineTo(p[0], p[1]);
 		}
 	},
 	circle: function(pos, radius)
 	{
-		gb.canvas.ctx.arc(pos.x, pos.y, radius, 0, 360 * gb.math.DEG2RAD, true);
+		gb.canvas.ctx.arc(pos[0], pos[1], radius, 0, 360 * gb.math.DEG2RAD, true);
 	},
 	arc: function(pos, radius, start, end, cw)
 	{
-		gb.canvas.ctx.arc(pos.x, pos.y, radius, start * gb.math.DEG2RAD, end * gb.math.RAD2DEG, cw);
+		gb.canvas.ctx.arc(pos[0], pos[1], radius, start * gb.math.DEG2RAD, end * gb.math.RAD2DEG, cw);
 	},
 	curve: function()
 	{
@@ -2000,6 +2001,11 @@ gb.random =
 	{
     	return Math.random() * (max - min) + min;
 	},
+	vec2: function(r, min_x, max_x, min_y, max_y)
+	{
+		r[0] = Math.random() * (max_x - min_x) + min_x;
+		r[1] = Math.random() * (max_y - min_x) + min_y;
+	},
 	vec3: function(r, min_x, max_x, min_y, max_y, min_z, max_z)
 	{
 		r[0] = Math.random() * (max_x - min_x) + min_x;
@@ -2078,8 +2084,23 @@ gb.animate =
 }
 
 var focus = true;
+var flow_dir;
+var flow_speed;
+var dash_count;
+var dash_spread;
+var dashes;
+var dash_color;
+var dash_length;
 
 window.addEventListener('load', init, false);
+
+var Dash = function()
+{
+	this.pos;
+	this.speed;
+	this.color;
+	this.depth;
+}
 
 function init()
 {
@@ -2093,6 +2114,25 @@ function init()
 	
 	window.onfocus = on_focus;
 	window.onblur = on_blur;
+
+	var view = gb.canvas.view;
+
+	flow_dir = new gb.Vec2(0.707,0.707);
+	flow_speed = 50;
+	dash_count = 10;
+	dash_spread = 600;
+	dash_length = 300; //view / 3;
+	dash_color = "#ffffff";
+
+	dashes = [];
+	for(var i = 0; i < dash_count; ++i)
+	{
+		var d = new Dash();
+		d.pos = new gb.Vec2(0,0);
+		gb.random.vec2(d.pos, 0, dash_spread, 0, dash_spread);
+		d.depth = gb.random.float(1,4);
+		dashes.push(d);
+	}
 
 	requestAnimationFrame(upA);
 }
@@ -2112,12 +2152,48 @@ function on_blur(e)
 
 function update(timestamp)
 {
+	var dt = gb.time.dt;
 	gb.stack.clear_all();
 
-	gb.canvas.clear("#220022");
-	//gb.canvas.circle(gb.vec3.tmp(100,100), 50);
-	//gb.canvas.stroke("#00ff00",5);
-	gb.canvas.rectf(0,0,100,100, "#00ff00");
+	var ctx = gb.canvas.ctx;
+	ctx.lineCap = "round";
+
+	var view = gb.canvas.view;
+
+	gb.canvas.clear();
+
+	var end = gb.vec2.tmp();
+	for(var i = 0; i < dash_count; ++i)
+	{
+		var d = dashes[i];
+		var inv_depth = 1 / d.depth;
+		d.pos[0] += flow_dir[0] * flow_speed * inv_depth * dt;
+		d.pos[1] += flow_dir[1] * flow_speed * inv_depth * dt;
+		end[0] = d.pos[0] + flow_dir[0] * dash_length;
+		end[1] = d.pos[1] + flow_dir[1] * dash_length;
+		
+		ctx.fillStyle = "#ffffff";//d.color;
+		ctx.beginPath();
+		ctx.lineWidth = 30 * inv_depth;
+		ctx.moveTo(d.pos[0], d.pos[1]);
+		ctx.lineTo(end[0], end[1]);
+		ctx.stroke();
+
+		if(d.pos[0] > view.width || d.pos[1] > view.height) 
+		{
+			gb.random.vec2(d.pos, 0, dash_spread, 0, dash_spread);
+		}
+
+	}
+
+	/*
+	ctx.fillStyle = "#ffffff";
+	ctx.beginPath();
+	ctx.lineWidth = 10;
+	ctx.moveTo(0, 0);
+	ctx.lineTo(50,50);
+	ctx.stroke();
+	*/
 
 	gb.input.update();
 }

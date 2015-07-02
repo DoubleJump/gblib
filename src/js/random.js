@@ -8,6 +8,11 @@ gb.random =
 	{
     	return Math.random() * (max - min) + min;
 	},
+	vec2: function(r, min_x, max_x, min_y, max_y)
+	{
+		r[0] = Math.random() * (max_x - min_x) + min_x;
+		r[1] = Math.random() * (max_y - min_x) + min_y;
+	},
 	vec3: function(r, min_x, max_x, min_y, max_y, min_z, max_z)
 	{
 		r[0] = Math.random() * (max_x - min_x) + min_x;

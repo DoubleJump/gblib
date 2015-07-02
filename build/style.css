@@ -8,12 +8,8 @@ html, body
 }
 .container
 {
-	/*
 	width:100%;
 	height:100%;
-	*/
-	width: 256px;
-	height: 256px;
 	
 	margin: auto;
 	background: rgb(122,122,122);

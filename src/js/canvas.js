@@ -9,6 +9,8 @@ gb.new_canvas = function(container, config)
     var canvas = gb.dom.insert('canvas', container);
 	var width = container.offsetWidth;
     var height = container.offsetHeight;
+    canvas.width = width;
+    canvas.height = height;
 	c.view = new gb.Rect(0,0,width,height);
 	c.ctx = canvas.getContext('2d');
 	return c;
@@ -25,11 +27,10 @@ gb.canvas =
 		gb.canvas.view = canvas.view;
 	},
 
-	clear: function(color)
+	clear: function()
 	{
 		var ctx = gb.canvas.ctx;
 		var v = gb.canvas.view;
-		ctx.fillStyle = color;
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.clearRect(v.x, v.y, v.width, v.height);
 	},
@@ -65,8 +66,8 @@ gb.canvas =
 	{
 		var ctx = gb.canvas.ctx;
 		ctx.fillStyle = color;
-		ctx.moveTo(start.x, start.y);
-		ctx.lineTo(end.x, end.y);
+		ctx.moveTo(start[0], start[1]);
+		ctx.lineTo(end[0], end[1]);
 	},
 	polygon: function(points)
 	{
@@ -74,20 +75,20 @@ gb.canvas =
 		var n = points.length;
 		var p = points[0];
 		ctx.beginPath();
-		ctx.moveTo(p.x, p.y);
+		ctx.moveTo(p[0], p[1]);
 		for(var i = 1; i < n; ++i)
 		{
 			p = points[i];
-		    ctx.lineTo(p.x, p.y);
+		    ctx.lineTo(p[0], p[1]);
 		}
 	},
 	circle: function(pos, radius)
 	{
-		gb.canvas.ctx.arc(pos.x, pos.y, radius, 0, 360 * gb.math.DEG2RAD, true);
+		gb.canvas.ctx.arc(pos[0], pos[1], radius, 0, 360 * gb.math.DEG2RAD, true);
 	},
 	arc: function(pos, radius, start, end, cw)
 	{
-		gb.canvas.ctx.arc(pos.x, pos.y, radius, start * gb.math.DEG2RAD, end * gb.math.RAD2DEG, cw);
+		gb.canvas.ctx.arc(pos[0], pos[1], radius, start * gb.math.DEG2RAD, end * gb.math.RAD2DEG, cw);
 	},
 	curve: function()
 	{

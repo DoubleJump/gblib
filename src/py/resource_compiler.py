@@ -9,9 +9,13 @@ import argparse
 from struct import pack
 
 
-def compile_texture_file(name, src_file, writer):
+def compile_texture_file(name, ftype, src_file, writer):
 	b = src_file.read()
 	write_str(writer, name)
+	if ftype == "dds":
+		write_int(writer, 0);
+	elif ftype == "pvr":
+		write_int(writer, 1);
 	write_bytes(writer, b)
 	return True
 
@@ -128,6 +132,8 @@ def main(argv = None):
 				meshes.append(asset)
 			elif asset.file_type == "dds":
 				textures.append(asset)
+			elif asset.file_type == "pvr":
+				textures.append(asset)
 
 	write_int(writer, len(shaders))
 	write_int(writer, len(meshes))
@@ -153,7 +159,7 @@ def main(argv = None):
 
 	for t in textures:
 		src = open(t.path, "rb")
-		if not compile_texture_file(t.name, src, writer):
+		if not compile_texture_file(t.name, t.file_type, src, writer):
 			print "Error compiling texture: " + t.name + " ... exiting"
 			src.close()
 			break

@@ -34,29 +34,30 @@ gb.Mesh = function()
 	this.index_count;
 	this.dirty;
 }
-gb.new_mesh = function(vertex_count, vertices, mask, indices)
-{
-    var m = new gb.Mesh();
-    m.layout = gb.webgl.ctx.TRIANGLES;
 
-    var vb = new gb.Vertex_Buffer();
-    vb.data = vertices;
-    vb.mask = mask;
-    vb.update_mode = gb.webgl.ctx.STATIC_DRAW;
-    m.vertex_buffer = vb;
-    m.vertex_count = vertex_count;
-
-    var ib = new gb.Index_Buffer();
-    ib.data = indices;
-    ib.update_mode = gb.webgl.ctx.STATIC_DRAW;    
-    m.index_buffer = ib;
-
-    m.index_count = indices.length;
-    m.dirty = true;
-    return m;
-}
 gb.mesh = 
 {
+	new: function(vertex_count, vertices, mask, indices)
+	{
+	    var m = new gb.Mesh();
+	    m.layout = gb.webgl.ctx.TRIANGLES;
+
+	    var vb = new gb.Vertex_Buffer();
+	    vb.data = vertices;
+	    vb.mask = mask;
+	    vb.update_mode = gb.webgl.ctx.STATIC_DRAW;
+	    m.vertex_buffer = vb;
+	    m.vertex_count = vertex_count;
+
+	    var ib = new gb.Index_Buffer();
+	    ib.data = indices;
+	    ib.update_mode = gb.webgl.ctx.STATIC_DRAW;    
+	    m.index_buffer = ib;
+
+	    m.index_count = indices.length;
+	    m.dirty = true;
+	    return m;
+	},
 	get_stride: function(m, n)
 	{
 		var stride = 0;
@@ -103,5 +104,5 @@ gb.serialize.r_mesh = function(br)
 	var h = s.r_i32_array(br, 4);
 	var vertices = s.r_f32_array(br, h[1]);
 	var indices = s.r_u32_array(br, h[2]);
-	return gb.new_mesh(h[0], vertices, h[3], indices);
+	return gb.mesh.new(h[0], vertices, h[3], indices);
 }

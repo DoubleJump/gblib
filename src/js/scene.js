@@ -7,18 +7,22 @@ gb.Entity = function()
 	this.layer = 0;
 	this.dirty = true;
 
-	this.position = new gb.Vec3(0,0,0);
-	this.scale = new gb.Vec3(1,1,1);
-	this.rotation = new gb.Quat(0,0,0,1);
+	this.position = gb.vec3.new(0,0,0);
+	this.scale = gb.vec3.new(1,1,1);
+	this.rotation = gb.quat.new(0,0,0,1);
 
-	this.local_matrix = new gb.Mat4();
-	this.world_matrix = new gb.Mat4();
-	this.bounds = new gb.AABB();
+	this.local_matrix = gb.mat4.new();
+	this.world_matrix = gb.mat4.new();
+	this.bounds = gb.aabb.new();
 
 	this.mesh = null;
 }
 gb.entity = 
 {
+	new: function()
+	{
+		return new gb.Entity();
+	},
 	set_active: function(e, val)
 	{
 		e.active = val;
@@ -75,25 +79,25 @@ gb.entity =
 		e.dirty = true;
 	},
 }
-gb.new_entity = function(mesh, scene)
-{
-	var e = new gb.Entity();
-	e.mesh = mesh;
-	gb.scene.add_entity(scene, e);
-	return e;
-}
+
 
 gb.Scene = function()
 {
 	this.num_entities = 0;
 	this.num_cameras = 0;
+	this.num_sprites = 0;
 	this.entities = [];
 	this.cameras = [];
+	this.sprites = [];
 	//this.render_groups: [],
 }
 gb.scene = 
 {
-	add_entity: function(s, e, rg)
+	new: function()
+	{
+		return new gb.Scene();
+	},
+	add_entity: function(s, e)
 	{
 		s.entities.push(e);
 		s.num_entities++;
@@ -106,6 +110,14 @@ gb.scene =
 		s.num_entities++;
 		s.num_cameras++;
     	gb.camera.update_projection(c, gb.webgl.view);
+	},
+
+	add_sprite: function(s, spr)
+	{
+		s.sprites.push(spr);
+		s.entities.push(spr.entity);
+		s.num_entities++;
+		s.num_sprites++;
 	},
 
 	update_camera: function(c)
@@ -135,15 +147,20 @@ gb.scene =
 
 	update: function(s)
 	{
-		var ne = s.num_entities;
-		for(var i = 0; i < ne; ++i) 
+		var n = s.num_entities;
+		for(var i = 0; i < n; ++i) 
 		{
 			gb.scene.update_entity(s.entities[i]);
 		}
-		var nc = s.num_cameras;
-		for(var i = 0; i < nc; ++i)
+		n = s.num_cameras;
+		for(var i = 0; i < n; ++i)
 		{
 			gb.scene.update_camera(s.cameras[i]);
+		}
+		n = s.num_sprites;
+		for(var i = 0; i < n; ++i)
+		{
+			gb.sprite.update(s.sprites[i]);
 		}
 	},
 }

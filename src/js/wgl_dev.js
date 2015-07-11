@@ -2,7 +2,9 @@
 TODO: 
 - fire and forget animations
 - deferred rendering
+- PBR
 - basic sound
+- mesh gen
 - particles
 */
 
@@ -37,28 +39,32 @@ TODO:
 //INCLUDE sprite.js
 //INCLUDE animate.js
 
-var focus = true;
-var assets;
-var alpha;
-var camera;
-var texture;
-var shader;
-var rotation;
-var render_target;
 
-var scene;
+var v3 = gb.vec3;
+var scene = gb.scene;
+var camera = gb.camera;
+var entity = gb.entity;
+var assets;
+
+var focus = true;
+var alpha;
+
+var construct;
+var viewer;
+var texture;
+var rotation;
 var bob;
-var bounds;
-var hit;
-var ray;
+var render_target;
+var anim;
 var curve;
-var sprite;
+
+
 
 window.addEventListener('load', init, false);
 
 var RenderGroup = function()
 {
-	//this.shader;
+	this.shader;
 	//this.textures = [null,null,null,null,null,null,null,null];
 	this.entities = [];
 }
@@ -96,7 +102,6 @@ function init()
 		gb.load_asset_group("assets.gl", assets, load_complete, load_progress);
 	}
 
-	//document.body.addEventListener('touchmove', function(e) { e.preventDefault(); }, false); //scrolljack
 	window.onfocus = on_focus;
 	window.onblur = on_blur;
 }
@@ -122,37 +127,35 @@ function load_complete(asset_group)
 }
 function link_complete()
 {
-	scene = new gb.Scene();
-	
-	bob = gb.new_entity(assets.meshes.cube, scene);
-	
-	texture = assets.textures.dxt5;
-	shader = assets.shaders.flat;
+	render_target = gb.render_target.new(gb.webgl.view, 1 | 2);
 
-	camera = gb.new_camera();
-	//camera.fov = 60;
-	gb.scene.add_camera(scene, camera);
+	construct = scene.new();
+	
+	viewer = camera.new();
+	scene.add_camera(construct, viewer);
+
+	bob = entity.new(assets.meshes.cube);
+	bob.mesh = assets.meshes.cube;
+	scene.add_entity(construct, bob);
 
 	render_group = new RenderGroup();
 	render_group.entities.push(bob);
+	render_group.shader = assets.shaders.flat;
+
+	curve = gb.bezier.clamped(0.3,0.0,0.8,1.5);
+	anim = gb.animate.from_to(v3.new(1,1,1), v3.new(2,2,-3), bob.scale, 1.0, curve, v3.lerp, null);
 
 	rotation = 0;
-	bounds = new gb.AABB();
-	gb.mesh.get_bounds(bounds, bob.mesh);
 
-	hit = new gb.Hit();
-	ray = new gb.Ray();
-	gb.ray.set(ray, gb.vec3.tmp(0,0,1), gb.vec3.tmp(0,0,-1));
+	//sprite = gb.new_sprite(texture, 8,8);
+    //gb.webgl.link_mesh(sprite.entity.mesh);
 
-	curve = new gb.Bezier();
-	gb.vec3.set(curve.a, 0,0,0);
-	gb.vec3.set(curve.b, 0.3,0.0,0);
-	gb.vec3.set(curve.c, 0.5,0.5,0);
-	gb.vec3.set(curve.d, 0.5,0,0);
+	//gb.sprite.set_animation(sprite, 0, 4, 1.0, -1);
+	//gb.scene.add_sprite(scene, sprite);
+	//gb.sprite.play(sprite);
+	//render_group.entities.push(sprite.entity);
 
-	sprite = gb.new_sprite(texture, 8,8);
 
-	render_target = gb.new_render_target(gb.webgl.view, 1 | 2);
 	requestAnimationFrame(upA);
 }
 
@@ -162,56 +165,19 @@ function update(timestamp)
 {
 	gb.stack.clear_all();
 
-	/*
-	var touch = gb.input.touches[0];
-	if(touch.touching)
-	{
-		position.eq(gb.screen_to_world(camera, touch.position, gb.view));
-	}
-	*/
-
 	rotation += 1.0 * gb.time.dt;
 
-	//gb.entity.set_position(bob, 0,0,-1.0);
-	gb.entity.set_rotation(bob, rotation * 10, rotation * 30, rotation * 10);
+	entity.set_position(viewer.entity, 0,0,4);
 
-	gb.entity.set_position(camera.entity, 0,0,2);
-	//gb.entity.set_position(camera.entity, 1.5,0.2,2);
-	//gb.entity.set_rotation(camera.entity, 0,43,0);
+	if(gb.input.down(0))
+		gb.animate.play(anim);
 
+	scene.update(construct);
+	gb.animate.update(gb.time.dt);
 
-	gb.scene.update(scene);
-
-	//gb.intersect.aabb_ray(hit, t_bounds, ray);
-
-	gb.gl_draw.clear();
-	//gb.gl_draw.ray(ray);
-	
-	gb.gl_draw.set_color(0.2,0.3,0.4,0.5);
-	gb.gl_draw.wire_mesh(bob.mesh, bob.world_matrix);
-	//gb.intersect.mesh_ray(hit, bob.mesh, bob.world_matrix, ray);
-	
-	gb.gl_draw.set_color(1.0,0.2,0.2,1.0);
-
-	var zero = gb.vec3.tmp(0,0,0);
-	var ws_pos = gb.vec3.tmp(0,0,0);
-	for(var i = 0; i < gb.input.MAX_TOUCHES; ++i)
-	{
-		var touch = gb.input.touches[i];
-		if(touch.touching === false) continue;
-		gb.webgl.screen_to_world(ws_pos, camera, touch.position, gb.webgl.view);
-		gb.gl_draw.line(zero, ws_pos);
-	}
-	/*
-	if(hit.hit === true)
-	{
-		gb.gl_draw.set_color(0.8,0.8,0.8,1.0);
-		gb.gl_draw.hit(hit);
-	}
-	*/
+	//gb.gl_draw.clear();
 
 	gb.input.update();
-
 }
 
 
@@ -225,38 +191,54 @@ function upA(t)
 	}
 
 	update(t);
-	render(t);
-	
-	requestAnimationFrame(display);
+	render(render_target);
+	display(render_target);
+	requestAnimationFrame(upB);
+}
+function upB(t)
+{
+	gb.time.update(t);
+	if(gb.time.paused || focus === false)
+	{
+		requestAnimationFrame(upB);
+		return;
+	}
+
+	update(t);
+	render(render_target);
+	display(render_target);
+	requestAnimationFrame(upA);
 }
 
-function draw_objects(group, shader, camera)
+
+function draw_group(group, cam)
 {
-	gb.webgl.set_shader(shader);
+	var s = group.shader;
+	gb.webgl.set_shader(s);
 
 	var mvp = gb.mat4.tmp();
 	var ne = group.entities.length;
 	for(var i = 0; i < ne; ++i)
 	{
 		var e = group.entities[i];
-		gb.webgl.link_attributes(shader, e.mesh);
-		gb.mat4.mul(mvp, e.world_matrix, camera.view_projection);
-		gb.webgl.set_shader_mat4(shader, "mvp", mvp);
+		gb.webgl.link_attributes(s, e.mesh);
+		gb.mat4.mul(mvp, e.world_matrix, cam.view_projection);
+		gb.webgl.set_shader_mat4(s, "mvp", mvp);
 		//gb.webgl.draw_mesh_elements(e.mesh);
 		gb.webgl.draw_mesh_arrays(e.mesh);
 	}
 }
 
-function render(t)
+function render(target)
 {
 	var r = gb.webgl;
 
-	r.set_render_target(render_target, true);
-	draw_objects(render_group, shader, camera);
-	gb.gl_draw.draw(camera);
+	r.set_render_target(target, true);
+	draw_group(render_group, viewer);
+	gb.gl_draw.draw(viewer);
 }
 
-function display(t)
+function display(target)
 {
 	var r = gb.webgl;
 	var s = r.screen_shader;
@@ -266,8 +248,6 @@ function display(t)
 	r.set_render_target(null);
 	r.set_shader(s);
 	r.link_attributes(s, m);
-	r.set_shader_texture(s, "tex", render_target.color, 0);
+	r.set_shader_texture(s, "tex", target.color, 0);
 	r.draw_mesh_elements(m);
-
-	requestAnimationFrame(upA);
 }

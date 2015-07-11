@@ -11,8 +11,8 @@ gb.gl_draw =
 		var _t = gb.gl_draw;
 		var wgl = gb.webgl;
 		_t.offset = 0;
-		_t.color = new gb.Color(1,1,1,1);
-		_t.matrix = new gb.Mat4();
+		_t.color = gb.color.new(1,1,1,1);
+		_t.matrix = gb.mat4.new();
 
 		var m = new gb.Mesh();
 		m.layout = wgl.ctx.LINES;
@@ -30,7 +30,7 @@ gb.gl_draw =
 
         var f_src = "precision mediump float;\n varying vec4 _color;\n void main()\n {\n gl_FragColor = _color;\n }\n";
 
-        _t.shader = gb.new_shader(v_src, f_src);
+        _t.shader = gb.shader.new(v_src, f_src);
         wgl.link_shader(_t.shader);
 	    _t.mesh = m;
 	},

@@ -2,7 +2,9 @@ gb.Touch = function()
 {
 	this.id = -1;
 	this.touching = false;
-	this.position = new gb.Vec3();
+	this.position = gb.vec3.new();
+	this.last_position = gb.vec3.new();
+	this.delta = gb.vec3.new();
 }
 
 gb.KeyState = 
@@ -15,7 +17,7 @@ gb.KeyState =
 
 gb.input = 
 {
-	mouse_position: new gb.Vec3(),
+	mouse_position: new gb.vec3.new(),
 
 	_mdy:0,
 	_lmdy:0,
@@ -23,8 +25,8 @@ gb.input =
 
 	touches: [],
 	MAX_TOUCHES: 5,
-	acceleration: new gb.Vec3(),
-	angular_acceleration: new gb.Vec3(),
+	acceleration: gb.vec3.new(),
+	angular_acceleration: gb.vec3.new(),
 	rotation: new gb.Quat(),
 
 	keys: new Uint8Array(256),
@@ -161,7 +163,11 @@ gb.input =
 			{
 				var t = _t.touches[j];
 				if(t.touching === true) continue;
-				gb.vec3.set(t.position, it.screenX, it.screenY, 0);
+				var x = it.screenX;
+				var y = it.screenY;
+				gb.vec3.set(t.position, x, y, 0);
+				gb.vec3.set(t.last_position, x,y,0);
+				gb.vec3.set(t.delta, 0,0,0);
 				t.touching = true;
 				t.id = it.identifier;
 				break;
@@ -183,7 +189,13 @@ gb.input =
 				if(it.identifier === t.id)
 				{
 					t.touching = true;
-					gb.vec3.set(t.position, it.screenX, it.screenY, 0);
+					var x = it.screenX;
+					var y = it.screenY;
+					var dx = x - t.last_position[0];
+					var dy = y - t.last_position[1];
+					gb.vec3.set(t.position, x, y, 0);
+					gb.vec3.set(t.delta, dx,dy,0);
+					gb.vec3.set(t.last_position, x,y);
 					break;
 				}
 			}

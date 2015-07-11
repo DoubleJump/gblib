@@ -8,7 +8,7 @@ gb.Sprite = function()
 	this.loop_count;
 	this.rows;
 	this.cols;
-	//this.mesh;
+	this.entity;
 }
 
 gb.new_sprite = function(texture, cols, rows)
@@ -23,10 +23,12 @@ gb.new_sprite = function(texture, cols, rows)
 	s.rows = 0;
 	s.cols = 0;
 	s.frame_skip = 0;
-	s.mesh = gb.mesh_tools.quad(1,1);
-	s.mesh.vertex_buffer.update_mode = gb.webgl.ctx.DYNAMIC_DRAW;
 	s.frame_width = (texture.width / cols) / texture.width; 
 	s.frame_height= (texture.height / rows) / texture.height;
+	var e = new gb.Entity();
+	e.mesh = gb.mesh_tools.quad(1,1);
+	e.mesh.vertex_buffer.update_mode = gb.webgl.ctx.DYNAMIC_DRAW;
+	s.entity = e;
 	return s;
 }
 
@@ -48,13 +50,13 @@ gb.sprite =
 	},
 	update: function(s, dt)
 	{
-		if (!playing) return;
+		if (s.playing === false) return;
 
 		s.frame_skip -=1 ;
 		if(s.frame_skip == 0)
 		{
 			s.frame++;
-			s.frame_skip = speed;
+			s.frame_skip = s.speed;
 
 			if(s.frame == s.end)
 			{
@@ -73,8 +75,8 @@ gb.sprite =
 			var w = x + s.frame_width;
 			var h = y + s.frame_height;
 
-			var stride = gb.mesh.get_stride(s.mesh, 3);
-			var vb = s.mesh.vertex_buffer.data;
+			var stride = gb.mesh.get_stride(s.entity.mesh, 3);
+			var vb = s.entity.mesh.vertex_buffer.data;
 
 			var i = stride;
 			vb[i] = x;

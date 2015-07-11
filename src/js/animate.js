@@ -1,55 +1,73 @@
 gb.Tween = function()
 {
-	this.from = new Float32Array(4);
-	this.to = new Float32Array(4);
-	this.current = new Float32Array(4); 
-	this.len;
+	this.min;
+	this.max;
+	this.current; 
 	this.duration;
 	this.step;
 	this.t;
 	this.playing;
+	this.modifier;
+	this.next = null;
 }
 
 gb.animate = 
 {
 	tweens: [],
 
-	from_to: function(from, to, len, duration, modifier, next)
+	//If javascript was a person i'd punch him in the balls.
+	from_to: function(from, to, current, duration, curve, modifier, next)
 	{
 		var tween = new gb.Tween();
-		tween.len = len;
-		for(var i = 0; i < len; ++i)
-		{
-			tween.from[i] = from[i];
-			tween.current[i] = from[i];
-			tween.to[i] = to[i];
-		}
+		tween.min = from;
+		tween.current = current;
+		tween.max = to;
 		tween.duration = duration;
 		tween.playing = false;
 		tween.step = 1 / duration;
 		tween.t = 0;
-		gb.animate.tween.push(tween);
+		tween.curve = curve;
+		tween.modifier = modifier;
+		tween.next = next;
+		gb.animate.tweens.push(tween);
 		return tween;
 	},
+	play: function(a)
+	{
+		a.playing = true;
+		a.t = 0;
+		console.log('play');
+	},
+	//loop: function(a, count)
 	update: function(dt)
 	{
 		var _t = gb.animate;
 		var n = _t.tweens.length;
+		var cr = gb.vec3.tmp();
+
 		for(var i = 0; i < n; ++i)
 		{
 			var t = _t.tweens[i];
 			if(t.playing === false) continue;
 			t.t += dt;
+
 			if(t.t > 1.0)
 			{
 				t.t = 1.0;
-				playing = false;
+				t.playing = false;
 			}
-			for(var j = 0; j < t.len; ++j)
+			var ct = t.t;
+			if(t.curve)
 			{
-				t.current[j] = t.modifier(t.from[j], t.to[j], t.t);
+				gb.bezier.eval(cr, t.curve, t.t);
+				ct = cr[1];
 			}
-			if(t.playing === false) t.next();
+			t.modifier(t.current, t.min, t.max, ct);
+			
+			if(t.playing === false && t.next !== null) 
+				t.next();
 		}
 	},
 }
+
+

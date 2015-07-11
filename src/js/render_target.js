@@ -8,25 +8,29 @@ gb.Render_Target = function()
 	this.stencil;
 }
 
-gb.new_render_target = function(view, mask, color)
+gb.render_target = 
 {
-    var rt = new gb.Render_Target();
-    rt.bounds = new gb.Rect();
-    gb.rect.eq(rt.bounds, view);
-    if((1 & mask) === 1) //color
+    new: function(view, mask, color)
     {
-        rt.color = gb.new_rgba_texture(view.width, view.height, null, gb.webgl.default_sampler, 0);
-        gb.webgl.link_texture(rt.color);
-    }
-    if((2 & mask) === 2) //depth
-    {
-        rt.depth = gb.new_depth_texture(view.width, view.height);
-        gb.webgl.link_texture(rt.depth);
-    }
-    if((4 & mask) === 4)
-    {
-        //rt.stencil = this.new_stencil_texture(view.with, view.height);
-    }
-    gb.webgl.link_render_target(rt);
-    return rt;
-},
+        var rt = new gb.Render_Target();
+        rt.bounds = gb.rect.new();
+        gb.rect.eq(rt.bounds, view);
+        if((1 & mask) === 1) //color
+        {
+            rt.color = gb.texture.rgba(view.width, view.height, null, gb.webgl.default_sampler, 0);
+            gb.webgl.link_texture(rt.color);
+        }
+        if((2 & mask) === 2) //depth
+        {
+            rt.depth = gb.texture.depth(view.width, view.height);
+            gb.webgl.link_texture(rt.depth);
+        }
+        /*
+        if((4 & mask) === 4)
+        {
+        }
+        */
+        gb.webgl.link_render_target(rt);
+        return rt;
+    },
+}

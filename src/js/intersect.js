@@ -1,8 +1,8 @@
 gb.Hit = function()
 {
 	this.hit = false;
-	this.point = new gb.Vec3();
-	this.normal = new gb.Vec3();
+	this.point = gb.vec3.new();
+	this.normal = gb.vec3.new();
 	this.t = 0;
 }
 gb.hit = 

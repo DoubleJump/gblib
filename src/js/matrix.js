@@ -1,43 +1,23 @@
 gb.Mat3 = function()
 {
-	var m = new Float32Array(9);
-	m[0] = 1;
-	m[1] = 0;
-	m[2] = 0;
-	m[3] = 0;
-	m[4] = 1;
-	m[5] = 0;
-	m[6] = 0;
-	m[7] = 0;
-	m[8] = 1;
-	return m;
+	return new Float32Array(9);
 }
 gb.Mat4 = function()
 {
-	var m = new Float32Array(16);
-	m[0] = 1;
-	m[1] = 0;
-	m[2] = 0;
-	m[3] = 0;
-	m[4] = 0;
-	m[5] = 1;
-	m[6] = 0;
-	m[7] = 0;
-	m[8] = 0;
-	m[9] = 0;
-	m[10] = 1;
-	m[11] = 0;
-	m[12] = 0;
-	m[13] = 0;
-	m[14] = 0;
-	m[15] = 1;
-	return m;
+	return new Float32Array(16);
 }
 
 gb.mat3 =
 {
 	stack: new gb.Stack(gb.Mat3, 5),
 
+	new: function()
+	{
+		var _t = gb.mat3;
+		var r = new gb.Mat3();
+		_t.identity(r);
+		return r;		
+	},
 	eq: function(a,b)
 	{
 		for(var i = 0; i < 9; ++i)
@@ -147,6 +127,13 @@ gb.mat4 =
 {
 	stack: new gb.Stack(gb.Mat4, 16),
 
+	new: function()
+	{
+		var _t = gb.mat4;
+		var r = new gb.Mat4();
+		_t.identity(r);
+		return r;		
+	},
 	eq: function(a,b)
 	{
 		for(var i = 0; i < 16; ++i)

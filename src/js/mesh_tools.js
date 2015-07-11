@@ -1,4 +1,4 @@
-gb.mesh_tools = 
+gb.mesh.generate = 
 {
 	quad: function(width, height, depth)
 	{
@@ -17,7 +17,7 @@ gb.mesh_tools =
 
 	    var tris = new Uint32Array([0,1,3,0,3,2]);
 	    var mask = 1 | 4;
-	    return gb.new_mesh(4, data, mask, tris);
+	    return gb.mesh.new(4, data, mask, tris);
 	},
 
 	cube: function(width, height, depth)
@@ -66,7 +66,7 @@ gb.mesh_tools =
 		]);
 
 	    var mask = 1 | 2 | 4;
-	    return gb.new_mesh(24, data, mask, tris);
+	    return gb.mesh.new(24, data, mask, tris);
 	},
 	
 }

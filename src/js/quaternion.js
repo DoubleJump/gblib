@@ -1,16 +1,17 @@
 gb.Quat = function(x,y,z,w)
 {
-	var v = new Float32Array(4);
-	v[0] = x;
-	v[1] = y;
-	v[2] = z;
-	v[3] = w;
-	return v;
+	return new Float32Array(4);
 }
 gb.quat = 
 {
 	stack: new gb.Stack(gb.Quat, 5),
 
+	new: function()
+	{
+		var r = new gb.Quat();
+		r[3] = 1;
+		return r;
+	},
 	set: function(v, x,y,z,w)
 	{
 		v[0] = x;

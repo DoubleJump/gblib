@@ -1,13 +1,17 @@
 gb.AABB = function()
 {
-    this.min = new gb.Vec3();
-    this.max = new gb.Vec3();
+    this.min = gb.vec3.new();
+    this.max = gb.vec3.new();
 }
 
 gb.aabb = 
 {
 	stack: new gb.Stack(gb.AABB, 16),
 
+    new: function()
+    {
+        return new gb.AABB();
+    },
     set:function(r, min, max)
     {
         gb.vec3.eq(r.min, min);

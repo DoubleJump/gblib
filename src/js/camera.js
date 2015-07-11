@@ -1,9 +1,9 @@
 gb.Camera = function()
 {
 	this.projection_type = null;
-	this.projection = new gb.Mat4();
-	this.view = new gb.Mat4();
-	this.view_projection = new gb.Mat4();
+	this.projection = gb.mat4.new();
+	this.view = gb.mat4.new();
+	this.view_projection = gb.mat4.new();
 	this.mask;
 	this.dirty;
 	this.aspect;
@@ -15,6 +15,18 @@ gb.Camera = function()
 
 gb.camera = 
 {
+	new: function(projection, near, far, fov, mask)
+	{
+	    var c = new gb.Camera();
+	    c.projection_type = projection || gb.Projection.PERSPECTIVE;
+	    c.near = near || 0.1;
+	    c.far = far || 100;
+	    c.fov = fov || 60;
+	    c.mask = mask || 0;
+	    c.dirty = true;
+	    c.entity = new gb.Entity();
+	    return c;
+	},
 	update_projection: function(c, view)
 	{
 		c.aspect = view.width / view.height;
@@ -58,17 +70,4 @@ gb.Projection =
 {
     ORTHO: 0,
     PERSPECTIVE: 1,
-}
-
-gb.new_camera = function(projection, near, far, fov, mask)
-{
-    var c = new gb.Camera();
-    c.projection_type = projection || gb.Projection.PERSPECTIVE;
-    c.near = near || 0.1;
-    c.far = far || 100;
-    c.fov = fov || 60;
-    c.mask = mask || 0;
-    c.dirty = true;
-    c.entity = new gb.Entity();
-    return c;
 }

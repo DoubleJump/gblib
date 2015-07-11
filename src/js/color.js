@@ -1,17 +1,18 @@
 gb.Color = function(r,g,b,a)
 {
-	var v = new Float32Array(4);
-	v[0] = r;
-	v[1] = g;
-	v[2] = b;
-	v[3] = a;
-	return v;
+	return new Float32Array(4);
 }
 
 gb.color = 
 {
 	stack: new gb.Stack(gb.Color, 10),
 
+	new: function(r,g,b,a)
+	{
+		var v = new gb.Color();
+		gb.color.set(r, r,g,b,a);
+		return v;
+	},
 	set: function(v, r,g,b,a)
 	{
 		v[0] = r;

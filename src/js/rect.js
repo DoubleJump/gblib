@@ -1,20 +1,26 @@
-gb.Rect = function(x,y,w,h)
+gb.Rect = function()
 {
-	this.x = x || 0;
-	this.y = y || 0;
-	this.width = w || 0;
-	this.height = h || 0;
+	this.x;
+	this.y;
+	this.width;
+	this.height;
 }
 gb.rect = 
 {
 	stack: new gb.Stack(gb.Rect, 20),
 
+	new: function(x,y,w,h)
+	{
+		var r = new gb.Rect();
+		gb.rect.set(r, x,y,w,h);
+		return r;
+	},
 	set: function(r, x,y,w,h)
 	{
-		r.x = x;
-		r.y = y;
-		r.width = w;
-		r.height = h;
+		r.x = x || 0;
+		r.y = y || 0;
+		r.width = w || 0;
+		r.height = h || 0;
 	},
 	eq: function(a,b)
 	{

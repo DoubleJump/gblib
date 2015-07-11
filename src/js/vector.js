@@ -1,23 +1,24 @@
 gb.Vec2 = function(x,y)
 {
-	var v = new Float32Array(2);
-	v[0] = x;
-	v[1] = y;
-	return v;
+	return new Float32Array(2);
 }
-gb.Vec3 = function(x,y,z)
+
+gb.Vec3 = function()
 {
-	var v = new Float32Array(3);
-	v[0] = x;
-	v[1] = y;
-	v[2] = z;
-	return v;
+	return new Float32Array(3);
 }
 
 gb.vec2 = 
 {
 	stack: new gb.Stack(gb.Vec2, 20),
 
+	new: function(x,y)
+	{
+		var r = new gb.Vec2();
+		r[0] = x;
+		r[1] = y;
+		return r;
+	},
 	set: function(v, x,y)
 	{
 		v[0] = x;
@@ -116,6 +117,14 @@ gb.vec3 =
 {
 	stack: new gb.Stack(gb.Vec3, 64),
 
+	new: function(x,y,z)
+	{
+		var r = new gb.Vec3();
+		r[0] = x;
+		r[1] = y;
+		r[2] = z;
+		return r;
+	},
 	push: function()
 	{
 		return gb.vec3.stack.index;
@@ -261,5 +270,11 @@ gb.vec3 =
 		r[0] = v[0] + q[2] * tx + cx,
 		r[1] = v[1] + q[2] * ty + cy,
 		r[2] = v[2] + q[2] * tz + cz
+	},
+	lerp: function(r, a,b, t)
+	{
+		r[0] = (1-t) * a[0] + t * b[0];
+		r[1] = (1-t) * a[1] + t * b[1];
+		r[2] = (1-t) * a[2] + t * b[2];
 	},
 }

@@ -59,15 +59,25 @@ gb.on_asset_load = function(e)
             //END
         }
         
-        //test pvrtc / dds
-        if(gb.webgl.extensions.dxt !== null)
+        for(var i = 0; i < n_textures; ++i)
         {
-            for(var i = 0; i < n_textures; ++i)
+        	var name = s.r_string(br);
+            var id = s.r_i32(br);
+            if(id === 0 && gb.webgl.extensions.dxt !== null)
             {
-            	var name = s.r_string(br);
-                ag.textures[name] = s.r_dds(br);
-                 //DEBUG
-                console.log("Loaded Texture: " + name);
+                var t = s.r_dds(br);
+                ag.textures[name] = t;
+                //DEBUG
+                console.log("Width: " + t.width);
+                console.log("Height: " + t.height);
+                console.log("Loaded DDS: " + name);
+                //END
+            }
+            else if(id === 1 && gb.webgl.extensions.pvr !== null)
+            {
+                ag.textures[name] = s.r_pvr(br);
+                //DEBUG
+                console.log("Loaded PVR: " + name);
                 //END
             }
         }

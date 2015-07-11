@@ -10,6 +10,7 @@ gb.webgl =
 	{
 		depth_texture: null,
 		dxt: null,
+		pvr: null,
 		fp_texture: null,
 		uint: null,
 	},
@@ -30,7 +31,7 @@ gb.webgl =
         var canvas = gb.dom.insert('canvas', container);
         canvas.width = width;
         canvas.height = height;
-        _t.view = new gb.Rect(0,0,width,height);
+        _t.view = gb.rect.new(0,0,width,height);
 
         try
         {
@@ -75,21 +76,23 @@ gb.webgl =
 		//gl.depthRange(-100, 100); // znear zfar
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        _t.default_sampler = gb.new_sampler(gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE, gl.NEAREST, gl.NEAREST);
+        _t.default_sampler = gb.texture.sampler(gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE, gl.NEAREST, gl.NEAREST);
 
 		var ex = _t.extensions;
 		ex.depth_texture = gl.getExtension("WEBGL_depth_texture");
-		ex.dxt = gl.getExtension("WEBGL_compressed_texture_s3tc"); 
+		ex.dxt = gl.getExtension("WEBGL_compressed_texture_s3tc");
+		//ex.pvr = gl.getExtension("WEBGL_compressed_texture_pvrtc");
+		ex.pvr = gl.getExtension("WEBKIT_WEBGL_compressed_texture_pvrtc");
 		ex.fp_texture = gl.getExtension("OES_texture_float");
 		ex.uint = gl.getExtension("OES_element_index_uint");
 
-		_t.screen_mesh = gb.mesh_tools.quad(2,2);
+		_t.screen_mesh = gb.mesh.generate.quad(2,2);
 		_t.link_mesh(_t.screen_mesh);
 
         var v_src = "attribute vec3 position;\n attribute vec2 uv;\n varying vec2 _uv;\n void main()\n {\n _uv = uv;\n gl_Position = vec4(position, 1.0);\n }";
         var f_src = "precision mediump float;\n varying vec2 _uv;\n uniform sampler2D tex;\n void main()\n {\n gl_FragColor = texture2D(tex, _uv);\n }";
 
-        _t.screen_shader = gb.new_shader(v_src, f_src);
+        _t.screen_shader = gb.shader.new(v_src, f_src);
         _t.link_shader(_t.screen_shader);
 		_t.m_offsets = new Uint32Array(5);
 	},
@@ -329,53 +332,6 @@ gb.webgl =
 		gl.clear(mode);
 	},
 
-	/*
-	render: function(draw_calls)
-	{
-		var i = 0;
-		var n = 0;
-		var r = gb.webgl;
-
-		n = draw_calls.length;
-		for(i = 0; i < n; ++i)
-		{
-			var dc = draw_calls[i];
-			var s = dc.shader;
-
-			gl.useProgram(s.id);
-
-			//could annotate the shader code e.g #CAM_MATS #N_MATS #LIGHTING etc
-			_t.link_camera(s, dc.camera);
-
-			//TODO: LIGHTS
-
-			_t.link_textures(s, dc.textures);
-
-			var ne = dc.entities.length;
-			for(var ii = 0; ii < ne; ++ii)
-			{
-				var e = dc.entities[ii];
-
-				r.set_shader_mat4(s, "model", e.matrix);
-				r.set_shader_mat4(s, "mv", model_view);
-				r.set_shader_mat4(s, "mvp", model_view_projection);
-
-				// TODO: NMATRIX
-
-				var m = e.mesh;
-				var na = s.num_attributes;
-				for(var iii = 0; iii < na; ++iii)
-		        {
-		        	_t.link_attributes(s,m);
-		        }
-
-		        //TODO: if(m.index_buffer) else 
-		    	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.index_buffer.id);
-		        gl.drawElements(gl.TRIANGLES, m.index_count, gl.UNSIGNED_SHORT, 0);
-			}
-		}
-	},
-	*/
 	draw_mesh_elements: function(mesh)
 	{
 		var gl = gb.webgl.ctx;

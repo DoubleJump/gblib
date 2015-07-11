@@ -1,6 +1,6 @@
 /*
 TODO: 
-- fire and forget animations
+- dds mipmaps
 - deferred rendering
 - PBR
 - basic sound
@@ -44,6 +44,7 @@ var v3 = gb.vec3;
 var scene = gb.scene;
 var camera = gb.camera;
 var entity = gb.entity;
+var sprite = gb.sprite;
 var assets;
 
 var focus = true;
@@ -53,7 +54,7 @@ var construct;
 var viewer;
 var texture;
 var rotation;
-var bob;
+var nutmeg;
 var render_target;
 var anim;
 var curve;
@@ -134,27 +135,19 @@ function link_complete()
 	viewer = camera.new();
 	scene.add_camera(construct, viewer);
 
-	bob = entity.new(assets.meshes.cube);
-	bob.mesh = assets.meshes.cube;
-	scene.add_entity(construct, bob);
+	nutmeg = gb.sprite.new(assets.textures.nutmeg, 16,18);
+	scene.add_sprite(construct, nutmeg);
+    gb.webgl.link_mesh(nutmeg.entity.mesh);
+	sprite.set_animation(nutmeg, 0, 4, 3, -1);
 
 	render_group = new RenderGroup();
-	render_group.entities.push(bob);
-	render_group.shader = assets.shaders.flat;
+	render_group.entities.push(nutmeg.entity);
+	render_group.shader = assets.shaders.textured;
 
 	curve = gb.bezier.clamped(0.3,0.0,0.8,1.5);
-	anim = gb.animate.from_to(v3.new(1,1,1), v3.new(2,2,-3), bob.scale, 1.0, curve, v3.lerp, null);
+	anim = gb.animate.from_to(v3.new(1,1,1), v3.new(2,2,-3), nutmeg.entity.scale, 1.0, curve, v3.lerp, null);
 
 	rotation = 0;
-
-	//sprite = gb.new_sprite(texture, 8,8);
-    //gb.webgl.link_mesh(sprite.entity.mesh);
-
-	//gb.sprite.set_animation(sprite, 0, 4, 1.0, -1);
-	//gb.scene.add_sprite(scene, sprite);
-	//gb.sprite.play(sprite);
-	//render_group.entities.push(sprite.entity);
-
 
 	requestAnimationFrame(upA);
 }
@@ -167,15 +160,19 @@ function update(timestamp)
 
 	rotation += 1.0 * gb.time.dt;
 
-	entity.set_position(viewer.entity, 0,0,4);
+	entity.set_position(viewer.entity, 0,0,8);
 
 	if(gb.input.down(0))
+	{
 		gb.animate.play(anim);
+		sprite.play(nutmeg);
+	}
 
 	scene.update(construct);
 	gb.animate.update(gb.time.dt);
 
-	//gb.gl_draw.clear();
+	gb.gl_draw.clear();
+	//gb.gl_draw.wire_mesh(nutmeg.entity.mesh, nutmeg.entity.world_matrix);
 
 	gb.input.update();
 }
@@ -213,19 +210,21 @@ function upB(t)
 
 function draw_group(group, cam)
 {
+	var r = gb.webgl;
 	var s = group.shader;
-	gb.webgl.set_shader(s);
+	r.set_shader(s);
 
 	var mvp = gb.mat4.tmp();
 	var ne = group.entities.length;
 	for(var i = 0; i < ne; ++i)
 	{
 		var e = group.entities[i];
-		gb.webgl.link_attributes(s, e.mesh);
+		r.link_attributes(s, e.mesh);
 		gb.mat4.mul(mvp, e.world_matrix, cam.view_projection);
-		gb.webgl.set_shader_mat4(s, "mvp", mvp);
-		//gb.webgl.draw_mesh_elements(e.mesh);
-		gb.webgl.draw_mesh_arrays(e.mesh);
+		r.set_shader_mat4(s, "mvp", mvp);
+		r.set_shader_texture(s, "tex", assets.textures.nutmeg, 0);
+		r.draw_mesh_elements(e.mesh);
+		//r.draw_mesh_arrays(e.mesh);
 	}
 }
 

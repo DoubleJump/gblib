@@ -11,29 +11,29 @@ gb.Sprite = function()
 	this.entity;
 }
 
-gb.new_sprite = function(texture, cols, rows)
-{
-	var s = new gb.Sprite();
-	s.start = 0;
-	s.end = 0;
-	s.playing = false;
-	s.speed = 0;
-	s.frame = 0;
-	s.loop_count = 0;
-	s.rows = 0;
-	s.cols = 0;
-	s.frame_skip = 0;
-	s.frame_width = (texture.width / cols) / texture.width; 
-	s.frame_height= (texture.height / rows) / texture.height;
-	var e = new gb.Entity();
-	e.mesh = gb.mesh_tools.quad(1,1);
-	e.mesh.vertex_buffer.update_mode = gb.webgl.ctx.DYNAMIC_DRAW;
-	s.entity = e;
-	return s;
-}
-
 gb.sprite = 
 {
+	new: function(texture, w, h)
+	{
+		var s = new gb.Sprite();
+		s.start = 0;
+		s.end = 0;
+		s.playing = false;
+		s.speed = 0;
+		s.frame = 0;
+		s.loop_count = 0;
+		s.rows = texture.width / w;
+		s.cols = texture.height / h;
+		s.frame_skip = 0;
+		s.frame_width = 1 / (texture.width / w); 
+		s.frame_height = 1 / (texture.height / h);
+
+		var e = new gb.Entity();
+		e.mesh = gb.mesh.generate.quad(1,1);
+		e.mesh.vertex_buffer.update_mode = gb.webgl.ctx.DYNAMIC_DRAW;
+		s.entity = e;
+		return s;
+	},
 	set_animation: function(s, start, end, speed, loops)
 	{
 		s.start = start;
@@ -50,15 +50,15 @@ gb.sprite =
 	},
 	update: function(s, dt)
 	{
-		if (s.playing === false) return;
+		if(s.playing === false) return;
 
-		s.frame_skip -=1 ;
+		s.frame_skip -=1;
 		if(s.frame_skip == 0)
 		{
 			s.frame++;
 			s.frame_skip = s.speed;
 
-			if(s.frame == s.end)
+			if(s.frame === s.end)
 			{
 				s.loop_count -= 1;
 				if(s.loop_count === 0) // -1 = continuous loop
@@ -68,31 +68,36 @@ gb.sprite =
 			}
 
 			var ix = s.frame % s.cols;
-			var iy = s.frame / s.cols;
+			var iy = 0;
 
 			var x = ix * s.frame_width;
 			var y = iy * s.frame_height;
 			var w = x + s.frame_width;
 			var h = y + s.frame_height;
 
-			var stride = gb.mesh.get_stride(s.entity.mesh, 3);
+			//var pos = gb.mesh.get_stride(s.entity.mesh, 3);
+			var pos = 3;
+			var stride = 5;
 			var vb = s.entity.mesh.vertex_buffer.data;
 
-			var i = stride;
-			vb[i] = x;
-			vb[i+1] = y;
-
-			i += stride;
-			vb[i] = w;
-			vb[i+1] = y;
-
-			i += stride;
-			vb[i] = x;
+			var i = pos;
+			vb[  i] = x;
 			vb[i+1] = h;
 
 			i += stride;
-			vb[i] = w;
+			vb[  i] = w;
 			vb[i+1] = h;
+
+			i += stride;
+			vb[  i] = x;
+			vb[i+1] = y;
+
+			i += stride;
+			vb[  i] = w;
+			vb[i+1] = y;
+
+			//s.entity.mesh.dirty = true;
+			gb.webgl.update_mesh(s.entity.mesh);
 		}
 	},
 }

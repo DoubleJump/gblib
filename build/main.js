@@ -2,7 +2,7 @@
 
 /*
 TODO: 
-- fire and forget animations
+- dds mipmaps
 - deferred rendering
 - PBR
 - basic sound
@@ -2388,8 +2388,8 @@ gb.webgl =
 		_t.ctx = gl;
 
         gl.enable(gl.BLEND);
-        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); //works with premultiplied alpha
-		//gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); //works with premultiplied alpha
+		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
         gl.enable(gl.DEPTH_TEST);
 		gl.depthFunc(gl.LEQUAL); 
@@ -3518,29 +3518,29 @@ gb.Sprite = function()
 	this.entity;
 }
 
-gb.new_sprite = function(texture, cols, rows)
-{
-	var s = new gb.Sprite();
-	s.start = 0;
-	s.end = 0;
-	s.playing = false;
-	s.speed = 0;
-	s.frame = 0;
-	s.loop_count = 0;
-	s.rows = 0;
-	s.cols = 0;
-	s.frame_skip = 0;
-	s.frame_width = (texture.width / cols) / texture.width; 
-	s.frame_height= (texture.height / rows) / texture.height;
-	var e = new gb.Entity();
-	e.mesh = gb.mesh_tools.quad(1,1);
-	e.mesh.vertex_buffer.update_mode = gb.webgl.ctx.DYNAMIC_DRAW;
-	s.entity = e;
-	return s;
-}
-
 gb.sprite = 
 {
+	new: function(texture, w, h)
+	{
+		var s = new gb.Sprite();
+		s.start = 0;
+		s.end = 0;
+		s.playing = false;
+		s.speed = 0;
+		s.frame = 0;
+		s.loop_count = 0;
+		s.rows = texture.width / w;
+		s.cols = texture.height / h;
+		s.frame_skip = 0;
+		s.frame_width = 1 / (texture.width / w); 
+		s.frame_height = 1 / (texture.height / h);
+
+		var e = new gb.Entity();
+		e.mesh = gb.mesh.generate.quad(1,1);
+		e.mesh.vertex_buffer.update_mode = gb.webgl.ctx.DYNAMIC_DRAW;
+		s.entity = e;
+		return s;
+	},
 	set_animation: function(s, start, end, speed, loops)
 	{
 		s.start = start;
@@ -3557,15 +3557,15 @@ gb.sprite =
 	},
 	update: function(s, dt)
 	{
-		if (s.playing === false) return;
+		if(s.playing === false) return;
 
-		s.frame_skip -=1 ;
+		s.frame_skip -=1;
 		if(s.frame_skip == 0)
 		{
 			s.frame++;
 			s.frame_skip = s.speed;
 
-			if(s.frame == s.end)
+			if(s.frame === s.end)
 			{
 				s.loop_count -= 1;
 				if(s.loop_count === 0) // -1 = continuous loop
@@ -3575,31 +3575,36 @@ gb.sprite =
 			}
 
 			var ix = s.frame % s.cols;
-			var iy = s.frame / s.cols;
+			var iy = 0;
 
 			var x = ix * s.frame_width;
 			var y = iy * s.frame_height;
 			var w = x + s.frame_width;
 			var h = y + s.frame_height;
 
-			var stride = gb.mesh.get_stride(s.entity.mesh, 3);
+			//var pos = gb.mesh.get_stride(s.entity.mesh, 3);
+			var pos = 3;
+			var stride = 5;
 			var vb = s.entity.mesh.vertex_buffer.data;
 
-			var i = stride;
-			vb[i] = x;
-			vb[i+1] = y;
-
-			i += stride;
-			vb[i] = w;
-			vb[i+1] = y;
-
-			i += stride;
-			vb[i] = x;
+			var i = pos;
+			vb[  i] = x;
 			vb[i+1] = h;
 
 			i += stride;
-			vb[i] = w;
+			vb[  i] = w;
 			vb[i+1] = h;
+
+			i += stride;
+			vb[  i] = x;
+			vb[i+1] = y;
+
+			i += stride;
+			vb[  i] = w;
+			vb[i+1] = y;
+
+			//s.entity.mesh.dirty = true;
+			gb.webgl.update_mesh(s.entity.mesh);
 		}
 	},
 }
@@ -3683,6 +3688,7 @@ var v3 = gb.vec3;
 var scene = gb.scene;
 var camera = gb.camera;
 var entity = gb.entity;
+var sprite = gb.sprite;
 var assets;
 
 var focus = true;
@@ -3692,7 +3698,7 @@ var construct;
 var viewer;
 var texture;
 var rotation;
-var bob;
+var nutmeg;
 var render_target;
 var anim;
 var curve;
@@ -3773,27 +3779,19 @@ function link_complete()
 	viewer = camera.new();
 	scene.add_camera(construct, viewer);
 
-	bob = entity.new(assets.meshes.cube);
-	bob.mesh = assets.meshes.cube;
-	scene.add_entity(construct, bob);
+	nutmeg = gb.sprite.new(assets.textures.nutmeg, 16,18);
+	scene.add_sprite(construct, nutmeg);
+    gb.webgl.link_mesh(nutmeg.entity.mesh);
+	sprite.set_animation(nutmeg, 0, 4, 3, -1);
 
 	render_group = new RenderGroup();
-	render_group.entities.push(bob);
-	render_group.shader = assets.shaders.flat;
+	render_group.entities.push(nutmeg.entity);
+	render_group.shader = assets.shaders.textured;
 
 	curve = gb.bezier.clamped(0.3,0.0,0.8,1.5);
-	anim = gb.animate.from_to(v3.new(1,1,1), v3.new(2,2,-3), bob.scale, 1.0, curve, v3.lerp, null);
+	anim = gb.animate.from_to(v3.new(1,1,1), v3.new(2,2,-3), nutmeg.entity.scale, 1.0, curve, v3.lerp, null);
 
 	rotation = 0;
-
-	//sprite = gb.new_sprite(texture, 8,8);
-    //gb.webgl.link_mesh(sprite.entity.mesh);
-
-	//gb.sprite.set_animation(sprite, 0, 4, 1.0, -1);
-	//gb.scene.add_sprite(scene, sprite);
-	//gb.sprite.play(sprite);
-	//render_group.entities.push(sprite.entity);
-
 
 	requestAnimationFrame(upA);
 }
@@ -3806,15 +3804,19 @@ function update(timestamp)
 
 	rotation += 1.0 * gb.time.dt;
 
-	entity.set_position(viewer.entity, 0,0,4);
+	entity.set_position(viewer.entity, 0,0,8);
 
 	if(gb.input.down(0))
+	{
 		gb.animate.play(anim);
+		sprite.play(nutmeg);
+	}
 
 	scene.update(construct);
 	gb.animate.update(gb.time.dt);
 
-	//gb.gl_draw.clear();
+	gb.gl_draw.clear();
+	//gb.gl_draw.wire_mesh(nutmeg.entity.mesh, nutmeg.entity.world_matrix);
 
 	gb.input.update();
 }
@@ -3852,19 +3854,21 @@ function upB(t)
 
 function draw_group(group, cam)
 {
+	var r = gb.webgl;
 	var s = group.shader;
-	gb.webgl.set_shader(s);
+	r.set_shader(s);
 
 	var mvp = gb.mat4.tmp();
 	var ne = group.entities.length;
 	for(var i = 0; i < ne; ++i)
 	{
 		var e = group.entities[i];
-		gb.webgl.link_attributes(s, e.mesh);
+		r.link_attributes(s, e.mesh);
 		gb.mat4.mul(mvp, e.world_matrix, cam.view_projection);
-		gb.webgl.set_shader_mat4(s, "mvp", mvp);
-		//gb.webgl.draw_mesh_elements(e.mesh);
-		gb.webgl.draw_mesh_arrays(e.mesh);
+		r.set_shader_mat4(s, "mvp", mvp);
+		r.set_shader_texture(s, "tex", assets.textures.nutmeg, 0);
+		r.draw_mesh_elements(e.mesh);
+		//r.draw_mesh_arrays(e.mesh);
 	}
 }
 

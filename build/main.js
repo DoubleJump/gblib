@@ -170,6 +170,14 @@ gb.math =
 	{
 		if(a > b) return a; else return b;
 	},
+	round: function(a)
+	{
+		return Math.round(a);
+	},
+	floor: function(a)
+	{
+		return Math.floor(a);
+	},
 	clamp: function(a, min, max)
 	{
 		if(a < min) return min;
@@ -404,6 +412,12 @@ gb.vec2 =
 		r[0] = m.max(a[0], b[0]);
 		r[1] = m.max(a[1], b[1]);
 	},
+	lerp: function(r, a,b, t)
+	{
+		var it = 1-t;
+		r[0] = it * a[0] + t * b[0];
+		r[1] = it * a[1] + t * b[1];
+	},
 }
 
 gb.vec3 = 
@@ -566,9 +580,10 @@ gb.vec3 =
 	},
 	lerp: function(r, a,b, t)
 	{
-		r[0] = (1-t) * a[0] + t * b[0];
-		r[1] = (1-t) * a[1] + t * b[1];
-		r[2] = (1-t) * a[2] + t * b[2];
+		var it = 1-t;
+		r[0] = it * a[0] + t * b[0];
+		r[1] = it * a[1] + t * b[1];
+		r[2] = it * a[2] + t * b[2];
 	},
 }
 gb.Quat = function(x,y,z,w)
@@ -773,7 +788,16 @@ gb.quat =
 		t[3] = 1 + v3.dot(fn, tn);
 
 		_t.normalized(r,t);
-	}
+	},
+
+	lerp: function(r, a,b, t)
+	{
+		var it = 1-t;
+		r[0] = it * a[0] + t * b[0];
+		r[1] = it * a[1] + t * b[1];
+		r[2] = it * a[2] + t * b[2];
+		r[3] = it * a[3] + t * b[3];
+	},
 }
 gb.Mat3 = function()
 {
@@ -1644,6 +1668,14 @@ gb.color =
 		gb.color.set(c, r || 0, g || 0, b || 0, a || 0);
 		return c;
 	},
+	lerp: function(r, a,b, t)
+	{
+		var it = 1-t;
+		r[0] = it * a[0] + t * b[0];
+		r[1] = it * a[1] + t * b[1];
+		r[2] = it * a[2] + t * b[2];
+		r[3] = it * a[3] + t * b[3];
+	},
 }
 gb.Camera = function()
 {
@@ -1878,6 +1910,10 @@ gb.scene =
 	update_entity: function(e)
 	{
 		if(e.active === false || e.dirty === false) return;
+		if(e.mesh !== null && e.mesh.dirty === true)
+		{
+			gb.webgl.update_mesh(e.mesh);
+		}
 		gb.mat4.compose(e.world_matrix, e.position, e.scale, e.rotation);
 		if(e.parent !== null)
 		{
@@ -3529,8 +3565,8 @@ gb.sprite =
 		s.speed = 0;
 		s.frame = 0;
 		s.loop_count = 0;
-		s.rows = texture.width / w;
-		s.cols = texture.height / h;
+		s.rows = gb.math.round(texture.width / w);
+		s.cols = gb.math.round(texture.height / h);
 		s.frame_skip = 0;
 		s.frame_width = 1 / (texture.width / w); 
 		s.frame_height = 1 / (texture.height / h);
@@ -3575,16 +3611,15 @@ gb.sprite =
 			}
 
 			var ix = s.frame % s.cols;
-			var iy = 0;
+			var iy = gb.math.floor(s.frame / s.cols);
 
 			var x = ix * s.frame_width;
 			var y = iy * s.frame_height;
 			var w = x + s.frame_width;
 			var h = y + s.frame_height;
 
-			//var pos = gb.mesh.get_stride(s.entity.mesh, 3);
-			var pos = 3;
-			var stride = 5;
+			var pos = gb.mesh.get_stride(s.entity.mesh, 2); //3
+			var stride = gb.mesh.get_stride(s.entity.mesh); //5
 			var vb = s.entity.mesh.vertex_buffer.data;
 
 			var i = pos;
@@ -3603,52 +3638,102 @@ gb.sprite =
 			vb[  i] = w;
 			vb[i+1] = y;
 
-			//s.entity.mesh.dirty = true;
-			gb.webgl.update_mesh(s.entity.mesh);
+			s.entity.mesh.dirty = true;
 		}
 	},
 }
+gb.Keyframe = function()
+{
+	this.value;
+	this.curve;
+	this.t;
+}
 gb.Tween = function()
 {
-	this.min;
-	this.max;
+	this.frames;
+	this.frame;
 	this.current; 
-	this.duration;
-	this.step;
 	this.t;
 	this.playing;
 	this.modifier;
-	this.next = null;
+	this.loops;
+	this.loops_remaining;
+	this.next;
+	this.callback;
 }
 
 gb.animate = 
 {
 	tweens: [],
 
-	//If javascript was a person i'd punch him in the balls.
-	from_to: function(from, to, current, duration, curve, modifier, next)
+	new: function(target, modifier, callback)
 	{
-		var tween = new gb.Tween();
-		tween.min = from;
-		tween.current = current;
-		tween.max = to;
-		tween.duration = duration;
-		tween.playing = false;
-		tween.step = 1 / duration;
-		tween.t = 0;
-		tween.curve = curve;
-		tween.modifier = modifier;
-		tween.next = next;
-		gb.animate.tweens.push(tween);
-		return tween;
+		var t = new gb.Tween();
+		t.frames = [];
+		t.current = target;
+		t.playing = false;
+		t.frame = 0;
+		t.loop_count = 0;
+		t.next = null;
+		t.t = 0;
+		t.modifier = modifier;
+		t.callback = callback;
+		gb.animate.tweens.push(t);
+		return t;
 	},
-	play: function(a)
+
+	add_frame: function(tween, value, t, curve)
 	{
-		a.playing = true;
-		a.t = 0;
-		console.log('play');
+		var f = new gb.Keyframe();
+		f.value = value;
+		f.t = t;
+		f.curve = curve;
+		tween.frames.push(f);
 	},
-	//loop: function(a, count)
+	from_to: function(from, to, current, duration, curve, modifier)
+	{
+		var t = gb.animate.new(current, modifier, null);
+		gb.animate.add_frame(t, from, 0, curve);
+		gb.animate.add_frame(t, to, duration, null);
+		return t;
+	},
+	play: function(t)
+	{
+		t.playing = true;
+		t.t = 0;
+		t.frame = 1;
+	},
+	set_frame: function(t, frame)
+	{
+		t.playing = true;
+		t.frame = frame+1;
+		t.t = t.frames[frame].t;
+	},
+	set_time: function(t, time)
+	{
+		var n = t.frames.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var f = t.frames[i];
+			if(f.t > time)
+				t.frame = i;
+		}
+		t.t = time;
+	},
+	pause: function(t)
+	{
+		t.playing = false;
+	},
+	resume: function(t)
+	{
+		t.playing = true;
+	},
+	loop: function(t, count)
+	{
+		t.loop_count = count || -1;
+		gb.animate.play(t);	
+	},
+
 	update: function(dt)
 	{
 		var _t = gb.animate;
@@ -3659,32 +3744,67 @@ gb.animate =
 		{
 			var t = _t.tweens[i];
 			if(t.playing === false) continue;
-			t.t += dt;
 
-			if(t.t > 1.0)
+			var kfA = t.frames[t.frame-1];
+			var kfB = t.frames[t.frame];
+
+			t.t += dt;
+			var alpha = (t.t - kfA.t) / (kfB.t - kfA.t);
+
+			if(alpha > 1.0)
 			{
-				t.t = 1.0;
-				t.playing = false;
+				t.frame += 1;
+				var n_frames = t.frames.length;
+				if(t.frame === n_frames)
+				{
+					if(t.loop_count === -1)
+					{
+						t.t = 0;
+						t.frame = 1;
+					}
+					else 
+					{
+						t.loop_count -= 1;
+						if(t.loop_count === 0)
+						{
+							alpha = 1.0;
+							t.playing = false;
+						}
+						else
+						{
+							t.t = 0;
+							t.frame = 1;
+						}
+					}
+				}
+				else
+				{
+					kfA = t.frames[t.frame-1];
+					kfB = t.frames[t.frame];
+					alpha = (t - kfA.t) / (kfB.t - kfA.t);
+				}
 			}
-			var ct = t.t;
-			if(t.curve)
+
+			var ct = alpha;
+			if(kfA.curve)
 			{
-				gb.bezier.eval(cr, t.curve, t.t);
+				gb.bezier.eval(cr, kfA.curve, alpha);
 				ct = cr[1];
 			}
-			t.modifier(t.current, t.min, t.max, ct);
+			t.modifier(t.current, kfA.value, kfB.value, ct);
 			
-			if(t.playing === false && t.next !== null) 
-				t.next();
+			if(t.playing === false)
+			{
+				if(t.next !== null) _t.play(t.next);
+				if(t.callback !== null) t.callback();
+			} 
 		}
-	},
+	}
 }
 
 
-
-
-
 var v3 = gb.vec3;
+var qt = gb.quat;
 var scene = gb.scene;
 var camera = gb.camera;
 var entity = gb.entity;
@@ -3700,7 +3820,7 @@ var texture;
 var rotation;
 var nutmeg;
 var render_target;
-var anim;
+var animA;
 var curve;
 
 
@@ -3782,14 +3902,18 @@ function link_complete()
 	nutmeg = gb.sprite.new(assets.textures.nutmeg, 16,18);
 	scene.add_sprite(construct, nutmeg);
     gb.webgl.link_mesh(nutmeg.entity.mesh);
-	sprite.set_animation(nutmeg, 0, 4, 3, -1);
+	sprite.set_animation(nutmeg, 0, 4, 4, -1);
 
 	render_group = new RenderGroup();
 	render_group.entities.push(nutmeg.entity);
 	render_group.shader = assets.shaders.textured;
 
-	curve = gb.bezier.clamped(0.3,0.0,0.8,1.5);
-	anim = gb.animate.from_to(v3.new(1,1,1), v3.new(2,2,-3), nutmeg.entity.scale, 1.0, curve, v3.lerp, null);
+	curve = gb.bezier.clamped(0.3,0.0,0.8,1.0);
+
+	animA = gb.animate.new(nutmeg.entity.scale, v3.lerp, null);
+	gb.animate.add_frame(animA, v3.new(1,1,1), 0.0, curve);
+	gb.animate.add_frame(animA, v3.new(2,2,1), 1.0, null);
+	gb.animate.add_frame(animA, v3.new(0.5,0.5,1), 1.5, curve);
 
 	rotation = 0;
 
@@ -3808,7 +3932,7 @@ function update(timestamp)
 
 	if(gb.input.down(0))
 	{
-		gb.animate.play(anim);
+		gb.animate.loop(animA);
 		sprite.play(nutmeg);
 	}
 

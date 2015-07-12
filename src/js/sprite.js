@@ -22,8 +22,8 @@ gb.sprite =
 		s.speed = 0;
 		s.frame = 0;
 		s.loop_count = 0;
-		s.rows = texture.width / w;
-		s.cols = texture.height / h;
+		s.rows = gb.math.round(texture.width / w);
+		s.cols = gb.math.round(texture.height / h);
 		s.frame_skip = 0;
 		s.frame_width = 1 / (texture.width / w); 
 		s.frame_height = 1 / (texture.height / h);
@@ -68,16 +68,15 @@ gb.sprite =
 			}
 
 			var ix = s.frame % s.cols;
-			var iy = 0;
+			var iy = gb.math.floor(s.frame / s.cols);
 
 			var x = ix * s.frame_width;
 			var y = iy * s.frame_height;
 			var w = x + s.frame_width;
 			var h = y + s.frame_height;
 
-			//var pos = gb.mesh.get_stride(s.entity.mesh, 3);
-			var pos = 3;
-			var stride = 5;
+			var pos = gb.mesh.get_stride(s.entity.mesh, 2); //3
+			var stride = gb.mesh.get_stride(s.entity.mesh); //5
 			var vb = s.entity.mesh.vertex_buffer.data;
 
 			var i = pos;
@@ -96,8 +95,7 @@ gb.sprite =
 			vb[  i] = w;
 			vb[i+1] = y;
 
-			//s.entity.mesh.dirty = true;
-			gb.webgl.update_mesh(s.entity.mesh);
+			s.entity.mesh.dirty = true;
 		}
 	},
 }

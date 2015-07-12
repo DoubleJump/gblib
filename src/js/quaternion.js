@@ -200,5 +200,14 @@ gb.quat =
 		t[3] = 1 + v3.dot(fn, tn);
 
 		_t.normalized(r,t);
-	}
+	},
+
+	lerp: function(r, a,b, t)
+	{
+		var it = 1-t;
+		r[0] = it * a[0] + t * b[0];
+		r[1] = it * a[1] + t * b[1];
+		r[2] = it * a[2] + t * b[2];
+		r[3] = it * a[3] + t * b[3];
+	},
 }

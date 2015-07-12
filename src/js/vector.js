@@ -111,6 +111,12 @@ gb.vec2 =
 		r[0] = m.max(a[0], b[0]);
 		r[1] = m.max(a[1], b[1]);
 	},
+	lerp: function(r, a,b, t)
+	{
+		var it = 1-t;
+		r[0] = it * a[0] + t * b[0];
+		r[1] = it * a[1] + t * b[1];
+	},
 }
 
 gb.vec3 = 
@@ -273,8 +279,9 @@ gb.vec3 =
 	},
 	lerp: function(r, a,b, t)
 	{
-		r[0] = (1-t) * a[0] + t * b[0];
-		r[1] = (1-t) * a[1] + t * b[1];
-		r[2] = (1-t) * a[2] + t * b[2];
+		var it = 1-t;
+		r[0] = it * a[0] + t * b[0];
+		r[1] = it * a[1] + t * b[1];
+		r[2] = it * a[2] + t * b[2];
 	},
 }

@@ -33,4 +33,12 @@ gb.color =
 		gb.color.set(c, r || 0, g || 0, b || 0, a || 0);
 		return c;
 	},
+	lerp: function(r, a,b, t)
+	{
+		var it = 1-t;
+		r[0] = it * a[0] + t * b[0];
+		r[1] = it * a[1] + t * b[1];
+		r[2] = it * a[2] + t * b[2];
+		r[3] = it * a[3] + t * b[3];
+	},
 }

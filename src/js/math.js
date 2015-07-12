@@ -17,6 +17,14 @@ gb.math =
 	{
 		if(a > b) return a; else return b;
 	},
+	round: function(a)
+	{
+		return Math.round(a);
+	},
+	floor: function(a)
+	{
+		return Math.floor(a);
+	},
 	clamp: function(a, min, max)
 	{
 		if(a < min) return min;

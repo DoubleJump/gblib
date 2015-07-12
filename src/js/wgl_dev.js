@@ -41,6 +41,7 @@ TODO:
 
 
 var v3 = gb.vec3;
+var qt = gb.quat;
 var scene = gb.scene;
 var camera = gb.camera;
 var entity = gb.entity;
@@ -56,7 +57,7 @@ var texture;
 var rotation;
 var nutmeg;
 var render_target;
-var anim;
+var animA;
 var curve;
 
 
@@ -138,14 +139,18 @@ function link_complete()
 	nutmeg = gb.sprite.new(assets.textures.nutmeg, 16,18);
 	scene.add_sprite(construct, nutmeg);
     gb.webgl.link_mesh(nutmeg.entity.mesh);
-	sprite.set_animation(nutmeg, 0, 4, 3, -1);
+	sprite.set_animation(nutmeg, 0, 4, 4, -1);
 
 	render_group = new RenderGroup();
 	render_group.entities.push(nutmeg.entity);
 	render_group.shader = assets.shaders.textured;
 
-	curve = gb.bezier.clamped(0.3,0.0,0.8,1.5);
-	anim = gb.animate.from_to(v3.new(1,1,1), v3.new(2,2,-3), nutmeg.entity.scale, 1.0, curve, v3.lerp, null);
+	curve = gb.bezier.clamped(0.3,0.0,0.8,1.0);
+
+	animA = gb.animate.new(nutmeg.entity.scale, v3.lerp, null);
+	gb.animate.add_frame(animA, v3.new(1,1,1), 0.0, curve);
+	gb.animate.add_frame(animA, v3.new(2,2,1), 1.0, null);
+	gb.animate.add_frame(animA, v3.new(0.5,0.5,1), 1.5, curve);
 
 	rotation = 0;
 
@@ -164,7 +169,7 @@ function update(timestamp)
 
 	if(gb.input.down(0))
 	{
-		gb.animate.play(anim);
+		gb.animate.loop(animA);
 		sprite.play(nutmeg);
 	}
 

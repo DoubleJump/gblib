@@ -134,6 +134,10 @@ gb.scene =
 	update_entity: function(e)
 	{
 		if(e.active === false || e.dirty === false) return;
+		if(e.mesh !== null && e.mesh.dirty === true)
+		{
+			gb.webgl.update_mesh(e.mesh);
+		}
 		gb.mat4.compose(e.world_matrix, e.position, e.scale, e.rotation);
 		if(e.parent !== null)
 		{

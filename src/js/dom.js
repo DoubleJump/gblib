@@ -6,6 +6,24 @@ gb.dom =
         parent.appendChild(el);
         return el;
 	},
+	div: function(parent, classes)
+	{
+		var e = gb.dom.insert('div', parent);
+		if(classes !== null) gb.dom.set_class(e, classes);
+		return e;
+	},
+	add_stylesheet: function(url)
+	{
+		var l = document.createElement('link');
+        l.rel = 'stylesheet';
+        l.type =  'text/css';
+        l.href =  url;
+        document.head.appendChild(l);
+	},
+	set_class: function(el, c)
+	{
+		el.className = c;
+	},
 	add_class: function(el, c)
 	{
 		el.classList.add(c);
@@ -34,5 +52,9 @@ gb.dom =
 		el.style.MozTransform = matrix;
 		el.style["oTransform"] = matrix;
 		el.style["msTransform"] = matrix;
-	}
+	},
+	add_event: function(el, event, handler)
+	{
+		el.addEventListener(event, handler, false);
+	},
 }

@@ -36,7 +36,7 @@ TODO:
 //INCLUDE input.js
 //INCLUDE random.js
 //INCLUDE asset_group.js
-//INCLUDE sprite.js
+//INCLUDE gl_sprite.js
 //INCLUDE animate.js
 
 

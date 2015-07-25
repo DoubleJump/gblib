@@ -1,15 +1,7 @@
 'use strict';
 
-/*
-TODO: 
-- dds mipmaps
-- deferred rendering
-- PBR
-- basic sound
-- mesh gen
-- particles
-*/
-
+///INCLUDE wgl_dev.js
+///INCLUDE fluid_sim.js
 //DEBUG
 function ASSERT(expr, message)
 {
@@ -89,6 +81,24 @@ gb.dom =
         parent.appendChild(el);
         return el;
 	},
+	div: function(parent, classes)
+	{
+		var e = gb.dom.insert('div', parent);
+		if(classes !== null) gb.dom.set_class(e, classes);
+		return e;
+	},
+	add_stylesheet: function(url)
+	{
+		var l = document.createElement('link');
+        l.rel = 'stylesheet';
+        l.type =  'text/css';
+        l.href =  url;
+        document.head.appendChild(l);
+	},
+	set_class: function(el, c)
+	{
+		el.className = c;
+	},
 	add_class: function(el, c)
 	{
 		el.classList.add(c);
@@ -117,7 +127,11 @@ gb.dom =
 		el.style.MozTransform = matrix;
 		el.style["oTransform"] = matrix;
 		el.style["msTransform"] = matrix;
-	}
+	},
+	add_event: function(el, event, handler)
+	{
+		el.addEventListener(event, handler, false);
+	},
 }
 gb.stack_array = [];
 gb.Stack = function(type, count)
@@ -229,76 +243,6 @@ gb.math =
 		return (1-t) * a + t * b;
 	},
 }
-gb.Binary_Reader = function(buffer)
-{
-	this.buffer = buffer;
-	this.bytes = new DataView(buffer);
-	this.offset = 0;
-}
-
-gb.serialize =
-{
-	r_i32: function(br)
-	{
-		var r = br.bytes.getInt32(br.offset, true);
-		br.offset += 4;
-		return r;
-	},
-	r_f32: function(br)
-	{
-		var r = br.bytes.getFloat32(br.offset, true);
-		br.offset += 4;
-		return r;
-	},
-	r_string: function(br)
-	{
-		var _t = gb.serialize;
-		var pad = _t.r_i32(br);
-        var l = _t.r_i32(br);
-    	var r = String.fromCharCode.apply(null, new Uint8Array(br.buffer, br.offset, l));
-        br.offset += l;
-        br.offset += pad;
-        return r;
-	},
-	r_f32_array: function(br, l)
-	{
-		var r = new Float32Array(br.buffer, br.offset, l);
-		br.offset += l * 4;
-		return r;
-	},
-	r_u32_array: function(br, l)
-	{
-		var r = new Uint32Array(br.buffer, br.offset, l);
-		br.offset += l * 4;
-		return r;
-	},
-	r_i32_array: function(br, l)
-	{
-		var r = new Int32Array(br.buffer, br.offset, l);
-		br.offset += l * 4;
-		return r;
-	},
-}
-
-/*
-	r_wav: function(br)
-	{
-		var s = gb.Searalize;
-        var n = s.r_string(br);
-		var header = new Uint32Array(br.buffer, br.offset, 13);
-		var sound = new gb.Sound();
-		sound.data = 
-	},
-	r_ogg: function(br)
-	{
-		var s = gb.Searalize;
-        var n = s.r_string(br);
-		var header = new Uint32Array(br.buffer, br.offset, 13);
-		var sound = new gb.Sound();
-		sound.data = 
-
-	},
-	*/
 gb.Vec2 = function(x,y)
 {
 	return new Float32Array(2);
@@ -799,437 +743,6 @@ gb.quat =
 		r[3] = it * a[3] + t * b[3];
 	},
 }
-gb.Mat3 = function()
-{
-	return new Float32Array(9);
-}
-gb.Mat4 = function()
-{
-	return new Float32Array(16);
-}
-
-gb.mat3 =
-{
-	stack: new gb.Stack(gb.Mat3, 5),
-
-	new: function()
-	{
-		var _t = gb.mat3;
-		var r = new gb.Mat3();
-		_t.identity(r);
-		return r;		
-	},
-	eq: function(a,b)
-	{
-		for(var i = 0; i < 9; ++i)
-			a[i] = b[i];
-	},
-	tmp: function()
-	{
-		var _t = gb.mat3;
-		var r = gb.stack.get(_t.stack);
-		_t.identity(r);
-		return r;
-	},
-
-	identity: function(m)
-	{
-		m[0] = 1; m[1] = 0; m[2] = 0;
-		m[3] = 0; m[4] = 1; m[5] = 0;
-		m[6] = 0; m[7] = 0; m[8] = 1;
-	},
-
-	determinant: function(m)
-	{
-		return m[0] * (m[4] * m[8] - m[5] * m[7]) -
-	      	   m[1] * (m[3] * m[8] - m[5] * m[6]) +
-	      	   m[2] * (m[3] * m[7] - m[4] * m[6]);
-	},
-
-	inverse: function(r, m)
-	{
-		var math = gb.math;
-		var _t = gb.mat3;
-		var t = this.tmp();
-
-	    r[0] = m[4] * m[8] - m[5] * m[7];
-	    r[1] = m[2] * m[7] - m[1] * m[8];
-	    r[2] = m[1] * m[5] - m[2] * m[4];
-	    r[3] = m[5] * m[6] - m[3] * m[8];
-	    r[4] = m[0] * m[8] - m[2] * m[6];
-	    r[5] = m[2] * m[3] - m[0] * m[5];
-	    r[6] = m[3] * m[7] - m[4] * m[6];
-	    r[7] = m[1] * m[6] - m[0] * m[7];
-	    r[8] = m[0] * m[4] - m[1] * m[3];
-
-	    var det = m[0] * r[0] + m[1] * r[3] + m[2] * r[6];
-	    if(math.abs(det) <= math.EPSILON)
-	    {
-	    	_t.identity(r);
-	    }
-
-	   	var idet = 1 / det;
-	   	for(var i = 0; i < 9; ++i)
-	   		r[i] *= idet;
-	},
-
-	mul: function(r, a,b)
-	{
-		r[0] = a[0] * b[0] + a[1] * b[3] + a[2] * b[6];
-		r[1] = a[0] * b[1] + a[1] * b[4] + a[2] * b[7];
-		r[2] = a[0] * b[2] + a[1] * b[5] + a[2] * b[8];
-		r[3] = a[3] * b[0] + a[4] * b[3] + a[5] * b[6];
-		r[4] = a[3] * b[1] + a[4] * b[4] + a[5] * b[7];
-		r[5] = a[3] * b[2] + a[4] * b[5] + a[5] * b[8];
-		r[6] = a[6] * b[0] + a[7] * b[3] + a[8] * b[6];
-		r[7] = a[6] * b[1] + a[7] * b[4] + a[8] * b[7];
-		r[8] = a[6] * b[2] + a[7] * b[5] + a[8] * b[8];
-	},
-
-	transposed: function(r,m)
-	{
-		r[1] = m[3];
-		r[2] = m[6]; 
-		r[3] = m[1];
-		r[5] = m[7]; 
-		r[6] = m[2]; 
-		r[7] = m[5];
-		r[8] = m[0];		
-	},
-
-	set_rotation: function(m, r)
-	{
-		var x2 = 2 * r[0]; 
-		var y2 = 2 * r[1]; 
-		var z2 = 2 * r[2];
-		var xx = r[0] * x2; 
-		var xy = r[0] * y2; 
-		var xz = r[0] * z2;
-		var yy = r[1] * y2;
-		var yz = r[1] * z2;
-		var zz = r[2] * z2;
-		var wx = r[3] * x2; 
-		var wy = r[3] * y2;
-		var wz = r[3] * z2;
-
-		m[0] = 1 - (yy + zz);
-		m[1] = xy + wz;
-		m[2] = xz - wy;
-		m[3] = xy - wz;
-		m[4] = 1 - (xx + zz);
-		m[5] = yz + wx;
-		m[6] = xz + wy;
-		m[7] = yz - wx;
-		m[8] = 1 - (xx + yy);
-	}
-}
-
-gb.mat4 =
-{
-	stack: new gb.Stack(gb.Mat4, 16),
-
-	new: function()
-	{
-		var _t = gb.mat4;
-		var r = new gb.Mat4();
-		_t.identity(r);
-		return r;		
-	},
-	eq: function(a,b)
-	{
-		for(var i = 0; i < 16; ++i)
-			a[i] = b[i];
-	},
-	tmp: function()
-	{
-		var _t = gb.mat4;
-		var r = gb.stack.get(_t.stack);
-		_t.identity(r);
-		return r;
-	},
-	identity: function(m)
-	{
-		m[ 0] = 1; m[ 1] = 0; m[ 2] = 0; m[ 3] = 0;
-		m[ 4] = 0; m[ 5] = 1; m[ 6] = 0; m[ 7] = 0;
-		m[ 8] = 0; m[ 9] = 0; m[10] = 1; m[11] = 0;
-		m[12] = 0; m[13] = 0; m[14] = 0; m[15] = 1;
-	},
-	mul: function(r, a,b)
-	{
-		r[ 0] = a[ 0] * b[0] + a[ 1] * b[4] + a[ 2] * b[ 8] + a[ 3] * b[12];
-		r[ 1] = a[ 0] * b[1] + a[ 1] * b[5] + a[ 2] * b[ 9] + a[ 3] * b[13];
-		r[ 2] = a[ 0] * b[2] + a[ 1] * b[6] + a[ 2] * b[10] + a[ 3] * b[14];
-		r[ 3] = a[ 0] * b[3] + a[ 1] * b[7] + a[ 2] * b[11] + a[ 3] * b[15];
-		r[ 4] = a[ 4] * b[0] + a[ 5] * b[4] + a[ 6] * b[ 8] + a[ 7] * b[12];
-		r[ 5] = a[ 4] * b[1] + a[ 5] * b[5] + a[ 6] * b[ 9] + a[ 7] * b[13];
-		r[ 6] = a[ 4] * b[2] + a[ 5] * b[6] + a[ 6] * b[10] + a[ 7] * b[14];
-		r[ 7] = a[ 4] * b[3] + a[ 5] * b[7] + a[ 6] * b[11] + a[ 7] * b[15];	
-		r[ 8] = a[ 8] * b[0] + a[ 9] * b[4] + a[10] * b[ 8] + a[11] * b[12];
-		r[ 9] = a[ 8] * b[1] + a[ 9] * b[5] + a[10] * b[ 9] + a[11] * b[13];
-		r[10] = a[ 8] * b[2] + a[ 9] * b[6] + a[10] * b[10] + a[11] * b[14];
-		r[11] = a[ 8] * b[3] + a[ 9] * b[7] + a[10] * b[11] + a[11] * b[15];
-		r[12] = a[12] * b[0] + a[13] * b[4] + a[14] * b[ 8] + a[15] * b[12];
-		r[13] = a[12] * b[1] + a[13] * b[5] + a[14] * b[ 9] + a[15] * b[13];
-		r[14] = a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14];
-		r[15] = a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15];
-	},
-
-	determinant: function(m)
-	{
-		var a0 = m[ 0] * m[ 5] - m[ 1] * m[ 4];
-		var a1 = m[ 0] * m[ 6] - m[ 2] * m[ 4];
-		var a2 = m[ 0] * m[ 7] - m[ 3] * m[ 4];
-		var a3 = m[ 1] * m[ 6] - m[ 2] * m[ 5];
-		var a4 = m[ 1] * m[ 7] - m[ 3] * m[ 5];
-		var a5 = m[ 2] * m[ 7] - m[ 3] * m[ 6];
-		var b0 = m[ 8] * m[13] - m[ 9] * m[12];
-		var b1 = m[ 8] * m[14] - m[10] * m[12];
-		var b2 = m[ 8] * m[15] - m[11] * m[12];
-		var b3 = m[ 9] * m[14] - m[10] * m[13];
-		var b4 = m[ 9] * m[15] - m[11] * m[13];
-		var b5 = m[10] * m[15] - m[11] * m[14];
-		return a0 * b5 - a1 * b4 + a2 * b3 + a3 * b2 - a4 * b1 + a5 * b0;
-	},
-
-	transposed: function(r, m)
-	{
-		r[ 1] = m[ 4]; 
-		r[ 2] = m[ 8]; 
-		r[ 3] = m[12];
-		r[ 4] = m[ 1]; 
-		r[ 6] = m[ 9]; 
-		r[ 7] = m[13];
-		r[ 8] = m[ 2]; 
-		r[ 9] = m[ 6]; 
-		r[11] = m[14];
-		r[12] = m[ 3]; 
-		r[13] = m[ 7]; 
-		r[14] = m[11];
-		r[15] = m[15]; 	
-	},
-	inverse: function(r, m)
-	{
-		var v0 = m[ 2] * m[ 7] - m[ 6] * m[ 3];
-		var v1 = m[ 2] * m[11] - m[10] * m[ 3];
-		var v2 = m[ 2] * m[15] - m[14] * m[ 3];
-		var v3 = m[ 6] * m[11] - m[10] * m[ 7];
-		var v4 = m[ 6] * m[15] - m[14] * m[ 7];
-		var v5 = m[10] * m[15] - m[14] * m[11];
-
-		var t0 =   v5 * m[5] - v4 * m[9] + v3 * m[13];
-		var t1 = -(v5 * m[1] - v2 * m[9] + v1 * m[13]);
-		var t2 =   v4 * m[1] - v2 * m[5] + v0 * m[13];
-		var t3 = -(v3 * m[1] - v1 * m[5] + v0 * m[ 9]);
-
-		var idet = 1.0 / (t0 * m[0] + t1 * m[4] + t2 * m[8] + t3 * m[12]);
-
-		r[0] = t0 * idet;
-		r[1] = t1 * idet;
-		r[2] = t2 * idet;
-		r[3] = t3 * idet;
-
-		r[4] = -(v5 * m[4] - v4 * m[8] + v3 * m[12]) * idet;
-		r[5] =  (v5 * m[0] - v2 * m[8] + v1 * m[12]) * idet;
-		r[6] = -(v4 * m[0] - v2 * m[4] + v0 * m[12]) * idet;
-		r[7] =  (v3 * m[0] - v1 * m[4] + v0 * m[ 8]) * idet;
-
-		v0 = m[1] * m[ 7] - m[ 5] * m[3];
-		v1 = m[1] * m[11] - m[ 9] * m[3];
-		v2 = m[1] * m[15] - m[13] * m[3];
-		v3 = m[5] * m[11] - m[ 9] * m[7];
-		v4 = m[5] * m[15] - m[13] * m[7];
-		v5 = m[9] * m[15] - m[13] * m[11];
-
-		r[ 8] =  (v5 * m[4] - v4 * m[8] + v3 * m[12]) * idet;
-		r[ 9] = -(v5 * m[0] - v2 * m[8] + v1 * m[12]) * idet;
-		r[10] =  (v4 * m[0] - v2 * m[4] + v0 * m[12]) * idet;
-		r[11] = -(v3 * m[0] - v1 * m[4] + v0 * m[ 8]) * idet;
-
-		v0 = m[ 6] * m[1] - m[ 2] * m[ 5];
-		v1 = m[10] * m[1] - m[ 2] * m[ 9];
-		v2 = m[14] * m[1] - m[ 2] * m[13];
-		v3 = m[10] * m[5] - m[ 6] * m[ 9];
-		v4 = m[14] * m[5] - m[ 6] * m[13];
-		v5 = m[14] * m[9] - m[10] * m[13];
-
-		r[12] = -(v5 * m[4] - v4 * m[8] + v3 * m[12]) * idet;
-		r[13] =  (v5 * m[0] - v2 * m[8] + v1 * m[12]) * idet;
-		r[14] = -(v4 * m[0] - v2 * m[4] + v0 * m[12]) * idet;
-		r[15] =  (v3 * m[0] - v1 * m[4] + v0 * m[ 8]) * idet;
-	},
-
-	inverse_affine: function(r, m)
-	{
-		var t0 = m[10] * m[5] - m[ 6] * m[9];
-		var t1 = m[ 2] * m[9] - m[10] * m[1];
-		var t2 = m[ 6] * m[1] - m[ 2] * m[5];
-
-		var idet = 1 / (m[0] * t0 + m[4] * t1 + m[8] * t2);
-
-		t0 *= idet;
-		t1 *= idet;
-		t2 *= idet;
-
-		var v0 = m[0] * idet;
-		var v4 = m[4] * idet;
-		var v8 = m[8] * idet;
-
-		r[ 0] = t0; 
-		r[ 1] = t1; 
-		r[ 2] = t2;
-		r[ 3] = 0;
-		r[ 4] = v8 * m[ 6] - v4 * m[10];
-		r[ 5] = v0 * m[10] - v8 * m[ 2];
-		r[ 6] = v4 * m[ 2] - v0 * m[ 6];
-		r[ 7] = 0;
-		r[ 8] = v4 * m[9] - v8 * m[5];
-		r[ 9] = v8 * m[1] - v0 * m[9];
-		r[10] = v0 * m[5] - v4 * m[1];
-		r[11] = 0;
-		r[12] = -(r[0] * m[12] + r[4] * m[13] + r[ 8] * m[14]);
-		r[13] = -(r[1] * m[12] + r[5] * m[13] + r[ 9] * m[14]);
-		r[14] = -(r[2] * m[12] + r[6] * m[13] + r[10] * m[14]);		
-		r[15] = 1;
-
-		return r;
-	},
-
-	set_position: function(m, p)
-	{
-		m[12] = p[0]; 
-		m[13] = p[1]; 
-		m[14] = p[2];
-	},
-
-	get_position: function(r, m)
-	{
-		r[0] = m[12];
-		r[1] = m[13];
-		r[2] = m[14];
-	},
-
-	set_scale: function(m, s)
-	{
-		m[ 0] = s[0]; 
-		m[ 5] = s[1]; 
-		m[10] = s[2];
-	},
-	scale: function(m, s)
-	{
-		m[ 0] *= s[0]; 
-		m[ 1] *= s[0]; 
-		m[ 2] *= s[0];
-		m[ 3] *= s[0];
-		m[ 4] *= s[1];
-		m[ 5] *= s[1];
-		m[ 6] *= s[1];
-		m[ 7] *= s[1];
-		m[ 8] *= s[2];
-		m[ 9] *= s[2];
-		m[10] *= s[2];
-		m[11] *= s[2];
-	},
-	get_scale: function(r, m)
-	{
-		r[0] = m[0];
-		r[1] = m[5];
-		r[2] = m[10];
-	},
-
-	set_rotation: function(m, r)
-	{
-		var x2 = 2 * r[0]; 
-		var y2 = 2 * r[1]; 
-		var z2 = 2 * r[2];
-		var xx = r[0] * x2; 
-		var xy = r[0] * y2; 
-		var xz = r[0] * z2;
-		var yy = r[1] * y2;
-		var yz = r[1] * z2;
-		var zz = r[2] * z2;
-		var wx = r[3] * x2; 
-		var wy = r[3] * y2;
-		var wz = r[3] * z2;
-
-		m[ 0] = 1 - (yy + zz);
-		m[ 1] = xy + wz;
-		m[ 2] = xz - wy;
-		m[ 3] = 0;
-		m[ 4] = xy - wz;
-		m[ 5] = 1 - (xx + zz);
-		m[ 6] = yz + wx;
-		m[ 7] = 0;
-		m[ 8] = xz + wy;
-		m[ 9] = yz - wx;
-		m[10] = 1 - (xx + yy);
-		m[11] = 0;
-		m[12] = 0;
-		m[13] = 0;
-		m[14] = 0;
-		m[15] = 1;
-	},
-
-	get_rotation: function(r, m)
-	{
-		var t;
-		if(m[10] < 0)
-		{
-			if(m[0] > m[5])
-			{
-				t = 1 + m[0] - m[5] - m[10];
-				r.set(t, m[1] + m[4], m[8] + m[2], m[6] - m[9]);
-			}
-			else
-			{
-				t = 1 - m[0] + m[5] - m[10];
-				r.set(m[1] + m[4], t, m[6] + m[9], m[8] - m[2]);
-			}
-		}
-		else
-		{
-			if (m[0] < -m[5])
-			{
-				t = 1 - m[0] - m[5] + m[10];
-				r.set(m[8] + m[2], m[6] + m[9], t, m[1] - m[4]);
-			}
-			else
-			{
-				t = 1 + m[0] + m[5] + m[10];
-				r.set(m[6] - m[9], m[8] - m[2], m[1] - m[4], t);
-			}
-		}
-
-		var q = gb.quat;
-		var rf = q.tmp();
-		q.mulf(rf, r, 0.5);
-		q.divf(r, rf, t);
-	},
-
-	compose: function(m, p, s, r)
-	{
-		var _t = gb.mat4;
-		_t.set_rotation(m,r);
-		_t.scale(m,s);
-		_t.set_position(m,p);
-	},
-
-	mul_point: function(r, m, p)
-	{
-		var x = m[0] * p[0] + m[4] * p[1] + m[ 8] * p[2] + m[12];
-		var y = m[1] * p[0] + m[5] * p[1] + m[ 9] * p[2] + m[13];
-		var z = m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14];
-		r[0] = x; r[1] = y; r[2] = z;
-	},
-
-	mul_projection: function(r, m, p)
-	{
-		var d = 1 / (m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]);
-		var x = (m[0] * p[0] + m[4] * p[1] + m[ 8] * p[2] + m[12]) * d;
-		var y = (m[1] * p[0] + m[5] * p[1] + m[ 9] * p[2] + m[13]) * d;
-		var z = (m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]) * d;
-		r[0] = x; r[1] = y; r[2] = z;
-	},
-}
 gb.Rect = function()
 {
 	this.x;
@@ -1267,163 +780,6 @@ gb.rect =
 		var r = gb.stack.get(_t.stack);
 		_t.set(r, x || 0, y || 0, w || 0, h || 0);
 		return r;
-	},
-}
-gb.AABB = function()
-{
-    this.min = gb.vec3.new();
-    this.max = gb.vec3.new();
-}
-
-gb.aabb = 
-{
-	stack: new gb.Stack(gb.AABB, 16),
-
-    new: function()
-    {
-        return new gb.AABB();
-    },
-    set:function(r, min, max)
-    {
-        gb.vec3.eq(r.min, min);
-        gb.vec3.eq(r.max, max);
-    },
-    eq:function(a, b)
-    {
-        gb.aabb.set(a, b.min, b.max);
-    },
-    setf:function(a, x,y,z)
-    {
-        a.min[0] = -x / 2;
-        a.max[0] = x / 2;
-        a.min[1] = -y / 2;
-        a.max[1] = y / 2;
-        a.min[2] = -z / 2;
-        a.max[2] = z / 2;
-    },
-	tmp: function(min, max)
-	{
-        var _t = gb.aabb;
-        var v = gb.stack.get(_t.stack);
-		if(min || max) _t.set(v, min, max);
-		return v;
-	},
-    contains: function(a, b)
-    {
-        return a.min[0] >= b.min[0] && 
-               a.max[0] <= b.max[0] && 
-               a.min[1] >= b.min[1] && 
-               a.max[1] <= b.max[1] && 
-               a.min[2] >= b.min[2] && 
-               a.max[2] <= b.max[2];
-    },
-    combine: function(r, a,b)
-    {
-        gb.vec3.min(r.min, a.min, b.min);
-        gb.vec3.max(r.max, a.max, b.max);
-    },
-    center: function(r, a)
-    {
-        r[0] = (a.min[0] + a.max[0]) / 2.0;
-        r[1] = (a.min[1] + a.max[1]) / 2.0;
-        r[2] = (a.min[2] + a.max[2]) / 2.0;
-    },
-    width: function(a)
-    {
-        return a.max[0] - a.min[0];
-    },
-    height: function(a)
-    {
-        return a.max[1] - a.min[1];
-    },
-    depth: function(a)
-    {
-        return a.max[2] - a.min[2];
-    },
-    test_min_max: function(p, min, max)
-    {
-        if(p[0] < min[0]) min[0] = p[0];
-        if(p[1] < min[1]) min[1] = p[1];
-        if(p[2] < min[2]) min[2] = p[2];
-
-        if(p[0] > max[0]) max[0] = p[0];
-        if(p[1] > max[1]) max[1] = p[1];
-        if(p[2] > max[2]) max[2] = p[2];        
-    },
-    transform: function(a, m)
-    {
-        var _t = gb.aabb;
-        var v3 = gb.vec3;
-        var m4 = gb.mat4;
-        
-        var stack = v3.push();
-
-        var e = a.min;
-        var f = a.max;
-
-        var p0 = v3.tmp(e[0],e[1],e[2]); 
-        var p1 = v3.tmp(f[0],e[1],e[2]);
-        var p2 = v3.tmp(e[0],f[1],e[2]);
-        var p3 = v3.tmp(f[0],f[1],e[2]);
-
-        var p4 = v3.tmp(e[0],e[1],f[2]); 
-        var p5 = v3.tmp(f[0],e[1],f[2]);
-        var p6 = v3.tmp(e[0],f[1],f[2]);
-        var p7 = v3.tmp(f[0],f[1],f[2]);
-
-        m4.mul_point(p0, m, p0);
-        m4.mul_point(p1, m, p1);
-        m4.mul_point(p2, m, p2);
-        m4.mul_point(p3, m, p3);
-        m4.mul_point(p4, m, p4);
-        m4.mul_point(p5, m, p5);
-        m4.mul_point(p6, m, p6);
-        m4.mul_point(p7, m, p7);
-
-        e = v3.tmp(p0[0], p0[1], p0[2]);
-        f = v3.tmp(p0[0], p0[1], p0[2]);
-        
-        _t.test_min_max(p1, e, f);
-        _t.test_min_max(p2, e, f);
-        _t.test_min_max(p3, e, f);
-        _t.test_min_max(p4, e, f);
-        _t.test_min_max(p5, e, f);
-        _t.test_min_max(p6, e, f);
-        _t.test_min_max(p7, e, f);
-
-        v3.eq(a.min, e);
-        v3.eq(a.max, f);
-
-        v3.pop(stack);
-    },
-}
-gb.Ray = function()
-{
-	this.point = gb.vec3.new();
-	this.dir = gb.vec3.new();
-}
-gb.ray = 
-{
-	stack: new gb.Stack(gb.Ray, 5),
-
-	new: function()
-	{
-		return new gb.Ray();
-	},
-	tmp: function(point, dir)
-	{
-		var r = gb.stack.get(gb.ray.stack);
-		gb.ray.set(v, point,dir);
-		return v;
-	},
-	set: function(r, point, dir)
-	{
-		gb.vec3.eq(r.point, point);
-		gb.vec3.eq(r.dir, dir);
-	},
-	eq: function(a,b)
-	{
-		gb.ray.set(a, b.point, b.dir);
 	},
 }
 gb.Bezier = function()
@@ -1472,167 +828,20 @@ gb.bezier =
 				   (3 * u * tt * b.c[i]) + 
 				   (ttt * b.d[i]);
 	},
-	evalf: function(b, t)
+	eval_f: function(b, t)
 	{
-		var cr = gb.vec3.tmp();
-		gb.bezier.eval(cr,b,t);
-		return cr[1];
+		var u = 1.0 - t;
+		var tt = t * t;
+		var uu = u * u;
+		var uuu = uu * u;
+		var ttt = tt * t;
+
+		return (uuu * b.a[1]) + 
+			   (3 * uu * t * b.b[1]) + 
+			   (3 * u * tt * b.c[1]) + 
+			   (ttt * b.d[1]);
 	}
 }
-gb.Hit = function()
-{
-	this.hit = false;
-	this.point = gb.vec3.new();
-	this.normal = gb.vec3.new();
-	this.t = 0;
-}
-gb.hit = 
-{
-	stack: new gb.Stack(gb.Hit, 5),
-
-	eq: function(a,b)
-	{
-		a.hit = b.hit;
-		gb.vec3.eq(a.point, b.point);
-		gb.vec3.eq(a.normal, b.normal);
-		a.t = b.t;
-	},
-	tmp: function()
-	{
-		var r = gb.stack.get(gb.hit.stack);
-		r.hit = false;
-		gb.vec3.set(r.point, 0,0,0);
-		gb.vec3.set(r.normal, 0,0,0);
-		r.t = 0;
-		return r;
-	},
-}
-
-
-gb.intersect = 
-{
-	aabb_aabb: function(a, b)
-    {
-       	if(a.min[0] > b.max[0]) return false;
-       	if(a.max[0] < b.min[0]) return false;
-
-       	if(a.min[1] > b.max[1]) return false;
-       	if(a.max[1] < b.min[1]) return false;
-
-       	if(a.min[2] > b.max[2]) return false;
-       	if(a.max[2] < b.min[2]) return false;
-
-        return true;
-    },
-
-    aabb_ray: function(h, a, r)
-	{
-		var fx = 1 / r.dir[0];
-		var fy = 1 / r.dir[1];
-		var fz = 1 / r.dir[2];
-
-		var t1 = (a.min[0] - r.point[0]) * fx;
-		var t2 = (a.max[0] - r.point[0]) * fx;
-		var t3 = (a.min[1] - r.point[1]) * fy;
-		var t4 = (a.max[1] - r.point[1]) * fy;
-		var t5 = (a.min[2] - r.point[2]) * fz;
-		var t6 = (a.max[2] - r.point[2]) * fz;
-
-		var m = gb.math;
-		var tmin = m.max(m.max(m.min(t1, t2), m.min(t3, t4)), m.min(t5, t6));
-		var tmax = m.min(m.min(m.max(t1, t2), m.max(t3, t4)), m.max(t5, t6));
-
-		if(tmax < 0 || tmin > tmax)
-		{
-			h.hit = false;
-			return;
-		}
-
-		var v = gb.vec3.tmp();
-		gb.vec3.mulf(v, r.dir, tmin);
-		gb.vec3.add(h.point, r.point, v);
-		h.hit = true;
-		gb.vec3.set(h.normal, 0,1,0);
-		h.t = tmin;
-	},
-
-	point_triangle: function(p, a,b,c)
-	{
-		var A =  (-b[1] * c[0] + a[1] * (-b[0] + c[0]) + a[0] * (b[1] - c[1]) + b[0] * c[1]) / 2;
-		var sign = A < 0 ? -1 : 1;
-		var s = (a[1] * c[0] - a[0] * c[1] + (c[1] - a[1]) * p[0] + (a[0] - c[0]) * p[1]) * sign;
-		var t = (a[0] * b[1] - a[1] * b[0] + (a[1] - b[1]) * p[0] + (b[0] - a[0]) * p[1]) * sign;
-		return s > 0 && t > 0 && s + t < 2 * A * sign;
-	},
-
-	triangle_ray: function(h, a,b,c, r)
-	{
-		var v3 = gb.vec3;
-		var e0 = v3.tmp();
-		var e1 = v3.tmp();
-		var cross = v3.tmp();
-		var n = v3.tmp();
-
-		v3.sub(e0, b,a);
-		v3.sub(e1, c,a);
-
-		v3.cross(cross, e0, e1);
-		v3.normalized(n, cross);
-		v3.inverse(n, n);
-
-		var ndot = v3.dot(n, r.dir);
-		var t = -(v3.dot(n,r.point) + v3.dot(n,a)) / ndot;
-
-		v3.mulf(e0, r.dir, t);
-		v3.add(e1, r.point, e0);
-
-		if(gb.intersect.point_triangle(e1, a,b,c) === true)
-		{
-			h.hit = true;
-			v3.eq(h.point, e1);
-			v3.eq(h.normal, n);
-			h.t = t;
-		}
-		else
-		{
-			h.hit = false;
-		}
-	},
-
-	mesh_ray: function(h, m, matrix, r)
-	{
-		var _t = gb.intersect;
-		var stride = gb.mesh.get_stride(m);
-		h.t = gb.math.MAX_F32;
-
-		var hit = gb.hit.tmp();
-
-		var n = m.vertex_count / 3;
-		var d = m.vertex_buffer.data;
-		var c = 0;
-		for(var i = 0; i < n; ++i)
-		{
-			var stack = gb.vec3.push();
-			var ta = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
-			gb.mat4.mul_point(ta, matrix, ta);
-			c += stride;
-			var tb = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
-			gb.mat4.mul_point(tb, matrix, tb);
-			c += stride;
-			var tc = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
-			gb.mat4.mul_point(tc, matrix, tc);
-			c += stride;
-
-			_t.triangle_ray(hit, ta,tb,tc, r);
-			gb.vec3.pop(stack);
-			if(hit.hit === true && hit.t < h.t)
-			{
-				gb.hit.eq(h, hit);
-			}
-		}
-	},
-}
-
 gb.Color = function(r,g,b,a)
 {
 	return new Float32Array(4);
@@ -1645,7 +854,7 @@ gb.color =
 	new: function(r,g,b,a)
 	{
 		var v = new gb.Color();
-		gb.color.set(r, r,g,b,a);
+		gb.color.set(v, r,g,b,a);
 		return v;
 	},
 	set: function(v, r,g,b,a)
@@ -1677,79 +886,6 @@ gb.color =
 		r[3] = it * a[3] + t * b[3];
 	},
 }
-gb.Camera = function()
-{
-	this.projection_type = null;
-	this.projection = gb.mat4.new();
-	this.view = gb.mat4.new();
-	this.view_projection = gb.mat4.new();
-	this.mask;
-	this.dirty;
-	this.aspect;
-	this.near;
-	this.far;
-	this.fov;
-	this.entity;
-}
-
-gb.camera = 
-{
-	new: function(projection, near, far, fov, mask)
-	{
-	    var c = new gb.Camera();
-	    c.projection_type = projection || gb.Projection.PERSPECTIVE;
-	    c.near = near || 0.1;
-	    c.far = far || 100;
-	    c.fov = fov || 60;
-	    c.mask = mask || 0;
-	    c.dirty = true;
-	    c.entity = new gb.Entity();
-	    return c;
-	},
-	update_projection: function(c, view)
-	{
-		c.aspect = view.width / view.height;
-
-		var m = c.projection;
-
-		if(c.projection_type === gb.Projection.ORTHO)
-		{
-			m[ 0] = 2.0 / view.width;
-			m[ 5] = 2.0 / view.height;
-			m[10] = -2.0 / (c.far - c.near);
-			m[14] = 0.0;
-			m[15] = 1.0;	
-		}
-		else
-		{
-			var h = 1.0 / gb.math.tan(c.fov * gb.math.PI_OVER_360);
-			var y = c.near - c.far;
-			
-			m[ 0] = h / c.aspect;
-			m[ 5] = h;
-			m[10] = (c.far + c.near) / y;
-			m[11] = -1.0;
-			m[14] = 2.0 * (c.near * c.far) / y;
-			m[15] = 0.0;
-		}
-
-		c.dirty = false;
-	},
-
-	set_clip_range: function(c, near, far)
-	{
-		c.near = near;
-		c.far = far;
-		c.dirty = true;
-	},
-
-}
-
-gb.Projection = 
-{
-    ORTHO: 0,
-    PERSPECTIVE: 1,
-}
 gb.time = 
 {
 	began: 0,
@@ -1774,1041 +910,137 @@ gb.time =
     	_t.last = t;
     },
 }
-gb.Entity = function()
+gb.Canvas2D = function()
 {
-	this.parent = null;
-	this.children = [];
-
-	this.active = true;
-	this.layer = 0;
-	this.dirty = true;
-
-	this.position = gb.vec3.new(0,0,0);
-	this.scale = gb.vec3.new(1,1,1);
-	this.rotation = gb.quat.new(0,0,0,1);
-
-	this.local_matrix = gb.mat4.new();
-	this.world_matrix = gb.mat4.new();
-	this.bounds = gb.aabb.new();
-
-	this.mesh = null;
-}
-gb.entity = 
-{
-	new: function()
-	{
-		return new gb.Entity();
-	},
-	set_active: function(e, val)
-	{
-		e.active = val;
-		var n = e.children.length;
-		for(var i = 0; i < n; ++i)
-		{
-			gb.entity.set_active(e.children[i], val);
-		}
-	},
-	set_parent: function(e, parent)
-	{
-		if (e.parent === parent) return;
-
-		if (e.parent !== null && parent === null) // clearing parent
-		{
-			e.parent.remove_child(e);
-			e.parent = null;
-		}
-		else if (e.parent !== null && parent !== null) // swapping parent
-		{
-			e.parent.remove_child(e);
-			e.parent = parent;
-			e.parent.add_child(e);
-		}
-		else // setting new parent from null
-		{
-			e.parent = parent;
-			e.parent.add_child(e);
-		}
-	},
-	add_child: function(e, child)
-	{
-		e.children.push(child);
-	},
-	remove_child: function(e, child)
-	{
-		var index = e.children.indexOf(child, 0);
-		ASSERT(index == undefined, "Cannot remove child - not found!");
-		e.children.splice(index, 1);
-	},
-	set_position: function(e, x,y,z)
-	{
-		gb.vec3.set(e.position, x,y,z);
-		e.dirty = true;
-	},
-	set_scale: function(e, x,y,z)
-	{
-		gb.vec3.set(e.scale, x,y,z);
-		e.dirty = true;
-	},
-	set_rotation: function(e, x,y,z)
-	{
-		gb.quat.euler(e.rotation, x,y,z);
-		e.dirty = true;
-	},
+	this.element = null;
+	this.view = null;
+	this.ctx = null;
 }
 
-
-gb.Scene = function()
+gb.canvas = 
 {
-	this.num_entities = 0;
-	this.num_cameras = 0;
-	this.num_sprites = 0;
-	this.entities = [];
-	this.cameras = [];
-	this.sprites = [];
-	//this.render_groups: [],
-}
-gb.scene = 
-{
-	new: function()
-	{
-		return new gb.Scene();
-	},
-	add_entity: function(s, e)
-	{
-		s.entities.push(e);
-		s.num_entities++;
-	},
-	
-	add_camera: function(s, c)
-	{
-		s.cameras.push(c);
-		s.entities.push(c.entity);
-		s.num_entities++;
-		s.num_cameras++;
-    	gb.camera.update_projection(c, gb.webgl.view);
-	},
-
-	add_sprite: function(s, spr)
-	{
-		s.sprites.push(spr);
-		s.entities.push(spr.entity);
-		s.num_entities++;
-		s.num_sprites++;
-	},
-
-	update_camera: function(c)
-	{
-		ASSERT(c.entity != null, "Camera has no transform!");
-		if(c.dirty === true)
-		{
-			gb.camera.update_projection(c);
-		}
-		gb.mat4.inverse(c.view, c.entity.world_matrix);
-		gb.mat4.mul(c.view_projection, c.view, c.projection);
-	},
-
-	update_entity: function(e)
-	{
-		if(e.active === false || e.dirty === false) return;
-		if(e.mesh !== null && e.mesh.dirty === true)
-		{
-			gb.webgl.update_mesh(e.mesh);
-		}
-		gb.mat4.compose(e.world_matrix, e.position, e.scale, e.rotation);
-		if(e.parent !== null)
-		{
-			gb.mat4.mul(e.world_matrix, e.parent.world_matrix);
-		}
-		for(var i = 0; i < e.num_children; ++i)
-		{
-			gb.scene.update_entity(e.children[i]);
-		}
-	},
-
-	update: function(s)
-	{
-		var n = s.num_entities;
-		for(var i = 0; i < n; ++i) 
-		{
-			gb.scene.update_entity(s.entities[i]);
-		}
-		n = s.num_cameras;
-		for(var i = 0; i < n; ++i)
-		{
-			gb.scene.update_camera(s.cameras[i]);
-		}
-		n = s.num_sprites;
-		for(var i = 0; i < n; ++i)
-		{
-			gb.sprite.update(s.sprites[i]);
-		}
-	},
-}
-gb.Vertex_Attribute_Info = function(name, size, normalized)
-{
-	this.name = name;
-	this.size = size;
-	this.normalized = normalized;
-}
-gb.vertex_attributes =
-[
-	new gb.Vertex_Attribute_Info("position", 3, false),
-	new gb.Vertex_Attribute_Info("normal", 3, false),
-	new gb.Vertex_Attribute_Info("uv", 2, false),
-	new gb.Vertex_Attribute_Info("uv2", 2, false),
-	new gb.Vertex_Attribute_Info("color", 4, true),
-];
-gb.Vertex_Buffer = function()
-{
-	this.id = 0;
-	this.data;
-	this.mask;
-	this.update_mode;
-}
-gb.Index_Buffer = function()
-{
-	this.id = 0;
-	this.data;
-	this.update_mode;
-}
-gb.Mesh = function()
-{
-	this.layout;
-	this.vertex_buffer;
-	this.vertex_count;
-	this.index_buffer;
-	this.index_count;
-	this.dirty;
-}
-
-gb.mesh = 
-{
-	new: function(vertex_count, vertices, mask, indices)
-	{
-	    var m = new gb.Mesh();
-	    m.layout = gb.webgl.ctx.TRIANGLES;
-
-	    var vb = new gb.Vertex_Buffer();
-	    vb.data = vertices;
-	    vb.mask = mask;
-	    vb.update_mode = gb.webgl.ctx.STATIC_DRAW;
-	    m.vertex_buffer = vb;
-	    m.vertex_count = vertex_count;
-
-	    var ib = new gb.Index_Buffer();
-	    ib.data = indices;
-	    ib.update_mode = gb.webgl.ctx.STATIC_DRAW;    
-	    m.index_buffer = ib;
-
-	    m.index_count = indices.length;
-	    m.dirty = true;
-	    return m;
-	},
-	get_stride: function(m, n)
-	{
-		var stride = 0;
-		var index = 1;
-		n = n || 5;
-		for(var i = 0; i < n; ++i)
-		{
-			var mr = (index & m.vertex_buffer.mask) === index;
-			stride += mr * (gb.vertex_attributes[i].size);
-			index *= 2;
-		}
-		return stride;
-	},
-	get_bounds: function(b, m)
-	{
-		var v3 = gb.vec3;
-		var d = m.vertex_buffer.data;
-		v3.set(b.min, d[0], d[1], d[2]);
-		v3.set(b.max, d[0], d[1], d[2]);
-
-		var stride = gb.mesh.get_stride(m);
-		var n = m.vertex_count;
-		var p = v3.tmp(0,0,0);
-		var c = stride;
-		for(var i = 1; i < n; ++i)
-		{
-			v3.set(p, d[c], d[c+1], d[c+2]);
-
-			if(p[0] < b.min[0]) b.min[0] = p[0];
-			if(p[1] < b.min[1]) b.min[1] = p[1];
-			if(p[2] < b.min[2]) b.min[2] = p[2];
-
-			if(p[0] > b.max[0]) b.max[0] = p[0];
-			if(p[1] > b.max[1]) b.max[1] = p[1];
-			if(p[2] > b.max[2]) b.max[2] = p[2];
-
-			c += stride;
-		}
-	},
-}
-gb.serialize.r_mesh = function(br)
-{
-	var s = gb.serialize;
-	var h = s.r_i32_array(br, 4);
-	var vertices = s.r_f32_array(br, h[1]);
-	var indices = s.r_u32_array(br, h[2]);
-	return gb.mesh.new(h[0], vertices, h[3], indices);
-}
-gb.mesh.generate = 
-{
-	quad: function(width, height, depth)
-	{
-		var x = width / 2;
-	    var y = height / 2;
-	    var z = (depth / 2) || 0;
-	    
-	    var data = new Float32Array(
-	    [
-	    	// POS    UV
-	        -x,-y, z, 0,0,
-	         x,-y, z, 1,0,
-	        -x, y,-z, 0,1,
-	         x, y,-z, 1,1
-	    ]);
-
-	    var tris = new Uint32Array([0,1,3,0,3,2]);
-	    var mask = 1 | 4;
-	    return gb.mesh.new(4, data, mask, tris);
-	},
-
-	cube: function(width, height, depth)
-	{
-		var x = width / 2;
-		var y = height / 2;
-		var z = depth / 2;
-
-		var data = new Float32Array(
-		[
-			// POS    NORMAL  UV
-			-x,-y, z, 0,0,1, 0,0, 
-			 x,-y, z, 0,0,1, 1,0, 
-			-x, y, z, 0,0,1, 0,1, 
-			 x, y, z, 0,0,1, 1,1, 
-			 x,-y, z, 1,0,0, 0,0, 
-			 x,-y,-z, 1,0,0, 1,0, 
-			 x, y, z, 1,0,0, 0,1, 
-			 x, y,-z, 1,0,0, 1,1, 
-			-x,-y,-z, 0,-1,0,0,0, 
-			 x,-y,-z, 0,-1,0,1,0, 
-			-x,-y, z, 0,-1,0,0,1, 
-			 x,-y, z, 0,-1,0,1,1, 
-			-x,-y,-z, -1,0,0,0,0, 			
-			-x,-y, z, -1,0,0,1,0, 			
-			-x, y,-z, -1,0,0,0,1, 			
-			-x, y, z, -1,0,0,1,1, 			
-			-x, y, z, 0,1,1, 0,0, 
-			 x, y, z, 0,1,1, 1,0, 
-			-x, y,-z, 0,1,1, 0,1, 
-			 x, y,-z, 0,1,1, 1,1, 
-			 x,-y,-z, 0,0,-1,0,0, 
-			-x,-y,-z, 0,0,-1,1,0, 
-			 x, y,-z, 0,0,-1,0,1, 
-			-x, y,-z, 0,0,-1,1,1 		
-		]);
-				
-		var tris = new Uint32Array(
-		[
-			0,1,3,0,3,2, 
-			4,5,7,4,7,6, 
-			8,9,11,8,11,10, 
-			12,13,15,12,15,14, 
-			16,17,19,16,19,18, 
-			20,21,23,20,23,22 
-		]);
-
-	    var mask = 1 | 2 | 4;
-	    return gb.mesh.new(24, data, mask, tris);
-	},
-	
-}
-gb.Texture = function()
-{
-	this.id = 0;
-	this.width;
-	this.height;
-	this.pixels;
-	this.format;
-	this.byte_size;
-	this.mipmaps = 0;
-	this.sampler;
-	this.compressed = false;
-}
-gb.Sampler = function()
-{
-	this.x;
-	this.y;
-	this.up;
-	this.down;
-}
-
-gb.texture = 
-{
-	sampler: function(x,y,up,down)
-	{
-		var s = new gb.Sampler();
-	    s.x = x;
-	    s.y = y;
-	    s.up = up;
-	    s.down = down;
-	    return s;
-	},
-	rgba: function(width, height, pixels, sampler, mipmaps)
-	{
-		var t = new gb.Texture();
-	    t.width = width;
-	    t.height = height;
-	    t.pixels = pixels;
-	    t.format = gb.webgl.ctx.RGBA;
-	    t.byte_size = gb.webgl.ctx.UNSIGNED_BYTE;
-	    t.mipmaps = mipmaps;
-	    t.sampler = sampler;
-	    return t;
-	},
-	depth: function(width, height)
-	{
-		var t = new gb.Texture();
-	    t.width = width;
-	    t.height = height;
-	    t.pixels = null;
-	    t.format = gb.webgl.ctx.DEPTH_COMPONENT;
-	    t.byte_size = gb.webgl.ctx.UNSIGNED_SHORT;
-	    t.mipmaps = 0;
-	  	t.sampler = gb.webgl.default_sampler;
-	    return t;
-	},
-}
-
-gb.serialize.r_dds = function(br)
-{
-	// http://msdn.microsoft.com/en-us/library/bb943991.aspx/
-	var s = gb.serialize;
-	var dxt = gb.webgl.extensions.dxt;
-    var DXT1 = 827611204;
-   	var DXT5 = 894720068;
-
-	var h = new Int32Array(br.buffer, br.offset, 31);
-
-	ASSERT(h[0] === 0x20534444, "Invalid magic number in DDS header");
-	ASSERT(!h[20] & 0x4, "Unsupported format, must contain a FourCC code");
-
-	var t = new gb.Texture();
-    t.height = h[3];
-	t.width = h[4];
-	
-	var four_cc = h[21];
-	ASSERT(four_cc === DXT1 || four_cc === DXT5, "Invalid FourCC code");
-	
-	var block_size = 0;
-	switch(four_cc)
-	{
-		case DXT1:
-			block_size = 8;
-			t.format = dxt.COMPRESSED_RGBA_S3TC_DXT1_EXT;
-			t.byte_size = dxt.UNSIGNED_BYTE;
-		break;
-		case DXT5:
-			block_size = 16;
-			t.format = dxt.COMPRESSED_RGBA_S3TC_DXT5_EXT;
-			t.byte_size = dxt.UNSIGNED_SHORT;
-		break;
-	}
-	
-	var size = Math.max(4, t.width) / 4 * Math.max(4, t.height) / 4 * block_size;
-
-	br.offset += h[1] + 4;
-    t.pixels = new Uint8Array(br.buffer, br.offset, size);
-    t.sampler = gb.webgl.default_sampler;
-    t.compressed = true;
-
-    if(h[2] & 0x20000) 
-    {
-        t.mipmaps = Math.max(1, h[7]);
-    }
-    br.offset += size;
-
-    return t;
-}
-
-gb.serialize.r_pvr = function(br)
-{
-	//https://developer.apple.com/library/ios/samplecode/PVRTextureLoader/Listings/Classes_PVRTexture_m.html#//apple_ref/doc/uid/DTS40008121-Classes_PVRTexture_m-DontLinkElementID_12
-
-	var s = gb.serialize;
-	var pvr = gb.webgl.extensions.pvr;
-
-	var header = new Uint32Array(br.buffer, br.offset, 13);
-	var header_size = header[12];
-	
-	var PVRTC_3 = 55727696;
-	//var PVRTC_2 = 0x21525650;
-	var version = header[0];
-
-	ASSERT(version === PVRTC_3, "Unsupported PVRTC format");
-
-	/*
-	for(var i = 0; i < 13; ++i)
-	{
-		console.log("Header " + i + ": " + header[i]);
-	}
-	*/
-
-	var t = new gb.Texture();
-	t.width = header[7];
-	t.height = header[6];
-	t.mipmaps = header[11];
-
-	var format = header[2];
-	var block_width = 8;
-	var block_height = 4;
-	switch(format)
-	{
-		case 0:
-			t.format = pvr.COMPRESSED_RGB_PVRTC_2BPPV1_IMG;
-			t.byte_size = 2;
-		break;
-		case 1:
-			t.format = pvr.COMPRESSED_RGBA_PVRTC_2BPPV1_IMG;
-			t.byte_size = 2;
-		break;
-		case 2:
-			t.format = pvr.COMPRESSED_RGB_PVRTC_4BPPV1_IMG;
-			t.byte_size = 4;
-			block_width = 4;
-		break;
-		case 3:
-			t.format = pvr.COMPRESSED_RGBA_PVRTC_4BPPV1_IMG;
-			t.byte_size = 4;
-			block_width = 4;
-		break;
-	}
-
-	var block_size = (block_width * block_height) * t.byte_size / 8;
-
-	br.offset += header_size; //+52?
-
-	var size = t.width * t.height;
-	t.pixels = new Uint8Array(br.buffer, br.offset, 10);
-	for(var i = 0; i < 10; ++i)
-	{
-		console.log(t.pixels[i]);
-	}
-    t.compressed = true;
-    br.offset += size * t.byte_size;
-
-	gb.renderer.link_texture(t, gb.default_sampler);
-    gb.textures[n] = t;
-    return t;
-}
-
-gb.Shader_Attribute = function()
-{
-	this.location;
-	this.index;
-}
-gb.Shader = function()
-{
-    this.id = 0;
-    this.vertex_src;
-    this.fragment_src;
-    this.num_attributes;
-    this.num_uniforms;
-    this.attributes = [null, null, null, null, null];
-    this.uniforms = {};
-}
-gb.shader = 
-{
-    new: function(v_src, f_src)
-    {
-        var s = new gb.Shader();
-        s.vertex_src = v_src;
-        s.fragment_src = f_src;
-        return s;
-    }
-}
-gb.serialize.r_shader = function(br)
-{
-	var s = gb.serialize;
-   	var vs = s.r_string(br);
-   	var fs = s.r_string(br);
-    return gb.shader.new(vs, fs);
-}
-gb.Render_Target = function()
-{
-	this.bounds;
-	this.frame_buffer;
-	this.render_buffer;
-	this.color;
-	this.depth;
-	this.stencil;
-}
-
-gb.render_target = 
-{
-    new: function(view, mask, color)
-    {
-        var rt = new gb.Render_Target();
-        rt.bounds = gb.rect.new();
-        gb.rect.eq(rt.bounds, view);
-        if((1 & mask) === 1) //color
-        {
-            rt.color = gb.texture.rgba(view.width, view.height, null, gb.webgl.default_sampler, 0);
-            gb.webgl.link_texture(rt.color);
-        }
-        if((2 & mask) === 2) //depth
-        {
-            rt.depth = gb.texture.depth(view.width, view.height);
-            gb.webgl.link_texture(rt.depth);
-        }
-        /*
-        if((4 & mask) === 4)
-        {
-        }
-        */
-        gb.webgl.link_render_target(rt);
-        return rt;
-    },
-}
-
-
-gb.webgl = 
-{
-	extensions: 
-	{
-		depth_texture: null,
-		dxt: null,
-		pvr: null,
-		fp_texture: null,
-		uint: null,
-	},
+	element: null,
 	ctx: null,
-	m_offsets: null,
 	view: null,
-	default_sampler: null,
-    screen_mesh: null,
-    screen_shader: null,
 
-	init: function(container, config)
+	new: function(container, config)
 	{
-		var _t = gb.webgl;
-		var gl;
-
-		var width = container.offsetWidth * config.resolution;
-        var height = container.offsetHeight * config.resolution;
-        var canvas = gb.dom.insert('canvas', container);
-        canvas.width = width;
-        canvas.height = height;
-        _t.view = gb.rect.new(0,0,width,height);
-
-        try
-        {
-            gl = canvas.getContext('experimental-webgl', config);
-            if(gl == null)
-            {
-                gl = canvas.getContext('webgl', config);
-            }
-        }
-        catch(e)
-        {
-            console.error("Not WebGL compatible: " + e);
-            return;
-        }
-
-        //DEBUG
-        ASSERT(gl != null, "Could not load WebGL");
-        gb.debug.get_context_info(gl);
-        //END
-
-		_t.ctx = gl;
-
-        gl.enable(gl.BLEND);
-        //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); //works with premultiplied alpha
-		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-        gl.enable(gl.DEPTH_TEST);
-		gl.depthFunc(gl.LEQUAL); 
-    	gl.clearDepth(1.0);
-		
-		gl.enable(gl.CULL_FACE);
-		gl.cullFace(gl.BACK);
-		gl.frontFace(gl.CCW);
-		gl.enable(gl.SCISSOR_TEST);
-		gl.scissor(0,0, canvas.width, canvas.height);
-		
-        gl.viewport(0,0, canvas.width, canvas.height);
-        gl.clearColor(0.0,0.0,0.0,0.0);
-        //gl.colorMask(true, true, true, false);
-    	//gl.clearStencil(0);
-    	//gl.depthMask(true);
-		//gl.depthRange(-100, 100); // znear zfar
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        _t.default_sampler = gb.texture.sampler(gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE, gl.NEAREST, gl.NEAREST);
-
-		var ex = _t.extensions;
-		ex.depth_texture = gl.getExtension("WEBGL_depth_texture");
-		ex.dxt = gl.getExtension("WEBGL_compressed_texture_s3tc");
-		//ex.pvr = gl.getExtension("WEBGL_compressed_texture_pvrtc");
-		ex.pvr = gl.getExtension("WEBKIT_WEBGL_compressed_texture_pvrtc");
-		ex.fp_texture = gl.getExtension("OES_texture_float");
-		ex.uint = gl.getExtension("OES_element_index_uint");
-
-		_t.screen_mesh = gb.mesh.generate.quad(2,2);
-		_t.link_mesh(_t.screen_mesh);
-
-        var v_src = "attribute vec3 position;\n attribute vec2 uv;\n varying vec2 _uv;\n void main()\n {\n _uv = uv;\n gl_Position = vec4(position, 1.0);\n }";
-        var f_src = "precision mediump float;\n varying vec2 _uv;\n uniform sampler2D tex;\n void main()\n {\n gl_FragColor = texture2D(tex, _uv);\n }";
-
-        _t.screen_shader = gb.shader.new(v_src, f_src);
-        _t.link_shader(_t.screen_shader);
-		_t.m_offsets = new Uint32Array(5);
+		var c = new gb.Canvas2D();
+	    var canvas = gb.dom.insert('canvas', container);
+		var width = container.offsetWidth;
+	    var height = container.offsetHeight;
+	    canvas.width = width;
+	    canvas.height = height;
+		c.view = new gb.rect.new(0,0,width,height);
+		c.ctx = canvas.getContext('2d');
+		c.element = canvas;
+		return c;
 	},
 
-	link_mesh: function(m)
+	set_context: function(canvas)
 	{
-		var _t = gb.webgl;
-		var gl = _t.ctx;
-		m.vertex_buffer.id = gl.createBuffer();
-		if(m.index_buffer)
-			m.index_buffer.id = gl.createBuffer();
-		_t.update_mesh(m);
-	},
-	update_mesh: function(m)
-	{
-		var gl = gb.webgl.ctx;
-		gl.bindBuffer(gl.ARRAY_BUFFER, m.vertex_buffer.id);
-		gl.bufferData(gl.ARRAY_BUFFER, m.vertex_buffer.data, m.vertex_buffer.update_mode);
-		if(m.index_buffer)
-		{
-			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.index_buffer.id);
-			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, m.index_buffer.data, m.index_buffer.update_mode);
-		}
-		m.dirty = false;
-	},
-	delete_mesh: function(m)
-	{
-		var gl = gb.webgl.ctx;
-		gl.deleteBuffer(m.vertex_buffer.id);
-		if(mesh.index_buffer)
-			gl.deleteBuffer(m.index_buffer.id);
-		m = null;
+		gb.canvas.element = canvas.element;
+		gb.canvas.ctx = canvas.ctx;
+		gb.canvas.view = canvas.view;
 	},
 
-	link_shader: function(s)
+	clear: function()
 	{
-		var gl = gb.webgl.ctx;
-		var vs = gl.createShader(gl.VERTEX_SHADER);
-	    gl.shaderSource(vs, s.vertex_src);
-	    gl.compileShader(vs);
-
-	    //DEBUG
-	    gb.debug.shader_compile_status(gl, vs);
-	    //END
-
-	    var fs = gl.createShader(gl.FRAGMENT_SHADER);
-	    gl.shaderSource(fs, s.fragment_src);
-	    gl.compileShader(fs);
-
-	    //DEBUG
-	    gb.debug.shader_compile_status(gl, fs);
-	    //END
-
-	    var id = gl.createProgram();
-	    gl.attachShader(id, vs);
-	    gl.attachShader(id, fs);
-	    gl.linkProgram(id);
-
-	    //DEBUG
-	    gb.debug.shader_link_status(gl, id);
-	    //END
-
-	    ASSERT(s.id === 0, "Shader already bound to id " + s.id); 
-	    s.id = id;
-	    s.num_attributes = gl.getProgramParameter(id, gl.ACTIVE_ATTRIBUTES);
-	    s.num_uniforms = gl.getProgramParameter(id, gl.ACTIVE_UNIFORMS);
-
-	    var c = 0;
-	    var n = gb.vertex_attributes.length;
-	    for(var i = 0; i < n; ++i)
-	    {
-	    	var attr = gb.vertex_attributes[i];
-	    	var loc = gl.getAttribLocation(id, attr.name);
-	    	if(loc !== -1) 
-	    	{
-	    		var sa = new gb.Shader_Attribute();
-	    		sa.location = loc;
-	    		sa.index = i;
-	    		s.attributes[c] = sa;
-	    		c++;
-	    	}
-	    }
-
-	    for(var i = 0; i < s.num_uniforms; ++i)
-	    {
-	        var uniform = gl.getActiveUniform(id, i);
-	        var location = gl.getUniformLocation(id, uniform.name);
-	        s.uniforms[uniform.name] = location;
-	    }
-
-	    return s;
+		var ctx = gb.canvas.ctx;
+		var v = gb.canvas.view;
+		ctx.setTransform(1, 0, 0, 1, 0, 0);
+		ctx.clearRect(v.x, v.y, v.width, v.height);
 	},
 
-	set_shader: function(s)
+	circle: function(x,y,r)
 	{
-		gb.webgl.ctx.useProgram(s.id);
+		gb.canvas.ctx.beginPath();
+		gb.canvas.ctx.arc(x, y, r, 0, 360 * gb.math.DEG2RAD, true);
+		return gb.canvas;
+	},
+	circle_t: function(p,r)
+	{
+		return gb.canvas.circle(p[0], p[1], r);
+	},
+
+	line: function(a,b,x,y)
+	{
+		var ctx = gb.canvas.ctx;
+		ctx.beginPath();
+		ctx.moveTo(a, b);
+		ctx.lineTo(x, y);
+		return gb.canvas;
+	},
+	line_t: function(a,b)
+	{
+		return gb.canvas.line(a[0], a[1], b[0], b[1]);
+	},
+
+	point: function(x,y, length)
+	{
+		gb.canvas.line(x - length, y, x + length, y);
+		gb.canvas.stroke();
+		gb.canvas.line(x, y - length, x, y + length);
+		gb.canvas.stroke();
+		return gb.canvas;
+	},
+	point_t: function(p, length)
+	{
+		return gb.canvas.point(p[0], p[1], length);
 	},
 	
-	link_texture: function(t)
+	fill_col: function(s)
 	{
-		var _t = gb.webgl;
-		var gl = _t.ctx;
-		ASSERT(t.id === 0, "Texture is already bound to id " + t.id);
-		t.id = gl.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, t.id);
-		_t.update_texture(t);
-		_t.set_sampler(t.sampler);
+		gb.canvas.ctx.fillStyle = s;
+	},
+	fill_rgb: function(r,g,b,a)
+	{
+		gb.canvas.ctx.fillStyle = gb.canvas.rgba(r,g,b,a);
+	},
+	fill_c: function(c)
+	{
+		gb.canvas.ctx.fillStyle = gb.canvas.rgba(c[0], c[1], c[2], c[3]);
+	},
+	fill: function()
+	{
+		gb.canvas.ctx.fill();
 	},
 
-	set_sampler:function(s)
+	stroke_col: function(s)
 	{
-		var gl = gb.webgl.ctx;
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, s.x);
-    	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, s.y);
-    	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, s.up);
-    	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, s.down);
+		gb.canvas.ctx.strokeStyle = s;
 	},
-	
-	update_texture: function(t)
+	stroke_rgb: function(r,g,b,a)
 	{
-		var _t = gb.webgl;
-		var gl = _t.ctx;
-
-		/*
-		switch(t.format)
-		{
-			case _t.extensions.dxt.COMPRESSED_RGBA_S3TC_DXT1_EXT:
-				gl.compressedTexImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.pixels);
-			break;
-			case _t.extensions.dxt.COMPRESSED_RGBA_S3TC_DXT5_EXT:
-				gl.compressedTexImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.pixels);
-			break;
-			default:
-				gl.texImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.format, t.byte_size, t.pixels);
-			break;
-		}
-		*/
-		if(t.compressed === true)
-		{
-			gl.compressedTexImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.pixels);
-		}
-		else
-		{
-			gl.texImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.format, t.byte_size, t.pixels);
-		}
-
-		if(t.mipmaps > 1) 
-			gl.generateMipmap(gl.TEXTURE_2D);
+		gb.canvas.ctx.strokeStyle = gb.canvas.rgba(r,g,b,a);
+	},
+	stroke_width: function(t)
+	{
+		gb.canvas.ctx.lineWidth = t;
+	},
+	stroke: function()
+	{
+		gb.canvas.ctx.stroke();
 	},
 
-	set_viewport: function(v)
+	clear_rgb: function(r,g,b,a)
 	{
-		var gl = gb.webgl.ctx;
-		gl.viewport(v.x, v.y, v.width, v.height);
-		//scissor?
+		gb.canvas.element.style.background = gb.canvas.rgba(r,g,b,a);
+	},
+	col: function(s)
+	{
+		gb.canvas.element.style.background = s;
 	},
 
-	set_render_target: function(rt, clear)
+	// omfg, strings for colors - really?
+	rgba: function(r,g,b,a)
 	{
-		var _t = gb.webgl;
-		var gl = _t.ctx;
-		if(rt === null)
-		{
-			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-			gl.bindRenderbuffer(gl.RENDERBUFFER, null);
-			_t.set_viewport(_t.view);
-			if(clear === true)
-			{
-				_t.ctx.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-			}
-		}
-		else
-		{
-			gl.bindFramebuffer(gl.FRAMEBUFFER, rt.frame_buffer);
-			if(rt.depth)
-			{
-				gl.enable(gl.DEPTH_TEST);
-			}
-			if(rt.render_buffer)
-				gl.bindRenderbuffer(gl.RENDERBUFFER, rt.render_buffer);
-			_t.set_viewport(rt.bounds);
-
-			if(clear === true)
-			{
-				_t.clear(rt);
-			}
-		}
+		var ir = gb.math.floor(r * 255);
+		var ig = gb.math.floor(g * 255);
+		var ib = gb.math.floor(b * 255);
+		return "rgba(" + ir + "," + ig + "," + ib + "," + a + ")";
 	},
 
-	set_render_target_attachment: function(rt, attachment, t)
-	{
-		var gl = gb.webgl.ctx;
-		gl.bindTexture(gl.TEXTURE_2D, t.id);
-		gl.framebufferTexture2D(gl.FRAMEBUFFER, attachment, gl.TEXTURE_2D, t.id, 0);
-	},
-
-	new_render_buffer: function(width, height)
-	{
-		var gl = gb.webgl.ctx;
-		var rb = gl.createRenderbuffer();
-		gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
-		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
-		return rb;
-	},
-
-	link_render_target: function(rt)
-	{
-		var _t = gb.webgl;
-		var gl = _t.ctx;
-		rt.frame_buffer = gl.createFramebuffer();
-		gl.bindFramebuffer(gl.FRAMEBUFFER, rt.frame_buffer);
-
-		if(rt.color)
-		{
-			_t.set_render_target_attachment(rt, gl.COLOR_ATTACHMENT0, rt.color);
-		}
-		if(rt.depth)
-		{
-			_t.set_render_target_attachment(rt, gl.DEPTH_ATTACHMENT, rt.depth);
-		}
-		else
-		{
-			rt.render_buffer = _t.new_render_buffer(rt.bounds.width, rt.bounds.height);
-		}
-
-		//DEBUG
-		gb.debug.verify_render_target(gl);
-		//END
-	},
-
-	clear: function(rt)
-	{
-		var gl = gb.webgl.ctx;
-		var mode = 0;
-		if(rt.color) mode |= gl.COLOR_BUFFER_BIT;
-		if(rt.depth) mode |= gl.DEPTH_BUFFER_BIT;
-		gl.clear(mode);
-	},
-
-	draw_mesh_elements: function(mesh)
-	{
-		var gl = gb.webgl.ctx;
-        ASSERT(mesh.indices !== null, "Mesh has no index buffer");
-    	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.index_buffer.id);
-        gl.drawElements(mesh.layout, mesh.index_count, gl.UNSIGNED_INT, 0);
-	},
-
-	draw_mesh_arrays: function(mesh)
-	{
-		gb.webgl.ctx.drawArrays(mesh.layout, 0, mesh.vertex_count);
-	},
-	
-	link_attributes: function(shader, mesh)
-	{
-		var _t = gb.webgl;
-		var gl = _t.ctx;
-		var vb = mesh.vertex_buffer;
-		gl.bindBuffer(gl.ARRAY_BUFFER, vb.id);
-
-		var stride = 0;
-		var index = 1;
-		for(var i = 0; i < 5; ++i)
-		{
-			var mr = (index & vb.mask) === index;
-			_t.m_offsets[i] = stride;
-			stride += mr * (gb.vertex_attributes[i].size * 4);
-			index *= 2;
-		}
-
-		var offset = 0;
-		for(var i = 0; i < shader.num_attributes; ++i)
-		{
-			var sa = shader.attributes[i];
-			var attr = gb.vertex_attributes[sa.index]; 
-			gl.enableVertexAttribArray(sa.location);
-			gl.vertexAttribPointer(sa.location, attr.size, gl.FLOAT, attr.normalized, stride, _t.m_offsets[sa.index]);
-		}
-	},
-
-	set_shader_texture: function(shader, name, texture, index)
-	{
-		var gl = gb.webgl.ctx;
-		gl.bindTexture(gl.TEXTURE_2D, texture.id);
-		gl.activeTexture(gl.TEXTURE0 + index);
-		gl.uniform1i(shader.uniforms[name], texture.id);
-	},
-	set_shader_mat4: function(shader, name, m)
-	{
-		gb.webgl.ctx.uniformMatrix4fv(shader.uniforms[name], false, m);
-	},
-	set_shader_mat3: function(shader, name, m)
-	{
-		gb.webgl.ctx.uniformMatrix3fv(shader.uniforms[name], false, m);
-	},
-	set_shader_quat: function(shader, name, q)
-	{
-		gb.webgl.ctx.uniform4f(shader.uniforms[name], false, q[0], q[1], q[2], q[3]);
-	},
-	set_shader_color: function(shader, name, c)
-	{
-		gb.webgl.ctx.uniform4f(shader.uniforms[name], false, c[0], c[1], c[2], c[3]);
-	},
-	set_shader_vec3: function(shader, name, v)
-	{
-		gb.webgl.ctx.uniform3f(shader.uniforms[name], false, v[0], v[1], v[2]);
-	},
-	set_shader_vec2: function(shader, name, v)
-	{
-		gb.webgl.ctx.uniform2f(shader.uniforms[name], false, v[0], v[1]);
-	},
-	set_shader_float: function(shader, name, f)
-	{
-		gb.webgl.ctx.uniformf(shader.uniforms[name], false, f);
-	},
-	set_shader_int: function(shader, name, i)
-	{
-		gb.webgl.ctx.uniformi(shader.uniforms[name], false, i);
-	},
-
-	world_to_screen: function(r, camera, world, view)
-    {
-    	var wp = gb.vec3.tmp(); 
-        gb.mat4.mul_projection(wp, camera.view_projection, world);
-        r[0] = ((wp[0] + 1.0) / 2.0) * view.width;
-        r[1] = ((1.0 - wp[1]) / 2.0) * view.height;
-    },
-
-    screen_to_view: function(r, point, view)
-    {
-        r[0] = point[0] / view.width;
-        r[0] = 1.0 - (point[1] / view.height);
-        r[2] = point[2];
-        return r;
-    },
-
-    screen_to_world: function(r, camera, point, view)
-    {
-        var t = gb.vec3.tmp();
-        t[0] = 2.0 * point[0] / view.width - 1.0;
-        t[1] = -2.0 * point[1] / view.height + 1.0;
-        t[2] = point[2];
-            
-        var inv = gb.mat4.tmp();
-        gb.mat4.inverse(inv, camera.view_projection);
-        gb.mat4.mul_projection(r, inv, t);
-        //gb.mat4.mul_point(r, inv, t);
-    },
 }
 //DEBUG
 gb.gl_draw = 
@@ -3104,66 +1336,6 @@ gb.gl_draw =
 	},
 }
 //END
-gb.Sound = function()
-{
-	this.data;
-	this.volume;
-	//this.src;??
-}
-
-gb.audio = 
-{
-	ctx: null,
-	decode_count: 0,
-	//oscillator: null,
-	//gain: null,
-
-	init: function()
-	{
-		try 
-		{
-		    window.AudioContext = window.AudioContext || window.webkitAudioContext;
-		    this.ctx = new AudioContext();
-		}
-		catch(e) 
-		{
-		    console.error('Web Audio API could not be initialised: ' + e);
-		}
-	},
-
-	/*
-	decode: function(sounds)
-	{
-		this.decode_count = sounds.length;
-		for(var i = 0; i < this.decode_count; ++i)
-		{
-			this.ctx.decodeAudio(sounds[i].buffer, on_decode);
-		}
-	},
-
-	on_decode: function(n, buffer)
-	{
-		this.decode_count--;
-		if(this.decode_count === 0)
-		{
-			gb.load_complete(1);
-		}
-	}
-
-	play: function(s)
-	{
-		var src = this.ctx.createBufferSource();
-		src.buffer = s.buffer;
-		src.connect(this.ctx.destination);
-		src.start(0);
-	},
-
-	cross_face: function(s)
-	{
-
-	},
-	*/
-}
 gb.Touch = function()
 {
 	this.id = -1;
@@ -3181,9 +1353,67 @@ gb.KeyState =
 	RELEASED: 4,
 }
 
+gb.Keys = 
+{
+	mouse_left: 0,
+	mouse_right: 1,
+	backspace: 8,
+	tab: 9,
+	enter: 13,
+	shift: 16,
+	ctrl: 17,
+	alt: 18,
+	caps_lock: 20,
+	escape: 27,
+	space: 32,
+	left: 37,
+	up: 38,
+	right: 39,
+	down: 40,
+	zero: 48,
+	one: 49,
+	two: 50,
+	three: 51,
+	four: 52,
+	five: 53,
+	six: 54,
+	seven: 55,
+	eight: 56,
+	nine: 57,
+	a: 65,
+	b: 66,
+	c: 67,
+	d: 68, 
+	e: 69,
+	f: 70,
+	g: 71,
+	h: 72,
+	i: 73,
+	j: 74,
+	k: 75,
+	l: 76,
+	m: 77,
+	n: 78,
+	o: 79,
+	p: 80,
+	q: 81,
+	r: 82,
+	s: 83,
+	t: 84,
+	u: 85,
+	v: 86,
+	w: 87,
+	x: 88,
+	y: 89,
+	z: 90,
+}
+
+
 gb.input = 
 {
-	mouse_position: new gb.vec3.new(),
+	mouse_position: gb.vec3.new(),
+	last_mouse_position: gb.vec3.new(),
+	mouse_delta: gb.vec3.new(),
 
 	_mdy:0,
 	_lmdy:0,
@@ -3193,7 +1423,7 @@ gb.input =
 	MAX_TOUCHES: 5,
 	acceleration: gb.vec3.new(),
 	angular_acceleration: gb.vec3.new(),
-	rotation: new gb.Quat(),
+	rotation: gb.quat.new(),
 
 	keys: new Uint8Array(256),
 
@@ -3251,6 +1481,11 @@ gb.input =
 			_t.mouse_scroll = _t._mdy;
 			_t._ldy = _t._mdy;
 		}
+
+		var dx = _t.last_mouse_position[0] - _t.mouse_position[0];
+		var dy = _t.last_mouse_position[1] - _t.mouse_position[1];
+		gb.vec3.eq(_t.last_mouse_position, _t.mouse_position);
+		gb.vec3.set(_t.mouse_delta, dx, dy, 0);
 	},
 
 	up: function(code)
@@ -3273,29 +1508,32 @@ gb.input =
 	key_down: function(e)
 	{
 		var _t = gb.input;
-		var kc = e.keyCode;
+		var kc = e.keyCode || e.button;
 		if(_t.keys[kc] === 0) return;
 
 		if(_t.keys[kc] != gb.KeyState.HELD) 
 			_t.keys[kc] = gb.KeyState.DOWN;
 
-		e.preventDefault();
+		//e.preventDefault();
 	},
 	key_up: function(e)
 	{
 		var _t = gb.input;
-		var kc = e.keyCode;
+		var kc = e.keyCode || e.button;
 		if(_t.keys[kc] === 0) return;
 
 		if(_t.keys[kc] != gb.KeyState.RELEASED) 
 			_t.keys[kc] = gb.KeyState.UP;
 
-		e.preventDefault();
+		//e.preventDefault();
 	},
 
 	mouse_move: function(e)
 	{
-		gb.vec3.set(gb.input.mouse_position, e.clientX, e.clientY, 0);
+		var _t = gb.input;
+		var x = e.clientX;
+		var y = e.clientY;
+		gb.vec3.set(_t.mouse_position, x, y, 0);
 	},
 	mouse_wheel: function(e)
 	{
@@ -3405,6 +1643,10 @@ gb.random =
 		r[0] = Math.random() * (max_x - min_x) + min_x;
 		r[1] = Math.random() * (max_y - min_x) + min_y;
 	},
+	vec2_fuzzy: function(r, x,y, fuzz)
+	{
+		gb.random.vec2(r, x-fuzz, x+fuzz, y-fuzz, y+fuzz);
+	},
 	vec3: function(r, min_x, max_x, min_y, max_y, min_z, max_z)
 	{
 		r[0] = Math.random() * (max_x - min_x) + min_x;
@@ -3424,222 +1666,6 @@ gb.random =
 		r[1] = Math.random() * (max_g - min_g) + min_g;
 		r[2] = Math.random() * (max_b - min_b) + min_b;
 		r[3] = Math.random() * (max_a - min_a) + min_a;
-	},
-}
-gb.Asset_Group = function()
-{
-    this.shaders = {};
-    this.meshes = {};
-    this.textures = {};
-    this.sounds = {};
-}
-gb.load_asset_group = function(url, asset_group, on_load, on_progress)
-{
-	var request = new XMLHttpRequest();
-    request.open('GET', url, true);
-    request.onload = gb.on_asset_load;
-    request.onprogress = on_progress;
-    request.responseType = 'arraybuffer';
-    request.upload.asset_group = asset_group; //hack
-    request.upload.callback = on_load;
-    request.send();
-    //console.log(request);
-}
-gb.on_asset_load = function(e)
-{
-	// NOTE: asset data encoded in little endian (x86)
-    if(e.target.status === 200)
-    {
-        var s = gb.serialize;
-        var br = new gb.Binary_Reader(e.target.response);
-        var ag = e.target.upload.asset_group;
-
-        //console.log(ag);
-
-        var header = s.r_i32_array(br, 3);
-        var n_shaders = header[0];
-        var n_meshes = header[1];
-        var n_textures = header[2];
-        //var n_sounds = header[3];
-
-        //DEBUG
-        console.log("Shaders: " + n_shaders);
-        console.log("Meshes: " + n_meshes);
-        console.log("Textures: " + n_textures);
-        //console.log("Sounds: " + n_sounds);
-        //END
-
-        for(var i = 0; i < n_shaders; ++i)
-        {
-        	var name = s.r_string(br);
-            ag.shaders[name] = s.r_shader(br);
-            //DEBUG
-            console.log("Loaded Shader: " + name);
-            //END
-        }
-
-        for(var i = 0; i < n_meshes; ++i)
-        {
-        	var name = s.r_string(br);
-            ag.meshes[name] = s.r_mesh(br);
-             //DEBUG
-            console.log("Loaded Mesh: " + name);
-            //END
-        }
-        
-        for(var i = 0; i < n_textures; ++i)
-        {
-        	var name = s.r_string(br);
-            var id = s.r_i32(br);
-            if(id === 0 && gb.webgl.extensions.dxt !== null)
-            {
-                var t = s.r_dds(br);
-                ag.textures[name] = t;
-                //DEBUG
-                console.log("Width: " + t.width);
-                console.log("Height: " + t.height);
-                console.log("Loaded DDS: " + name);
-                //END
-            }
-            else if(id === 1 && gb.webgl.extensions.pvr !== null)
-            {
-                ag.textures[name] = s.r_pvr(br);
-                //DEBUG
-                console.log("Loaded PVR: " + name);
-                //END
-            }
-        }
-
-
-        /*
-        //test wav / ogg
-        for(var i = 0; i < n_sounds; ++i)
-            s.r_wav(br);
-        */
-              
-        e.target.upload.callback(ag);    
-    }
-    else
-    {
-        console.error("Resource failed to load");
-    }
-}
-gb.link_asset_group = function(asset_group, callback)
-{
-    for(var s in asset_group.shaders)
-    {
-        gb.webgl.link_shader(asset_group.shaders[s]);
-    }
-    for(var m in asset_group.meshes)
-    {
-        gb.webgl.link_mesh(asset_group.meshes[m]);
-    }
-    for(var t in asset_group.textures)
-    {
-        gb.webgl.link_texture(asset_group.textures[t]);
-    }
-    //audio
-    callback();
-}
-gb.Sprite = function()
-{
-	this.start;
-	this.end;
-	this.playing;
-	this.speed;
-	this.frame;
-	this.loop_count;
-	this.rows;
-	this.cols;
-	this.entity;
-}
-
-gb.sprite = 
-{
-	new: function(texture, w, h)
-	{
-		var s = new gb.Sprite();
-		s.start = 0;
-		s.end = 0;
-		s.playing = false;
-		s.speed = 0;
-		s.frame = 0;
-		s.loop_count = 0;
-		s.rows = gb.math.round(texture.width / w);
-		s.cols = gb.math.round(texture.height / h);
-		s.frame_skip = 0;
-		s.frame_width = 1 / (texture.width / w); 
-		s.frame_height = 1 / (texture.height / h);
-
-		var e = new gb.Entity();
-		e.mesh = gb.mesh.generate.quad(1,1);
-		e.mesh.vertex_buffer.update_mode = gb.webgl.ctx.DYNAMIC_DRAW;
-		s.entity = e;
-		return s;
-	},
-	set_animation: function(s, start, end, speed, loops)
-	{
-		s.start = start;
-		s.frame = start;
-		s.end = end;
-		s.speed = speed;
-		s.loops = loops;
-	},
-	play: function(s)
-	{
-		s.playing = true;
-		s.frame_skip = s.speed;
-		s.frame = s.start;
-	},
-	update: function(s, dt)
-	{
-		if(s.playing === false) return;
-
-		s.frame_skip -=1;
-		if(s.frame_skip == 0)
-		{
-			s.frame++;
-			s.frame_skip = s.speed;
-
-			if(s.frame === s.end)
-			{
-				s.loop_count -= 1;
-				if(s.loop_count === 0) // -1 = continuous loop
-					s.playing = false;
-
-				s.frame = s.start;
-			}
-
-			var ix = s.frame % s.cols;
-			var iy = gb.math.floor(s.frame / s.cols);
-
-			var x = ix * s.frame_width;
-			var y = iy * s.frame_height;
-			var w = x + s.frame_width;
-			var h = y + s.frame_height;
-
-			var pos = gb.mesh.get_stride(s.entity.mesh, 2); //3
-			var stride = gb.mesh.get_stride(s.entity.mesh); //5
-			var vb = s.entity.mesh.vertex_buffer.data;
-
-			var i = pos;
-			vb[  i] = x;
-			vb[i+1] = h;
-
-			i += stride;
-			vb[  i] = w;
-			vb[i+1] = h;
-
-			i += stride;
-			vb[  i] = x;
-			vb[i+1] = y;
-
-			i += stride;
-			vb[  i] = w;
-			vb[i+1] = y;
-
-			s.entity.mesh.dirty = true;
-		}
 	},
 }
 gb.Keyframe = function()
@@ -3802,74 +1828,421 @@ gb.animate =
 	}
 }
 
-
-var v3 = gb.vec3;
-var qt = gb.quat;
-var scene = gb.scene;
-var camera = gb.camera;
-var entity = gb.entity;
-var sprite = gb.sprite;
-var assets;
-
 var focus = true;
-var alpha;
-
-var construct;
-var viewer;
-var texture;
-var rotation;
-var nutmeg;
-var render_target;
-var animA;
-var curve;
-
-
 
 window.addEventListener('load', init, false);
 
-var RenderGroup = function()
-{
-	this.shader;
-	//this.textures = [null,null,null,null,null,null,null,null];
-	this.entities = [];
-}
-var render_group;
+var v2 = gb.vec2;
+var v3 = gb.vec3;
+var rand = gb.random;
+var draw = gb.canvas;
 
+var colors;
+var curve;
+var particles;
+var emitter;
+var effectors;
+var active_effector = null;
+var edit_mode = false;
+
+var Particle = function()
+{
+	this.position;
+	this.radius;
+	this.color;
+	this.life_time;
+	this.speed;
+}
+
+var Emitter = function()
+{
+	this.position;
+	this.radius;
+	this.particles;
+	this.active;
+	this.total;
+}
+
+var Effector = function()
+{
+	this.position;
+	this.radius;
+	this.strength;
+	this.state;
+	this.type;
+	this.t;
+}
 
 function init()
 {
+	var k = gb.Keys;
+
 	gb.time.init();
 	gb.input.init(document,
 	{
-		keycodes: [0,1],
+		keycodes: [k.mouse_left, k.a, k.x, k.z, k.one, k.two, k.three, k.up, k.down],
 	});
-
-	gb.audio.init();
-
-	gb.webgl.init(gb.dom.find('.container'),
-	{
-		resolution: 1,
-		alpha: false,
-		depth: true,
-		stencil: false,
-		antialias: false,
-		premultipliedAlpha: true,
-		preserveDrawingBuffer: false,
-	});
-
-	//DEBUG
-	gb.gl_draw.init({buffer_size: 4096});
-	//END
-
-	assets = new gb.Asset_Group();
-	if(gb.webgl.extensions.dds !== null)
-	{
-		gb.load_asset_group("assets.gl", assets, load_complete, load_progress);
-	}
-
+	var c = draw.new(gb.dom.find('.container'));
+	draw.set_context(c);
+	
 	window.onfocus = on_focus;
 	window.onblur = on_blur;
+
+	curve = gb.bezier.clamped(0.0,1.0,1.0,1.0);
+	curve.d[0] = 0;
+	curve.d[1] = 0;
+
+	colors = [];
+	for(var i = 0; i < 10; ++i)
+	{
+		var r = rand.float(0.95, 1.0);
+		var g = rand.float(0.12, 0.8);
+		var b = rand.float(0.12, 0.2);
+		var a = rand.float(0.9, 1.0);
+		colors.push(gb.color.new(r,g,b,a));
+	}
+
+	emitter = new Emitter();
+	emitter.particles = [];
+	emitter.position = v2.new(draw.view.width / 2, draw.view.height / 2);
+	emitter.active = 1;
+	emitter.total = 50;
+	emitter.radius = 50;
+
+	for(var i = 0; i < emitter.total; ++i)
+	{
+		new_particle(emitter);
+	}
+
+	effectors = [];
+	for(var i = 0; i < 1; ++i)
+	{
+		new_effector(100, 100, 50, 10);
+	}
+
+	draw.clear_rgb(0.1,0.1,0.13,1);
+
+	requestAnimationFrame(update);
 }
+
+
+function update(t)
+{
+	gb.time.update(t);
+	if(gb.time.paused || focus === false)
+	{
+		requestAnimationFrame(update);
+		return;
+	}
+
+	var dt = gb.time.dt;
+	gb.stack.clear_all();
+
+	var ctx = gb.canvas.ctx;
+	var view = gb.canvas.view;
+
+	var m_pos = gb.input.mouse_position;
+	var m_held = gb.input.held(0);
+	var m_up = gb.input.up(0);
+	var m_delta = gb.input.mouse_delta;
+	var delta = v2.tmp();
+
+	draw.clear();
+
+	if(gb.input.down(gb.Keys.z))
+	{
+		edit_mode = !edit_mode;
+	}
+	if(gb.input.down(gb.Keys.up))
+	{
+		//new_particle(emitter);
+		emitter.active++;
+		if(emitter.active > emitter.total) emitter.active = emitter.total;
+	}
+	else if(gb.input.down(gb.Keys.down))
+	{
+		emitter.active--;
+		if(emitter.active < 1) emitter.acitve = 1;
+		var p = emitter.particles[emitter.active];
+		p.life_time = 0;
+	}
+
+	var n = effectors.length;
+	for(var i = 0; i < n; ++i)
+	{
+		var e = effectors[i];
+		if(e.state === -1) continue;
+		e.t += dt * 0.3;
+		if(e.t > 1.0)
+		{
+			e.t = 0.0;
+		}
+	}
+
+	if(edit_mode === true)
+	{
+
+		// Draw emitters
+
+		draw.fill_rgb(0.3,0.3,0.3,1.0);
+		draw.stroke_rgb(0.3,0.3,0.3,1.0);
+		draw.stroke_width(1);
+		draw.point_t(emitter.position, 15);
+		draw.circle_t(emitter.position, emitter.radius).stroke();
+
+		// Add / Remove effectors
+
+		if(gb.input.down(gb.Keys.one))
+		{
+			new_effector(m_pos[0], m_pos[1], 50, 10, 1);
+		}
+		else if(gb.input.down(gb.Keys.two))
+		{
+			new_effector(m_pos[0], m_pos[1], 50, 10, 2);
+		}
+		else if(gb.input.down(gb.Keys.three))
+		{
+			new_effector(m_pos[0], m_pos[1], 50, 10, 3);
+		}
+
+		// Reset effectors
+
+		var n = effectors.length;
+
+		for(var i = 0; i < n; ++i)
+		{
+			var e = effectors[i];
+			if(e.state === -1) continue;
+			if(e.selected === true) continue;
+			e.state = 0;
+		}
+
+		// Mouse pick effector
+
+		if(active_effector === null)
+		{
+			for(var i = 0; i < n; ++i)
+			{
+				var e = effectors[i];
+				if(e.state === -1) continue;
+
+				delta[0] = m_pos[0] - e.position[0];
+				delta[1] = m_pos[1] - e.position[1];
+				var mag = v2.length(delta);
+
+				var hover = (mag < e.radius);
+				var hover_edge = (mag < (e.radius + 10) && mag > e.radius - 10);
+				var hover_center = (mag < 30);
+
+				if(hover_edge) 
+				{
+					e.state = 3;
+					if(m_held)
+					{
+						e.state = 4;
+						e.selected = true;
+						active_effector = e;
+					}
+					break;
+				}
+				else if(hover_center)
+				{
+					e.state = 5;
+					if(m_held)
+					{
+						active_effector = e;
+						e.selected = true;
+						e.state = 6;
+					}
+					break;	
+				} 
+				else if(hover) 
+				{
+					e.state = 1;
+					if(m_held)
+					{
+						e.state = 2;
+						e.selected = true;
+						active_effector = e;
+					}
+					break;
+				}
+			}
+		}
+		else
+		{
+			if(m_up)
+			{
+				active_effector.selected = false;
+				active_effector.state = 0;
+				active_effector = null;
+			}
+			else
+			{
+				delta[0] = m_pos[0] - active_effector.position[0];
+				delta[1] = m_pos[1] - active_effector.position[1];
+				var mag = v2.length(delta);
+
+				if(active_effector.state === 2)
+				{
+					active_effector.position[0] -= m_delta[0];
+					active_effector.position[1] -= m_delta[1];
+				}
+				else if(active_effector.state === 4)
+				{
+					var m_mag = v2.length(m_delta);
+					active_effector.radius = gb.math.clamp(mag, 50, 400);
+				}
+				else if(active_effector.state === 6)
+				{
+					active_effector.strength = gb.math.clamp(mag, 10, 400);
+				}
+			}
+		}
+
+		for(var i = 0; i < n; ++i)
+		{
+			var e = effectors[i];
+			if(e.state === -1) continue;
+
+			draw.stroke_width(1);
+			draw.stroke_rgb(0.2,0.2,0.2,0.55);
+			draw.circle_t(e.position, e.radius * e.t).stroke();
+
+			if(e.state === 0)
+			{
+				draw.stroke_rgb(0.2,0.2,0.2,1);
+				draw.stroke_width(1);
+				draw.point_t(e.position, e.strength);
+				draw.circle_t(e.position, e.radius).stroke();
+			}
+			else if(e.state === 1) // hover
+			{
+				draw.stroke_rgb(0.4,0.4,0.4,1);
+				draw.stroke_width(1);
+				draw.point_t(e.position, e.strength);
+				draw.circle_t(e.position, e.radius).stroke();
+			}
+			else if(e.state === 2) // reposition
+			{
+				draw.stroke_rgb(0.4,0.4,0.4,1);
+				draw.stroke_width(1);
+				draw.point_t(e.position, e.strength);
+				draw.circle_t(e.position, e.radius).stroke();
+			}
+			else if(e.state === 3) // hover edge
+			{
+				draw.stroke_rgb(0.4,0.4,0.6,1);
+				draw.stroke_width(1);
+				draw.point_t(e.position, e.strength);
+				draw.stroke_width(4);
+				draw.stroke_rgb(1.0,1.0,1.0,1);
+				draw.circle_t(e.position, e.radius).stroke();
+			}
+			else if(e.state === 4) // resize
+			{
+				draw.stroke_rgb(0.4,0.4,0.6,1);
+				draw.stroke_width(1);
+				draw.point_t(e.position, e.strength);
+				draw.stroke_width(4);
+				draw.stroke_rgb(1.0,1.0,1.0,1);
+				draw.circle_t(e.position, e.radius).stroke();
+			}
+			else if(e.state === 5) // hover center
+			{
+				draw.stroke_rgb(1,1,1,1);
+				draw.stroke_width(4);
+				draw.point_t(e.position, e.strength);
+
+				draw.stroke_rgb(0.4,0.4,0.6,1);
+				draw.stroke_width(1);
+				draw.circle_t(e.position, e.radius).stroke();
+			}
+			else if(e.state === 6) // change strength
+			{
+				draw.stroke_rgb(1,1,1,1);
+				draw.stroke_width(4);
+				draw.point_t(e.position, e.strength);
+
+				draw.stroke_rgb(0.4,0.4,0.6,1);
+				draw.stroke_width(1);
+				draw.circle_t(e.position, e.radius).stroke();
+			}
+		}
+	}
+
+	var ne = effectors.length;
+	for(var i = 0; i < emitter.active; ++i)
+	{
+		var p = emitter.particles[i];
+
+		p.life_time += 0.01 * p.speed * dt;
+		if(p.life_time > 1.0)
+		{
+			p.life_time = 0;
+			var x = emitter.position[0];
+			var y = emitter.position[1];
+			rand.vec2_fuzzy(p.position, x,y, 50);
+		}
+
+		//p.position[0] += 10 * dt;
+		p.position[1] -= p.speed * dt;
+
+		for(var j = 0; j < ne; ++j)
+		{
+			var e = effectors[j];
+			delta[0] = p.position[0] - e.position[0];
+			delta[1] = p.position[1] - e.position[1];
+
+			var inv_radius = e.radius / 100;
+			var dist = v2.length(delta);
+			var str = e.strength * gb.bezier.eval_f(curve, e.t);
+
+			var force = (1 / (dist * dist)) * inv_radius * (str * 1000);
+
+			p.position[0] += delta[0] * force * dt;
+			p.position[1] += delta[1] * force * dt;
+		}
+
+		var scale = gb.bezier.eval_f(curve, p.life_time);
+
+		draw.fill_c(p.color);
+		draw.circle_t(p.position, p.radius * scale).fill();
+	}
+
+	gb.input.update();
+
+	requestAnimationFrame(update);
+}
+
+function new_particle(e)
+{
+	var p = new Particle();
+	p.position = v2.new(0,0);
+	var x = e.position[0];
+	var y = e.position[1];
+	rand.vec2_fuzzy(p.position, x,y, 50);
+	p.radius = rand.float(30,60);
+	p.color = colors[rand.int(0,9)];
+	p.life_time = rand.float(0,0.5);
+	p.speed = rand.float(50,100);
+	e.particles.push(p);
+	return p;
+}
+
+function new_effector(x, y, radius, strength, type)
+{
+	var e = new Effector();
+	e.position = v2.new(x,y);
+	e.radius = radius;
+	e.strength = strength;
+	e.state = 0;
+	e.type = type;
+	e.t = rand.float(0,0.5);
+	effectors.push(e);
+	return e;
+}
+
 
 function on_focus(e)
 {
@@ -3882,140 +2255,3 @@ function on_blur(e)
 	focus = false;
 }
 
-function load_progress(e)
-{
-	var percent = e.loaded / e.total;
-}
-function load_complete(asset_group)
-{
-	gb.link_asset_group(asset_group, link_complete);	
-}
-function link_complete()
-{
-	render_target = gb.render_target.new(gb.webgl.view, 1 | 2);
-
-	construct = scene.new();
-	
-	viewer = camera.new();
-	scene.add_camera(construct, viewer);
-
-	nutmeg = gb.sprite.new(assets.textures.nutmeg, 16,18);
-	scene.add_sprite(construct, nutmeg);
-    gb.webgl.link_mesh(nutmeg.entity.mesh);
-	sprite.set_animation(nutmeg, 0, 4, 4, -1);
-
-	render_group = new RenderGroup();
-	render_group.entities.push(nutmeg.entity);
-	render_group.shader = assets.shaders.textured;
-
-	curve = gb.bezier.clamped(0.3,0.0,0.8,1.0);
-
-	animA = gb.animate.new(nutmeg.entity.scale, v3.lerp, null);
-	gb.animate.add_frame(animA, v3.new(1,1,1), 0.0, curve);
-	gb.animate.add_frame(animA, v3.new(2,2,1), 1.0, null);
-	gb.animate.add_frame(animA, v3.new(0.5,0.5,1), 1.5, curve);
-
-	rotation = 0;
-
-	requestAnimationFrame(upA);
-}
-
-
-
-function update(timestamp)
-{
-	gb.stack.clear_all();
-
-	rotation += 1.0 * gb.time.dt;
-
-	entity.set_position(viewer.entity, 0,0,8);
-
-	if(gb.input.down(0))
-	{
-		gb.animate.loop(animA);
-		sprite.play(nutmeg);
-	}
-
-	scene.update(construct);
-	gb.animate.update(gb.time.dt);
-
-	gb.gl_draw.clear();
-	//gb.gl_draw.wire_mesh(nutmeg.entity.mesh, nutmeg.entity.world_matrix);
-
-	gb.input.update();
-}
-
-
-function upA(t)
-{
-	gb.time.update(t);
-	if(gb.time.paused || focus === false)
-	{
-		requestAnimationFrame(upA);
-		return;
-	}
-
-	update(t);
-	render(render_target);
-	display(render_target);
-	requestAnimationFrame(upB);
-}
-function upB(t)
-{
-	gb.time.update(t);
-	if(gb.time.paused || focus === false)
-	{
-		requestAnimationFrame(upB);
-		return;
-	}
-
-	update(t);
-	render(render_target);
-	display(render_target);
-	requestAnimationFrame(upA);
-}
-
-
-function draw_group(group, cam)
-{
-	var r = gb.webgl;
-	var s = group.shader;
-	r.set_shader(s);
-
-	var mvp = gb.mat4.tmp();
-	var ne = group.entities.length;
-	for(var i = 0; i < ne; ++i)
-	{
-		var e = group.entities[i];
-		r.link_attributes(s, e.mesh);
-		gb.mat4.mul(mvp, e.world_matrix, cam.view_projection);
-		r.set_shader_mat4(s, "mvp", mvp);
-		r.set_shader_texture(s, "tex", assets.textures.nutmeg, 0);
-		r.draw_mesh_elements(e.mesh);
-		//r.draw_mesh_arrays(e.mesh);
-	}
-}
-
-function render(target)
-{
-	var r = gb.webgl;
-
-	r.set_render_target(target, true);
-	draw_group(render_group, viewer);
-	gb.gl_draw.draw(viewer);
-}
-
-function display(target)
-{
-	var r = gb.webgl;
-	var s = r.screen_shader;
-	var m = r.screen_mesh;
-	
-	r.ctx.disable(r.ctx.DEPTH_TEST);
-	r.set_render_target(null);
-	r.set_shader(s);
-	r.link_attributes(s, m);
-	r.set_shader_texture(s, "tex", target.color, 0);
-	r.draw_mesh_elements(m);
-}
-///INCLUDE canvas_dev.js

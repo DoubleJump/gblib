@@ -15,9 +15,67 @@ gb.KeyState =
 	RELEASED: 4,
 }
 
+gb.Keys = 
+{
+	mouse_left: 0,
+	mouse_right: 1,
+	backspace: 8,
+	tab: 9,
+	enter: 13,
+	shift: 16,
+	ctrl: 17,
+	alt: 18,
+	caps_lock: 20,
+	escape: 27,
+	space: 32,
+	left: 37,
+	up: 38,
+	right: 39,
+	down: 40,
+	zero: 48,
+	one: 49,
+	two: 50,
+	three: 51,
+	four: 52,
+	five: 53,
+	six: 54,
+	seven: 55,
+	eight: 56,
+	nine: 57,
+	a: 65,
+	b: 66,
+	c: 67,
+	d: 68, 
+	e: 69,
+	f: 70,
+	g: 71,
+	h: 72,
+	i: 73,
+	j: 74,
+	k: 75,
+	l: 76,
+	m: 77,
+	n: 78,
+	o: 79,
+	p: 80,
+	q: 81,
+	r: 82,
+	s: 83,
+	t: 84,
+	u: 85,
+	v: 86,
+	w: 87,
+	x: 88,
+	y: 89,
+	z: 90,
+}
+
+
 gb.input = 
 {
-	mouse_position: new gb.vec3.new(),
+	mouse_position: gb.vec3.new(),
+	last_mouse_position: gb.vec3.new(),
+	mouse_delta: gb.vec3.new(),
 
 	_mdy:0,
 	_lmdy:0,
@@ -27,7 +85,7 @@ gb.input =
 	MAX_TOUCHES: 5,
 	acceleration: gb.vec3.new(),
 	angular_acceleration: gb.vec3.new(),
-	rotation: new gb.Quat(),
+	rotation: gb.quat.new(),
 
 	keys: new Uint8Array(256),
 
@@ -85,6 +143,11 @@ gb.input =
 			_t.mouse_scroll = _t._mdy;
 			_t._ldy = _t._mdy;
 		}
+
+		var dx = _t.last_mouse_position[0] - _t.mouse_position[0];
+		var dy = _t.last_mouse_position[1] - _t.mouse_position[1];
+		gb.vec3.eq(_t.last_mouse_position, _t.mouse_position);
+		gb.vec3.set(_t.mouse_delta, dx, dy, 0);
 	},
 
 	up: function(code)
@@ -107,29 +170,32 @@ gb.input =
 	key_down: function(e)
 	{
 		var _t = gb.input;
-		var kc = e.keyCode;
+		var kc = e.keyCode || e.button;
 		if(_t.keys[kc] === 0) return;
 
 		if(_t.keys[kc] != gb.KeyState.HELD) 
 			_t.keys[kc] = gb.KeyState.DOWN;
 
-		e.preventDefault();
+		//e.preventDefault();
 	},
 	key_up: function(e)
 	{
 		var _t = gb.input;
-		var kc = e.keyCode;
+		var kc = e.keyCode || e.button;
 		if(_t.keys[kc] === 0) return;
 
 		if(_t.keys[kc] != gb.KeyState.RELEASED) 
 			_t.keys[kc] = gb.KeyState.UP;
 
-		e.preventDefault();
+		//e.preventDefault();
 	},
 
 	mouse_move: function(e)
 	{
-		gb.vec3.set(gb.input.mouse_position, e.clientX, e.clientY, 0);
+		var _t = gb.input;
+		var x = e.clientX;
+		var y = e.clientY;
+		gb.vec3.set(_t.mouse_position, x, y, 0);
 	},
 	mouse_wheel: function(e)
 	{

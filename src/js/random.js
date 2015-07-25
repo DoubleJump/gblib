@@ -13,6 +13,10 @@ gb.random =
 		r[0] = Math.random() * (max_x - min_x) + min_x;
 		r[1] = Math.random() * (max_y - min_x) + min_y;
 	},
+	vec2_fuzzy: function(r, x,y, fuzz)
+	{
+		gb.random.vec2(r, x-fuzz, x+fuzz, y-fuzz, y+fuzz);
+	},
 	vec3: function(r, min_x, max_x, min_y, max_y, min_z, max_z)
 	{
 		r[0] = Math.random() * (max_x - min_x) + min_x;

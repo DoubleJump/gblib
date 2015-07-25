@@ -5,13 +5,16 @@ html, body
 	width:100%;
 	height:100%;
 	background: rgb(0,0,0);
+	overflow: hidden;
 }
 .container
 {
 	width:100%;
 	height:100%;
-	
 	margin: auto;
-	background: rgb(122,122,122);
+	background: rgb(50,50,50);
 	overflow: hidden;
+	position: absolute;
+	top: 0;
+	left: 0;
 }

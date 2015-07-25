@@ -10,7 +10,7 @@ gb.color =
 	new: function(r,g,b,a)
 	{
 		var v = new gb.Color();
-		gb.color.set(r, r,g,b,a);
+		gb.color.set(v, r,g,b,a);
 		return v;
 	},
 	set: function(v, r,g,b,a)

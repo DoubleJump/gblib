@@ -44,10 +44,17 @@ gb.bezier =
 				   (3 * u * tt * b.c[i]) + 
 				   (ttt * b.d[i]);
 	},
-	evalf: function(b, t)
+	eval_f: function(b, t)
 	{
-		var cr = gb.vec3.tmp();
-		gb.bezier.eval(cr,b,t);
-		return cr[1];
+		var u = 1.0 - t;
+		var tt = t * t;
+		var uu = u * u;
+		var uuu = uu * u;
+		var ttt = tt * t;
+
+		return (uuu * b.a[1]) + 
+			   (3 * uu * t * b.b[1]) + 
+			   (3 * u * tt * b.c[1]) + 
+			   (ttt * b.d[1]);
 	}
 }

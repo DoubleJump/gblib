@@ -55,7 +55,6 @@ gb.webgl =
 		_t.ctx = gl;
 
         gl.enable(gl.BLEND);
-        //gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); //works with premultiplied alpha
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
         gl.enable(gl.DEPTH_TEST);
@@ -66,9 +65,9 @@ gb.webgl =
 		gl.cullFace(gl.BACK);
 		gl.frontFace(gl.CCW);
 		gl.enable(gl.SCISSOR_TEST);
-		gl.scissor(0,0, canvas.width, canvas.height);
 		
-        gl.viewport(0,0, canvas.width, canvas.height);
+		_t.set_viewport(_t.view);
+
         gl.clearColor(0.0,0.0,0.0,0.0);
         //gl.colorMask(true, true, true, false);
     	//gl.clearStencil(0);
@@ -81,7 +80,6 @@ gb.webgl =
 		var ex = _t.extensions;
 		ex.depth_texture = gl.getExtension("WEBGL_depth_texture");
 		ex.dxt = gl.getExtension("WEBGL_compressed_texture_s3tc");
-		//ex.pvr = gl.getExtension("WEBGL_compressed_texture_pvrtc");
 		ex.pvr = gl.getExtension("WEBKIT_WEBGL_compressed_texture_pvrtc");
 		ex.fp_texture = gl.getExtension("OES_texture_float");
 		ex.uint = gl.getExtension("OES_element_index_uint");
@@ -216,20 +214,6 @@ gb.webgl =
 		var _t = gb.webgl;
 		var gl = _t.ctx;
 
-		/*
-		switch(t.format)
-		{
-			case _t.extensions.dxt.COMPRESSED_RGBA_S3TC_DXT1_EXT:
-				gl.compressedTexImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.pixels);
-			break;
-			case _t.extensions.dxt.COMPRESSED_RGBA_S3TC_DXT5_EXT:
-				gl.compressedTexImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.pixels);
-			break;
-			default:
-				gl.texImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.format, t.byte_size, t.pixels);
-			break;
-		}
-		*/
 		if(t.compressed === true)
 		{
 			gl.compressedTexImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.pixels);
@@ -247,7 +231,7 @@ gb.webgl =
 	{
 		var gl = gb.webgl.ctx;
 		gl.viewport(v.x, v.y, v.width, v.height);
-		//scissor?
+		gl.scissor(v.x, v.y, v.width, v.height);
 	},
 
 	set_render_target: function(rt, clear)
@@ -438,6 +422,5 @@ gb.webgl =
         var inv = gb.mat4.tmp();
         gb.mat4.inverse(inv, camera.view_projection);
         gb.mat4.mul_projection(r, inv, t);
-        //gb.mat4.mul_point(r, inv, t);
     },
 }

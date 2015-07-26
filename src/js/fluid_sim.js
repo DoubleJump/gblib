@@ -25,36 +25,71 @@ var focus = true;
 
 window.addEventListener('load', init, false);
 
-var Fluid = function(size)
+var Grid = function()
 {
-	this.size = size;
-	this.velocity = new Float32Array(size);
-	this.pressure = new Float32Array(size);
-	this.dye = new Float32Array(size);
+	this.cells_x;
+	this.cells_y;
+	this.cell_width;
+	this.cell_height;
+	this.hw;
+	this.hh;
+	this.cell_count;
+	this.cells = [];
 }
 
-var sim_view;
-var fluid;
-var fluid_last;
-var col = "";
+var Cell = function(type)
+{
+	this.type = type;
+	this.vector;
+	this.density;
+}
+
+var grid;
+var grid_t;
+var surface_edit;
+var surface_x;
+var surface_y;
+var v2 = gb.vec2;
+var v3 = gb.vec3;
+var rand = gb.random;
+var draw = gb.canvas;
 
 function init()
 {
+	var k = gb.Keys;
+
 	gb.time.init();
 	gb.input.init(document,
 	{
-		keycodes: [0,1],
+		keycodes: [k.mouse_left, k.a, k.x, k.z, k.one, k.two, k.three, k.up, k.down],
 	});
-	sim_view = gb.canvas.new(gb.dom.find('.container'));
-	gb.canvas.set_context(sim_view);
+	var c = gb.canvas.new(gb.dom.find('.container'));
+	gb.canvas.set_context(c);
 	
 	window.onfocus = on_focus;
 	window.onblur = on_blur;
 
-	fluid = new Fluid(50);
-	fluid_last = new Fluid(50);
+	grid = new Grid();
+	grid.cells_x = 10;
+	grid.cells_y = 10;
+	grid.cell_width = 50;
+	grid.cell_height = 50;
+	grid.cell_count = 100;
+	grid.hw = 25;
+	grid.hh = 25;
 
-	requestAnimationFrame(upA);
+	for(var i = 0; i < grid.cell_count; ++i)
+	{
+		var c = new Cell();
+		c.type = 0;
+		c.vector = v2.new(1,0);
+		c.density = 1;
+		grid.cells.push(c);
+	}
+
+	surface_edit = false;
+
+	requestAnimationFrame(update);
 }
 
 function on_focus(e)
@@ -70,83 +105,115 @@ function on_blur(e)
 
 
 
-function update(timestamp)
+function update(t)
 {
+	gb.time.update(t);
+	if(gb.time.paused || focus === false)
+	{
+		requestAnimationFrame(update);
+		return;
+	}
+
+	var at = gb.time.at;
 	var dt = gb.time.dt;
 	gb.stack.clear_all();
-
-	if(gb.input.down(0))
-	{
-		fluid_last.dye[fluid.size / 2] = 1.0;
-	}
 
 	var ctx = gb.canvas.ctx;
 	var view = gb.canvas.view;
 
-	gb.canvas.clear();
+	var m_pos = gb.input.mouse_position;
+	var m_held = gb.input.held(0);
+	var m_up = gb.input.up(0);
+	var m_down = gb.input.down(0);
+	var m_delta = gb.input.mouse_delta;
 
-	for(var i = 1; i < fluid.size - 1; ++i)
+	draw.clear();
+
+	
+	var ix = gb.math.floor(m_pos[0] / grid.cell_width);
+	var iy = gb.math.floor(m_pos[1] / grid.cell_height);
+
+	if(ix < 0) ix = 0;
+	else if(ix > grid.cells_x-1) ix = grid.cells_x - 1;
+	if(iy < 0) iy = 0;
+	else if(iy > grid.cells_y-1) iy = grid.cells_y - 1;
+
+	draw.fill_rgb(0.5,0.5,0.5,1);
+	draw.rect(ix * grid.cell_width, iy * grid.cell_height, grid.cell_width, grid.cell_height).fill();
+
+
+	// Draw cells
+	for(var x = 0; x < grid.cells_x; ++x)
 	{
-		var vl = fluid_last.velocity[i-1];
-		var vr = fluid_last.velocity[i+1];
-		var pl = fluid_last.pressure[i-1];
-		var pr = fluid_last.pressure[i+1];
-		var dl = fluid_last.dye[i-1];
-		var dr = fluid_last.dye[i+1];
+		for(var y = 0; y < grid.cells_y; ++y)
+		{
+			var i = x + (y * grid.cells_x);
+			var c = grid.cells[i];
+			var v = c.vector;
+			var d = c.density;
 
-		fluid.velocity[i] = (vl + vr) * 0.5;
-		fluid.pressure[i] = (pl + pr) * 0.5;
-		fluid.dye[i] = (dl + dr) * 0.5;
+			var cx = (x * grid.cell_width) + grid.hw;
+			var cy = (y * grid.cell_height) + grid.hh;
 
-		col = gb.canvas.rgba(255,255,255, fluid.dye[i]);
-		gb.canvas.rectf((i * 10), 0, 10, 30, col);
+			draw.stroke_rgb(v[0] / 2 + 0.5, v[1] / 2 + 0.5, 0.5, 1);
+			draw.line(cx - v[0] * 10, cy - v[1] * 10, cx + v[0] * 10, cy + v[1] * 10);
+			draw.stroke();
+
+			//draw.fill_rgb(v[0] / 2 + 0.5, v[1] / 2 + 0.5, 0.5, 1);
+			//draw.rect(x * grid.cell_width, y * grid.cell_height, grid.cell_width,grid.cell_height).fill();
+		}
 	}
 
-	// Boundary conditions
-	fluid.velocity[0] = -fluid_last.velocity[1];
-	fluid.pressure[0] = 0
-	fluid.dye[0] = 0;
-
-	fluid.velocity[fluid.size - 1] = -fluid_last.velocity[fluid.size - 2];
-	fluid.pressure[fluid.size - 1] = 0
-	fluid.dye[fluid.size - 1] = 0;
-
-	// Swap buffers
-	var n = fluid.size;
-	for(var i = 0; i < n; ++i)
+	// Draw grid
+	draw.stroke_rgb(1,1,1,1);
+	draw.stroke_width(1);
+	for(var x = 0; x < grid.cells_x; ++x)
 	{
-		fluid_last.velocity[i] = fluid.velocity[i];
-		fluid_last.pressure[i] = fluid.pressure[i];
-		fluid_last.dye[i] = fluid.dye[i];
+		for(var y = 0; y < grid.cells_y; ++y)
+		{
+			draw.rect(x * grid.cell_width, y * grid.cell_height, grid.cell_width,grid.cell_height).stroke();
+		}
+	}
+
+	var ic = ix + (iy * grid.cells_x);
+
+	if(surface_edit === true)
+	{
+		if(gb.input.up(gb.Keys.a))
+		{
+			surface_edit = false;
+		}
+
+		var cx = (surface_x * grid.cell_width) + grid.hw;
+		var cy = (surface_y * grid.cell_height) + grid.hh;
+		var dx = m_pos[0] - cx;
+		var dy = m_pos[1] - cy;
+
+		var vt = v2.tmp(dx, dy);
+		var v = grid.cells[surface_x + (surface_y * grid.cells_x)].vector;
+		v2.normalized(v, vt);
+		//v2.eq(v,vt);
+
+		draw.line(cx,cy,m_pos[0],m_pos[1]).stroke(0);
+	}
+	else
+	{
+		if(gb.input.down(gb.Keys.a))
+		{
+			surface_edit = true;
+			surface_x = ix;
+			surface_y = iy;
+		}
+	}
+
+	
+
+	if(m_down)
+	{
+		v2.set(grid.cells[ic].vector, 1,1);
 	}
 
 	gb.input.update();
-}
 
-
-function upA(t)
-{
-	gb.time.update(t);
-	if(gb.time.paused || focus === false)
-	{
-		requestAnimationFrame(upA);
-		return;
-	}
-
-	update(t);
-	requestAnimationFrame(upB);
-}
-
-
-function upB(t)
-{
-	gb.time.update(t);
-	if(gb.time.paused || focus === false)
-	{
-		requestAnimationFrame(upB);
-		return;
-	}
-
-	update(t);
-	requestAnimationFrame(upA);
+	requestAnimationFrame(update);
 }

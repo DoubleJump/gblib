@@ -63,23 +63,33 @@ gb.vec2 =
 	},
 	sqr_length: function(v)
 	{
-		return gb.vec2.dot(v,v);
+		return v[0] * v[0] + v[1] * v[1];
 	},
 	length: function(v) 
 	{
 		return gb.math.sqrt(gb.vec2.sqr_length(v));
 	},
-	normalized: function(r, a) 
+	distance: function(a, b)
+	{
+		return gb.math.sqrt(gb.vec2.sqr_distance(a,b));
+	},
+	sqr_distance: function(a, b)
+	{
+		var dx = b[0] - a[0];
+		var dy = b[1] - a[1];
+		return dx * dx + dy * dy;
+	},
+	normalized: function(r, v) 
 	{
 		var _t = gb.vec2;
 		var l = _t.sqr_length(v);
 		if(l > gb.math.EPSILON)
 		{
-			_t.mulf(r, a, 1 / l);
+			_t.mulf(r, v, gb.math.sqrt(1 / l));
 		} 
 		else
 		{
-			_t.eq(r,a);
+			_t.eq(r,v);
 		}
 	},
 	dot: function(a, b)
@@ -203,7 +213,7 @@ gb.vec3 =
 		var l = _t.sqr_length(v);
 		if(l > gb.math.EPSILON)
 		{
-			_t.mulf(r, v, 1 / l);
+			_t.mulf(r, v, gb.math.sqrt(1 / l));
 		} 
 		else
 		{

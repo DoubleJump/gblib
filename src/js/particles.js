@@ -39,8 +39,11 @@ var edit_mode = false;
 var Particle = function()
 {
 	this.position;
+	this.velocity;
+	this.acceleration;
 	this.radius;
 	this.color;
+	this.mass;
 	this.life_time;
 	this.speed;
 }
@@ -52,6 +55,7 @@ var Emitter = function()
 	this.particles;
 	this.active;
 	this.total;
+	this.state;
 }
 
 var Effector = function()
@@ -99,6 +103,7 @@ function init()
 	emitter.active = 1;
 	emitter.total = 50;
 	emitter.radius = 50;
+	emitter.state = 0;
 
 	for(var i = 0; i < emitter.total; ++i)
 	{
@@ -108,7 +113,7 @@ function init()
 	effectors = [];
 	for(var i = 0; i < 1; ++i)
 	{
-		new_effector(100, 100, 50, 10);
+		new_effector(100, 100, 50, 10, 1);
 	}
 
 	draw.clear_rgb(0.1,0.1,0.13,1);
@@ -137,6 +142,7 @@ function update(t)
 	var m_up = gb.input.up(0);
 	var m_delta = gb.input.mouse_delta;
 	var delta = v2.tmp();
+	var cp = v2.tmp();
 
 	draw.clear();
 
@@ -149,6 +155,7 @@ function update(t)
 		//new_particle(emitter);
 		emitter.active++;
 		if(emitter.active > emitter.total) emitter.active = emitter.total;
+		//emitter.particles[emitter.active]
 	}
 	else if(gb.input.down(gb.Keys.down))
 	{
@@ -163,20 +170,47 @@ function update(t)
 	{
 		var e = effectors[i];
 		if(e.state === -1) continue;
-		e.t += dt * 0.3;
-		if(e.t > 1.0)
+		e.t -= dt;
+		if(e.t < 0.0)
 		{
-			e.t = 0.0;
+			e.t = 1.0;
 		}
 	}
 
 	if(edit_mode === true)
 	{
+		// Mouse pick emitter
+
+		if(emitter.state === 2)
+		{
+			draw.stroke_rgb(0.6,0.6,0.6,1.0);
+			if(m_held === false) emitter.state = 0;
+			else
+			{
+				emitter.position[0] -= m_delta[0];
+				emitter.position[1] -= m_delta[1];
+			}
+		}
+		else
+		{
+			delta[0] = m_pos[0] - emitter.position[0];
+			delta[1] = m_pos[1] - emitter.position[1];
+			var mag = v2.length(delta);
+			if(mag < emitter.radius)
+			{
+				emitter.state = 1;
+				draw.stroke_rgb(0.6,0.6,0.6,1.0);
+				if(m_held) emitter.state = 2;
+			}
+			else
+			{
+				draw.stroke_rgb(0.3,0.3,0.3,1.0);
+			}
+		}
 
 		// Draw emitters
 
-		draw.fill_rgb(0.3,0.3,0.3,1.0);
-		draw.stroke_rgb(0.3,0.3,0.3,1.0);
+		
 		draw.stroke_width(1);
 		draw.point_t(emitter.position, 15);
 		draw.circle_t(emitter.position, emitter.radius).stroke();
@@ -366,6 +400,7 @@ function update(t)
 	for(var i = 0; i < emitter.active; ++i)
 	{
 		var p = emitter.particles[i];
+		v2.set(p.acceleration, 0,0);
 
 		p.life_time += 0.01 * p.speed * dt;
 		if(p.life_time > 1.0)
@@ -374,32 +409,93 @@ function update(t)
 			var x = emitter.position[0];
 			var y = emitter.position[1];
 			rand.vec2_fuzzy(p.position, x,y, 50);
+			v2.set(p.velocity, 0, -5);
 		}
 
 		//p.position[0] += 10 * dt;
-		p.position[1] -= p.speed * dt;
+		p.acceleration[1] -= p.speed * dt;
 
 		for(var j = 0; j < ne; ++j)
 		{
 			var e = effectors[j];
+
+			/*
 			delta[0] = p.position[0] - e.position[0];
 			delta[1] = p.position[1] - e.position[1];
 
 			var inv_radius = e.radius / 100;
-			var dist = v2.length(delta);
+			var dist = v2.sqr_length(delta);
 			var str = e.strength * gb.bezier.eval_f(curve, e.t);
 
-			var force = (1 / (dist * dist)) * inv_radius * (str * 1000);
+			var force = (1 / dist) * inv_radius * (str * 1000);
+			if(e.type === 1)
+			{
+				p.acceleration[0] += delta[0] * force;
+				p.acceleration[1] += delta[1] * force;
+			}
+			else if(e.type === 2)
+			{
+				p.acceleration[0] -= delta[0] * force;
+				p.acceleration[1] -= delta[1] * force;
+			}
+			*/
 
-			p.position[0] += delta[0] * force * dt;
-			p.position[1] += delta[1] * force * dt;
+			gravitional_force(p.acceleration, p.position, p.radius, e.position, e.radius, e.strength);
 		}
+
+		// Self attraction
+		/*
+		for(var j = 0; j < emitter.active; ++j)
+		{
+			if(i === j) continue;
+			var po = emitter.particles[j];
+			delta[0] = p.position[0] - po.position[0];
+			delta[1] = p.position[1] - po.position[1];
+
+			var dist = v2.sqr_length(delta);
+			var force = (1 / dist) * inv_radius * 1000;
+			p.acceleration[0] -= delta[0] * force;
+			p.acceleration[1] -= delta[1] * force;
+		}
+		*/
 
 		var scale = gb.bezier.eval_f(curve, p.life_time);
 
+		p.velocity[0] += 0.5 * p.acceleration[0] * (dt * dt);
+		p.velocity[1] += 0.5 * p.acceleration[1] * (dt * dt); 
+
+		p.position[0] += p.velocity[0];
+		p.position[1] += p.velocity[1];
+
 		draw.fill_c(p.color);
 		draw.circle_t(p.position, p.radius * scale).fill();
+
+		/*
+		draw.stroke_rgb(p.color[0], p.color[1], p.color[2], 0.1);
+		draw.stroke_width(3 * scale);
+		draw.circle_t(p.position, (p.radius * 3.0) * (scale * scale)).stroke();		
+		*/
+		/*
+		draw.stroke_c(p.color);
+		draw.stroke_width(10);
+		draw.arc_t(p.position, p.radius * scale, 0, 360 * scale, true).stroke();
+		*/
 	}
+
+	/*
+	for(var i = 1; i < emitter.active; ++i)
+	{
+		var p = emitter.particles[i];
+		var pl = emitter.particles[i-1];
+
+		draw.stroke_c(p.color);
+		draw.stroke_width(10);
+		cp[0] = p.position[0];
+		cp[1] = p.position[1]
+		//draw.line_t(p.position, pl.position).stroke();
+		draw.curve(pl.position, p.position).stroke();
+	}
+	*/
 
 	gb.input.update();
 
@@ -413,9 +509,12 @@ function new_particle(e)
 	var x = e.position[0];
 	var y = e.position[1];
 	rand.vec2_fuzzy(p.position, x,y, 50);
+	p.velocity = v2.new(0,0);
+	p.acceleration = v2.new(0,0);
 	p.radius = rand.float(30,60);
 	p.color = colors[rand.int(0,9)];
-	p.life_time = rand.float(0,0.5);
+	p.life_time = 0;
+	p.mass = 1;
 	p.speed = rand.float(50,100);
 	e.particles.push(p);
 	return p;
@@ -432,6 +531,17 @@ function new_effector(x, y, radius, strength, type)
 	e.t = rand.float(0,0.5);
 	effectors.push(e);
 	return e;
+}
+
+function gravitional_force(r, pA, mA, pB, mB, G)
+{
+	var dx = pB[0] - pA[0];
+	var dy = pB[1] - pA[1];
+	var dist = dx * dx + dy * dy;
+	var id = 1 / dist;
+	var f = (G * mA * mB) / dist;
+	r[0] += dx * id * f * 10000;
+	r[1] += dy * id * f * 10000;
 }
 
 

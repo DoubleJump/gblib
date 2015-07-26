@@ -40,6 +40,30 @@ gb.canvas =
 		ctx.clearRect(v.x, v.y, v.width, v.height);
 	},
 
+	blend_alpha: function(a)
+	{
+		gb.canvas.ctx.globalAlpha = a;
+	},
+	blend_mode: function(m)
+	{
+		gb.canvas.ctx.globalCompositeOperation = m;
+	},
+
+	rect: function(x,y,w,h)
+	{
+		var ctx = gb.canvas.ctx;
+		ctx.beginPath();
+		ctx.moveTo(x, y);
+		ctx.lineTo(x+w, y);
+		ctx.lineTo(x+w, y+h);
+		ctx.lineTo(x, y+h);
+		return gb.canvas;
+	},
+	rect_t: function(r)
+	{
+		return gb.canvas.rect(r.x, r.y, r.width, r.height);
+	},
+
 	circle: function(x,y,r)
 	{
 		gb.canvas.ctx.beginPath();
@@ -49,6 +73,22 @@ gb.canvas =
 	circle_t: function(p,r)
 	{
 		return gb.canvas.circle(p[0], p[1], r);
+	},
+
+	begin_path: function(x,y)
+	{
+		var ctx = gb.canvas.ctx;
+		ctx.beginPath();
+		ctx.moveTo(x, y);
+		return gb.canvas;
+	},
+	add_vertex: function(x,y)
+	{
+		gb.canvas.ctx.lineTo(x,y);
+	},
+	end_path: function()
+	{
+		gb.canvas.ctx.closePath();
 	},
 
 	line: function(a,b,x,y)
@@ -77,6 +117,71 @@ gb.canvas =
 		return gb.canvas.point(p[0], p[1], length);
 	},
 	
+	arc: function(x,y, radius, start, end, cw)
+	{
+		gb.canvas.ctx.beginPath();
+		gb.canvas.ctx.arc(x, y, radius, start * gb.math.DEG2RAD, end * gb.math.DEG2RAD, cw);
+		return gb.canvas;
+	},
+	arc_t: function(pos, radius, start, end, cw)
+	{
+		return gb.canvas.arc(pos[0], pos[1], radius, start, end, cw);
+	},
+
+	polygon: function(points)
+	{
+		var ctx = gb.canvas.ctx;
+		var n = points.length;
+		var p = points[0];
+		ctx.beginPath();
+		ctx.moveTo(p[0], p[1]);
+		for(var i = 1; i < n; ++i)
+		{
+			p = points[i];
+		    ctx.lineTo(p[0], p[1]);
+		}
+		return gb.canvas;
+	},
+
+	bezier_t: function(b)
+	{
+		var ctx = gb.canvas.ctx;
+		ctx.beginPath();
+		ctx.moveTo(b.a[0], b.a[1]);
+		ctx.bezierCurveTo(b.b[0],b.b[1],b.c[0],b.c[1],b.d[0],b.d[1]);
+		return gb.canvas;
+	},
+
+	quadratic_t: function(a,b, cp)
+	{
+		var ctx = gb.canvas.ctx;
+		ctx.beginPath();
+		ctx.moveTo(a[0], a[1]);
+		ctx.quadraticCurveTo(cp[0], cp[1], b[0], b[1]);
+		return gb.canvas;
+	},
+	curve_through_points: function(points)
+	{
+		var ctx = gb.canvas.ctx;
+		var n = points.length;
+		ctx.beginPath();
+		ctx.moveTo(points[0], points[1]);
+		for(var i = 0; i < n; i+=2)
+		{
+		    ctx.quadraticCurveTo(points[i], points[i-1]);
+		}
+		return gb.canvas;
+	},
+
+	font: function(family, size)
+	{
+		gb.canvas.ctx.font = size + "px " + family;
+	},
+	text: function(t, x,y)
+	{
+		gb.canvas.ctx.fillText(t, x,y);
+	},
+
 	fill_col: function(s)
 	{
 		gb.canvas.ctx.fillStyle = s;
@@ -94,9 +199,13 @@ gb.canvas =
 		gb.canvas.ctx.fill();
 	},
 
-	stroke_col: function(s)
+	stroke_s: function(s)
 	{
 		gb.canvas.ctx.strokeStyle = s;
+	},
+	stroke_t: function(c)
+	{
+		gb.canvas.ctx.strokeStyle = gb.canvas.rgba(c[0], c[1], c[2], c[3]);
 	},
 	stroke_rgb: function(r,g,b,a)
 	{
@@ -105,6 +214,21 @@ gb.canvas =
 	stroke_width: function(t)
 	{
 		gb.canvas.ctx.lineWidth = t;
+	},
+	join: function(j)
+	{
+		gb.canvas.ctx.lineJoin = j;
+		return gb.canvas;
+	},
+	cap: function(c)
+	{
+		gb.canvas.ctx.lineCap = c;
+		return gb.canvas;
+	},
+	dash: function(line, gap)
+	{
+		gb.canvas.ctx.setLineDash([line, dash]);
+		return gb.canvas;
 	},
 	stroke: function()
 	{
@@ -115,7 +239,11 @@ gb.canvas =
 	{
 		gb.canvas.element.style.background = gb.canvas.rgba(r,g,b,a);
 	},
-	col: function(s)
+	clear_t: function(c)
+	{
+		gb.canvas.element.style.background = gb.canvas.rgba(c[0], c[1], c[2], c[3]);
+	},
+	clear_s: function(s)
 	{
 		gb.canvas.element.style.background = s;
 	},

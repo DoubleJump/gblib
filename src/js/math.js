@@ -21,6 +21,10 @@ gb.math =
 	{
 		return Math.round(a);
 	},
+	round_to: function(a, f)
+	{
+		return a.toFixed(f);
+	},
 	floor: function(a)
 	{
 		return Math.floor(a);

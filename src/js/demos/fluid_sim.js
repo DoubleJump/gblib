@@ -155,12 +155,16 @@ function update(t)
 			var cx = (x * grid.cell_width) + grid.hw;
 			var cy = (y * grid.cell_height) + grid.hh;
 
-			draw.stroke_rgb(v[0] / 2 + 0.5, v[1] / 2 + 0.5, 0.5, 1);
-			draw.line(cx - v[0] * 10, cy - v[1] * 10, cx + v[0] * 10, cy + v[1] * 10);
-			draw.stroke();
-
-			//draw.fill_rgb(v[0] / 2 + 0.5, v[1] / 2 + 0.5, 0.5, 1);
-			//draw.rect(x * grid.cell_width, y * grid.cell_height, grid.cell_width,grid.cell_height).fill();
+			if(c.type === 0)
+			{
+				draw.fill_rgb(1,1,1,c.density);
+			}
+			else //boundaries
+			{
+				draw.stroke_rgb(v[0] / 2 + 0.5, v[1] / 2 + 0.5, 0.5, 1);
+				draw.line(cx - v[0] * 10, cy - v[1] * 10, cx + v[0] * 10, cy + v[1] * 10);
+				draw.stroke();
+			}
 		}
 	}
 
@@ -192,7 +196,6 @@ function update(t)
 		var vt = v2.tmp(dx, dy);
 		var v = grid.cells[surface_x + (surface_y * grid.cells_x)].vector;
 		v2.normalized(v, vt);
-		//v2.eq(v,vt);
 
 		draw.line(cx,cy,m_pos[0],m_pos[1]).stroke(0);
 	}
@@ -203,6 +206,7 @@ function update(t)
 			surface_edit = true;
 			surface_x = ix;
 			surface_y = iy;
+			grid.cells[ic].type = 1;
 		}
 	}
 

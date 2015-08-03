@@ -10,6 +10,7 @@ gb.canvas =
 	element: null,
 	ctx: null,
 	view: null,
+	_dash_vals:[5,5],
 
 	new: function(container, config)
 	{
@@ -22,6 +23,7 @@ gb.canvas =
 		c.view = new gb.rect.new(0,0,width,height);
 		c.ctx = canvas.getContext('2d');
 		c.element = canvas;
+		gb.canvas.set_context(c);
 		return c;
 	},
 
@@ -38,6 +40,7 @@ gb.canvas =
 		var v = gb.canvas.view;
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.clearRect(v.x, v.y, v.width, v.height);
+		//ctx.restore();
 	},
 
 	blend_alpha: function(a)
@@ -62,6 +65,19 @@ gb.canvas =
 	rect_t: function(r)
 	{
 		return gb.canvas.rect(r.x, r.y, r.width, r.height);
+	},
+
+	box: function(x,y,w,h)
+	{
+		var ctx = gb.canvas.ctx;
+		ctx.beginPath();
+		var hw = w / 2;
+		var hh = h / 2;
+		ctx.moveTo(x-hw, y-hh);
+		ctx.lineTo(x-hw, y+hh);
+		ctx.lineTo(x+hw, y+hh);
+		ctx.lineTo(x+hw, y-hh);
+		return gb.canvas;
 	},
 
 	circle: function(x,y,r)
@@ -106,10 +122,8 @@ gb.canvas =
 
 	point: function(x,y, length)
 	{
-		gb.canvas.line(x - length, y, x + length, y);
-		gb.canvas.stroke();
-		gb.canvas.line(x, y - length, x, y + length);
-		gb.canvas.stroke();
+		gb.canvas.line(x - length, y, x + length, y).stroke();
+		gb.canvas.line(x, y - length, x, y + length).stroke();
 		return gb.canvas;
 	},
 	point_t: function(p, length)
@@ -142,6 +156,7 @@ gb.canvas =
 		}
 		return gb.canvas;
 	},
+
 
 	bezier_t: function(b)
 	{
@@ -227,8 +242,11 @@ gb.canvas =
 	},
 	dash: function(line, gap)
 	{
-		gb.canvas.ctx.setLineDash([line, dash]);
-		return gb.canvas;
+		var _t = gb.canvas;
+		_t._dash_vals[0] = line;
+		_t._dash_vals[1] = gap;
+		_t.ctx.setLineDash(_t._dash_vals);
+		return _t;
 	},
 	stroke: function()
 	{
@@ -257,4 +275,9 @@ gb.canvas =
 		return "rgba(" + ir + "," + ig + "," + ib + "," + a + ")";
 	},
 
+	screen_shot: function(path, callback)
+	{
+		var img = gb.canvas.ctx.toDataURL('png');
+		gb.ajax.save_file(path, 'text', data, callback);
+	},
 }

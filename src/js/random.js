@@ -8,6 +8,10 @@ gb.random =
 	{
     	return Math.random() * (max - min) + min;
 	},
+	float_fuzzy: function(f, fuzz)
+	{
+		return gb.random.float(f-fuzz, f+fuzz);
+	},
 	vec2: function(r, min_x, max_x, min_y, max_y)
 	{
 		r[0] = Math.random() * (max_x - min_x) + min_x;
@@ -37,4 +41,12 @@ gb.random =
 		r[2] = Math.random() * (max_b - min_b) + min_b;
 		r[3] = Math.random() * (max_a - min_a) + min_a;
 	},
+	unit_circle: function(r)
+	{
+		var x = gb.rand.float(-1,1);
+		var y = gb.rand.float(-1,1);
+		var l = 1 / gb.math.sqrt(x * x + y * y);
+		r[0] = x * l;
+		r[1] = y * l;
+	}
 }

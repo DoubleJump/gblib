@@ -21,7 +21,8 @@
 
 var focus = true;
 
-window.addEventListener('load', init, false);
+gb.init = init;
+gb.update = update;
 
 var v2 = gb.vec2;
 var v3 = gb.vec3;
@@ -71,17 +72,12 @@ var Effector = function()
 function init()
 {
 	var k = gb.Keys;
-
-	gb.time.init();
 	gb.input.init(document,
 	{
-		keycodes: [k.mouse_left, k.a, k.x, k.z, k.one, k.two, k.three, k.up, k.down],
+		keycodes: [k.mouse_left, k.a, k.x, k.z, k.one, k.two, k.three, k.up, k.down, k.left, k.right],
 	});
 	var c = draw.new(gb.dom.find('.container'));
 	draw.set_context(c);
-	
-	window.onfocus = on_focus;
-	window.onblur = on_blur;
 
 	curve = gb.bezier.clamped(0.0,1.0,1.0,1.0);
 	curve.d[0] = 0;
@@ -90,9 +86,9 @@ function init()
 	colors = [];
 	for(var i = 0; i < 10; ++i)
 	{
-		var r = rand.float(0.95, 1.0);
-		var g = rand.float(0.12, 0.8);
-		var b = rand.float(0.12, 0.2);
+		var r = rand.float(0.7, 0.9);
+		var g = rand.float(0.3, 0.35);
+		var b = rand.float(0.12, 0.15);
 		var a = rand.float(0.9, 1.0);
 		colors.push(gb.color.new(r,g,b,a));
 	}
@@ -116,30 +112,23 @@ function init()
 		new_effector(100, 100, 50, 10, 1);
 	}
 
-	draw.clear_rgb(0.1,0.1,0.13,1);
+	//draw.clear_rgb(0.9,0.9,0.9,1);
+	draw.clear_rgb(0.1,0.1,0.1,1);
 
-	requestAnimationFrame(update);
+	//draw.blend_alpha();
+	draw.blend_mode("screen");
 }
 
 
 function update(t)
 {
-	gb.time.update(t);
-	if(gb.time.paused || focus === false)
-	{
-		requestAnimationFrame(update);
-		return;
-	}
-
 	var dt = gb.time.dt;
-	gb.stack.clear_all();
-
 	var ctx = gb.canvas.ctx;
 	var view = gb.canvas.view;
 
 	var m_pos = gb.input.mouse_position;
-	var m_held = gb.input.held(0);
-	var m_up = gb.input.up(0);
+	var m_held = gb.input.held(gb.Keys.mouse_left);
+	var m_up = gb.input.up(gb.Keys.mouse_left);
 	var m_delta = gb.input.mouse_delta;
 	var delta = v2.tmp();
 	var cp = v2.tmp();
@@ -164,6 +153,19 @@ function update(t)
 		var p = emitter.particles[emitter.active];
 		p.life_time = 0;
 	}
+
+	if(gb.input.held(gb.Keys.left))
+	{
+		gb.time.scale -= 0.1;
+	}
+	else if(gb.input.held(gb.Keys.right))
+	{
+		gb.time.scale += 0.1;
+	}
+
+	gb.time.scale = gb.math.clamp(gb.time.scale, 0, 2);
+
+	draw.text("Time: " + gb.time.dt, 50,50);
 
 	var n = effectors.length;
 	for(var i = 0; i < n; ++i)
@@ -212,7 +214,7 @@ function update(t)
 
 		
 		draw.stroke_width(1);
-		draw.point_t(emitter.position, 15);
+		//draw.point_t(emitter.position, 15);
 		draw.circle_t(emitter.position, emitter.radius).stroke();
 
 		// Add / Remove effectors
@@ -379,7 +381,7 @@ function update(t)
 				draw.stroke_width(4);
 				draw.point_t(e.position, e.strength);
 
-				draw.stroke_rgb(0.4,0.4,0.6,1);
+				draw.stroke_rgb(1.0,0.0,0.0,1);
 				draw.stroke_width(1);
 				draw.circle_t(e.position, e.radius).stroke();
 			}
@@ -402,7 +404,7 @@ function update(t)
 		var p = emitter.particles[i];
 		v2.set(p.acceleration, 0,0);
 
-		p.life_time += 0.01 * p.speed * dt;
+		p.life_time += (p.speed * 0.8) * dt;
 		if(p.life_time > 1.0)
 		{
 			p.life_time = 0;
@@ -412,17 +414,16 @@ function update(t)
 			v2.set(p.velocity, 0, -5);
 		}
 
-		//p.position[0] += 10 * dt;
 		p.acceleration[1] -= p.speed * dt;
 
 		for(var j = 0; j < ne; ++j)
 		{
 			var e = effectors[j];
 
-			/*
 			delta[0] = p.position[0] - e.position[0];
 			delta[1] = p.position[1] - e.position[1];
 
+			/*
 			var inv_radius = e.radius / 100;
 			var dist = v2.sqr_length(delta);
 			var str = e.strength * gb.bezier.eval_f(curve, e.t);
@@ -440,7 +441,14 @@ function update(t)
 			}
 			*/
 
-			gravitional_force(p.acceleration, p.position, p.radius, e.position, e.radius, e.strength);
+			if(e.type === 1)
+			{
+				gravitional_force(p.acceleration, p.position, p.radius, e.position, e.radius, -e.strength * 10000);
+			}
+			else if(e.type === 2)
+			{
+				gravitional_force(p.acceleration, p.position, p.radius, e.position, e.radius, e.strength * 10000);
+			}
 		}
 
 		// Self attraction
@@ -461,25 +469,14 @@ function update(t)
 
 		var scale = gb.bezier.eval_f(curve, p.life_time);
 
-		p.velocity[0] += 0.5 * p.acceleration[0] * (dt * dt);
-		p.velocity[1] += 0.5 * p.acceleration[1] * (dt * dt); 
+		p.velocity[0] += 0.5 * p.acceleration[0];// * (dt * dt);
+		p.velocity[1] += 0.5 * p.acceleration[1];// * (dt * dt); 
 
-		p.position[0] += p.velocity[0];
-		p.position[1] += p.velocity[1];
+		p.position[0] += p.velocity[0] * dt;
+		p.position[1] += p.velocity[1] * dt;
 
 		draw.fill_c(p.color);
 		draw.circle_t(p.position, p.radius * scale).fill();
-
-		/*
-		draw.stroke_rgb(p.color[0], p.color[1], p.color[2], 0.1);
-		draw.stroke_width(3 * scale);
-		draw.circle_t(p.position, (p.radius * 3.0) * (scale * scale)).stroke();		
-		*/
-		/*
-		draw.stroke_c(p.color);
-		draw.stroke_width(10);
-		draw.arc_t(p.position, p.radius * scale, 0, 360 * scale, true).stroke();
-		*/
 	}
 
 	/*
@@ -496,10 +493,6 @@ function update(t)
 		draw.curve(pl.position, p.position).stroke();
 	}
 	*/
-
-	gb.input.update();
-
-	requestAnimationFrame(update);
 }
 
 function new_particle(e)
@@ -515,7 +508,7 @@ function new_particle(e)
 	p.color = colors[rand.int(0,9)];
 	p.life_time = 0;
 	p.mass = 1;
-	p.speed = rand.float(50,100);
+	p.speed = rand.float(1,5);
 	e.particles.push(p);
 	return p;
 }
@@ -540,18 +533,6 @@ function gravitional_force(r, pA, mA, pB, mB, G)
 	var dist = dx * dx + dy * dy;
 	var id = 1 / dist;
 	var f = (G * mA * mB) / dist;
-	r[0] += dx * id * f * 10000;
-	r[1] += dy * id * f * 10000;
-}
-
-
-function on_focus(e)
-{
-	console.log('focus');
-	focus = true;
-}
-function on_blur(e)
-{
-	console.log('blur');
-	focus = false;
+	r[0] += dx * id * f;
+	r[1] += dy * id * f;
 }

@@ -1,6 +1,13 @@
 'use strict';
 
-///INCLUDE wgl_dev.js
+///INCLUDE demos/wgl_dev.js
+///INCLUDE demos/fluid_sim.js
+///INCLUDE demos/particles.js
+///INCLUDE demos/gravity.js
+///INCLUDE demos/impulse.js
+///INCLUDE demos/lines.js
+///INCLUDE demos/lines2.js
+///INCLUDE demos/lines3.js
 //DEBUG
 function ASSERT(expr, message)
 {
@@ -8,7 +15,50 @@ function ASSERT(expr, message)
 }
 //END
 
-var gb = {}
+var gb = 
+{
+	focus: true,
+	init: function(){},
+	update: function(t){},
+
+	focus: function(e)
+	{
+		gb.focus = true;
+		//DEBUG
+		console.log('focus');
+		//END
+	},
+	blur: function(e)
+	{
+		gb.focus = false;
+		//DEBUG
+		console.log('blur');
+		//END
+	},
+	_init: function(e)
+	{
+		if(gb.init) gb.init();
+		gb.time.init();
+		if(gb.update) requestAnimationFrame(gb._update);
+	},
+	_update: function(t)
+	{
+		gb.time.update(t);
+		if(gb.time.paused || gb.focus === false)
+		{
+			gb.input.update();
+			requestAnimationFrame(gb._update);
+			return;
+		}
+		gb.stack.clear_all();
+		gb.update(t);
+		gb.input.update();
+		requestAnimationFrame(gb._update);
+	},
+}
+window.addEventListener('load', gb._init, false);
+window.onfocus = gb.focus;
+window.onblur = gb.blur;
 //DEBUG
 gb.debug =
 {
@@ -286,23 +336,31 @@ gb.vec2 =
 	},
 	add: function(r, a,b)
 	{
-		r[0] = a[0] + b[0];
-		r[1] = a[1] + b[1];
+		var x = a[0] + b[0];
+		var y = a[1] + b[1];
+		r[0] = x;
+		r[1] = y;
 	},
 	sub: function(r, a,b)
 	{
-		r[0] = a[0] - b[0];
-		r[1] = a[1] - b[1];
+		var x = a[0] - b[0];
+		var y = a[1] - b[1];
+		r[0] = x;
+		r[1] = y;
 	},
 	mulf: function(r, a,f)
 	{
-		r[0] = a[0] * f;
-		r[1] = a[1] * f;
+		var x = a[0] * f;
+		var y = a[1] * f;
+		r[0] = x;
+		r[1] = y;
 	},
 	divf: function(r, a,f)
 	{
-		r[0] = a[0] / f;
-		r[1] = a[1] / f;
+		var x = a[0] / f;
+		var y = a[1] / f;
+		r[0] = x;
+		r[1] = y;
 	},
 	inverse: function(r, a)
 	{
@@ -331,14 +389,19 @@ gb.vec2 =
 	{
 		var _t = gb.vec2;
 		var l = _t.sqr_length(v);
+		var x; var y;
 		if(l > gb.math.EPSILON)
 		{
-			_t.mulf(r, v, gb.math.sqrt(1 / l));
+			var il = gb.math.sqrt(1/l);
+			x = v[0] * il;
+			y = v[1] * il;
 		} 
 		else
 		{
-			_t.eq(r,v);
+			x = v[0];
+			y = v[1]; 
 		}
+		_t.set(r,x,y);
 	},
 	dot: function(a, b)
 	{
@@ -375,6 +438,13 @@ gb.vec2 =
 		r[0] = it * a[0] + t * b[0];
 		r[1] = it * a[1] + t * b[1];
 	},
+	clamp: function(r, min_x, min_y, max_x, max_y)
+	{
+		if(r[0] < min_x) r[0] = min_x;
+		if(r[0] > max_x) r[0] = max_x;
+		if(r[1] < min_y) r[1] = min_y;
+		if(r[1] > max_y) r[1] = max_y;
+	}
 }
 
 gb.vec3 = 
@@ -756,437 +826,6 @@ gb.quat =
 		r[3] = it * a[3] + t * b[3];
 	},
 }
-gb.Mat3 = function()
-{
-	return new Float32Array(9);
-}
-gb.Mat4 = function()
-{
-	return new Float32Array(16);
-}
-
-gb.mat3 =
-{
-	stack: new gb.Stack(gb.Mat3, 5),
-
-	new: function()
-	{
-		var _t = gb.mat3;
-		var r = new gb.Mat3();
-		_t.identity(r);
-		return r;		
-	},
-	eq: function(a,b)
-	{
-		for(var i = 0; i < 9; ++i)
-			a[i] = b[i];
-	},
-	tmp: function()
-	{
-		var _t = gb.mat3;
-		var r = gb.stack.get(_t.stack);
-		_t.identity(r);
-		return r;
-	},
-
-	identity: function(m)
-	{
-		m[0] = 1; m[1] = 0; m[2] = 0;
-		m[3] = 0; m[4] = 1; m[5] = 0;
-		m[6] = 0; m[7] = 0; m[8] = 1;
-	},
-
-	determinant: function(m)
-	{
-		return m[0] * (m[4] * m[8] - m[5] * m[7]) -
-	      	   m[1] * (m[3] * m[8] - m[5] * m[6]) +
-	      	   m[2] * (m[3] * m[7] - m[4] * m[6]);
-	},
-
-	inverse: function(r, m)
-	{
-		var math = gb.math;
-		var _t = gb.mat3;
-		var t = this.tmp();
-
-	    r[0] = m[4] * m[8] - m[5] * m[7];
-	    r[1] = m[2] * m[7] - m[1] * m[8];
-	    r[2] = m[1] * m[5] - m[2] * m[4];
-	    r[3] = m[5] * m[6] - m[3] * m[8];
-	    r[4] = m[0] * m[8] - m[2] * m[6];
-	    r[5] = m[2] * m[3] - m[0] * m[5];
-	    r[6] = m[3] * m[7] - m[4] * m[6];
-	    r[7] = m[1] * m[6] - m[0] * m[7];
-	    r[8] = m[0] * m[4] - m[1] * m[3];
-
-	    var det = m[0] * r[0] + m[1] * r[3] + m[2] * r[6];
-	    if(math.abs(det) <= math.EPSILON)
-	    {
-	    	_t.identity(r);
-	    }
-
-	   	var idet = 1 / det;
-	   	for(var i = 0; i < 9; ++i)
-	   		r[i] *= idet;
-	},
-
-	mul: function(r, a,b)
-	{
-		r[0] = a[0] * b[0] + a[1] * b[3] + a[2] * b[6];
-		r[1] = a[0] * b[1] + a[1] * b[4] + a[2] * b[7];
-		r[2] = a[0] * b[2] + a[1] * b[5] + a[2] * b[8];
-		r[3] = a[3] * b[0] + a[4] * b[3] + a[5] * b[6];
-		r[4] = a[3] * b[1] + a[4] * b[4] + a[5] * b[7];
-		r[5] = a[3] * b[2] + a[4] * b[5] + a[5] * b[8];
-		r[6] = a[6] * b[0] + a[7] * b[3] + a[8] * b[6];
-		r[7] = a[6] * b[1] + a[7] * b[4] + a[8] * b[7];
-		r[8] = a[6] * b[2] + a[7] * b[5] + a[8] * b[8];
-	},
-
-	transposed: function(r,m)
-	{
-		r[1] = m[3];
-		r[2] = m[6]; 
-		r[3] = m[1];
-		r[5] = m[7]; 
-		r[6] = m[2]; 
-		r[7] = m[5];
-		r[8] = m[0];		
-	},
-
-	set_rotation: function(m, r)
-	{
-		var x2 = 2 * r[0]; 
-		var y2 = 2 * r[1]; 
-		var z2 = 2 * r[2];
-		var xx = r[0] * x2; 
-		var xy = r[0] * y2; 
-		var xz = r[0] * z2;
-		var yy = r[1] * y2;
-		var yz = r[1] * z2;
-		var zz = r[2] * z2;
-		var wx = r[3] * x2; 
-		var wy = r[3] * y2;
-		var wz = r[3] * z2;
-
-		m[0] = 1 - (yy + zz);
-		m[1] = xy + wz;
-		m[2] = xz - wy;
-		m[3] = xy - wz;
-		m[4] = 1 - (xx + zz);
-		m[5] = yz + wx;
-		m[6] = xz + wy;
-		m[7] = yz - wx;
-		m[8] = 1 - (xx + yy);
-	}
-}
-
-gb.mat4 =
-{
-	stack: new gb.Stack(gb.Mat4, 16),
-
-	new: function()
-	{
-		var _t = gb.mat4;
-		var r = new gb.Mat4();
-		_t.identity(r);
-		return r;		
-	},
-	eq: function(a,b)
-	{
-		for(var i = 0; i < 16; ++i)
-			a[i] = b[i];
-	},
-	tmp: function()
-	{
-		var _t = gb.mat4;
-		var r = gb.stack.get(_t.stack);
-		_t.identity(r);
-		return r;
-	},
-	identity: function(m)
-	{
-		m[ 0] = 1; m[ 1] = 0; m[ 2] = 0; m[ 3] = 0;
-		m[ 4] = 0; m[ 5] = 1; m[ 6] = 0; m[ 7] = 0;
-		m[ 8] = 0; m[ 9] = 0; m[10] = 1; m[11] = 0;
-		m[12] = 0; m[13] = 0; m[14] = 0; m[15] = 1;
-	},
-	mul: function(r, a,b)
-	{
-		r[ 0] = a[ 0] * b[0] + a[ 1] * b[4] + a[ 2] * b[ 8] + a[ 3] * b[12];
-		r[ 1] = a[ 0] * b[1] + a[ 1] * b[5] + a[ 2] * b[ 9] + a[ 3] * b[13];
-		r[ 2] = a[ 0] * b[2] + a[ 1] * b[6] + a[ 2] * b[10] + a[ 3] * b[14];
-		r[ 3] = a[ 0] * b[3] + a[ 1] * b[7] + a[ 2] * b[11] + a[ 3] * b[15];
-		r[ 4] = a[ 4] * b[0] + a[ 5] * b[4] + a[ 6] * b[ 8] + a[ 7] * b[12];
-		r[ 5] = a[ 4] * b[1] + a[ 5] * b[5] + a[ 6] * b[ 9] + a[ 7] * b[13];
-		r[ 6] = a[ 4] * b[2] + a[ 5] * b[6] + a[ 6] * b[10] + a[ 7] * b[14];
-		r[ 7] = a[ 4] * b[3] + a[ 5] * b[7] + a[ 6] * b[11] + a[ 7] * b[15];	
-		r[ 8] = a[ 8] * b[0] + a[ 9] * b[4] + a[10] * b[ 8] + a[11] * b[12];
-		r[ 9] = a[ 8] * b[1] + a[ 9] * b[5] + a[10] * b[ 9] + a[11] * b[13];
-		r[10] = a[ 8] * b[2] + a[ 9] * b[6] + a[10] * b[10] + a[11] * b[14];
-		r[11] = a[ 8] * b[3] + a[ 9] * b[7] + a[10] * b[11] + a[11] * b[15];
-		r[12] = a[12] * b[0] + a[13] * b[4] + a[14] * b[ 8] + a[15] * b[12];
-		r[13] = a[12] * b[1] + a[13] * b[5] + a[14] * b[ 9] + a[15] * b[13];
-		r[14] = a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14];
-		r[15] = a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15];
-	},
-
-	determinant: function(m)
-	{
-		var a0 = m[ 0] * m[ 5] - m[ 1] * m[ 4];
-		var a1 = m[ 0] * m[ 6] - m[ 2] * m[ 4];
-		var a2 = m[ 0] * m[ 7] - m[ 3] * m[ 4];
-		var a3 = m[ 1] * m[ 6] - m[ 2] * m[ 5];
-		var a4 = m[ 1] * m[ 7] - m[ 3] * m[ 5];
-		var a5 = m[ 2] * m[ 7] - m[ 3] * m[ 6];
-		var b0 = m[ 8] * m[13] - m[ 9] * m[12];
-		var b1 = m[ 8] * m[14] - m[10] * m[12];
-		var b2 = m[ 8] * m[15] - m[11] * m[12];
-		var b3 = m[ 9] * m[14] - m[10] * m[13];
-		var b4 = m[ 9] * m[15] - m[11] * m[13];
-		var b5 = m[10] * m[15] - m[11] * m[14];
-		return a0 * b5 - a1 * b4 + a2 * b3 + a3 * b2 - a4 * b1 + a5 * b0;
-	},
-
-	transposed: function(r, m)
-	{
-		r[ 1] = m[ 4]; 
-		r[ 2] = m[ 8]; 
-		r[ 3] = m[12];
-		r[ 4] = m[ 1]; 
-		r[ 6] = m[ 9]; 
-		r[ 7] = m[13];
-		r[ 8] = m[ 2]; 
-		r[ 9] = m[ 6]; 
-		r[11] = m[14];
-		r[12] = m[ 3]; 
-		r[13] = m[ 7]; 
-		r[14] = m[11];
-		r[15] = m[15]; 	
-	},
-	inverse: function(r, m)
-	{
-		var v0 = m[ 2] * m[ 7] - m[ 6] * m[ 3];
-		var v1 = m[ 2] * m[11] - m[10] * m[ 3];
-		var v2 = m[ 2] * m[15] - m[14] * m[ 3];
-		var v3 = m[ 6] * m[11] - m[10] * m[ 7];
-		var v4 = m[ 6] * m[15] - m[14] * m[ 7];
-		var v5 = m[10] * m[15] - m[14] * m[11];
-
-		var t0 =   v5 * m[5] - v4 * m[9] + v3 * m[13];
-		var t1 = -(v5 * m[1] - v2 * m[9] + v1 * m[13]);
-		var t2 =   v4 * m[1] - v2 * m[5] + v0 * m[13];
-		var t3 = -(v3 * m[1] - v1 * m[5] + v0 * m[ 9]);
-
-		var idet = 1.0 / (t0 * m[0] + t1 * m[4] + t2 * m[8] + t3 * m[12]);
-
-		r[0] = t0 * idet;
-		r[1] = t1 * idet;
-		r[2] = t2 * idet;
-		r[3] = t3 * idet;
-
-		r[4] = -(v5 * m[4] - v4 * m[8] + v3 * m[12]) * idet;
-		r[5] =  (v5 * m[0] - v2 * m[8] + v1 * m[12]) * idet;
-		r[6] = -(v4 * m[0] - v2 * m[4] + v0 * m[12]) * idet;
-		r[7] =  (v3 * m[0] - v1 * m[4] + v0 * m[ 8]) * idet;
-
-		v0 = m[1] * m[ 7] - m[ 5] * m[3];
-		v1 = m[1] * m[11] - m[ 9] * m[3];
-		v2 = m[1] * m[15] - m[13] * m[3];
-		v3 = m[5] * m[11] - m[ 9] * m[7];
-		v4 = m[5] * m[15] - m[13] * m[7];
-		v5 = m[9] * m[15] - m[13] * m[11];
-
-		r[ 8] =  (v5 * m[4] - v4 * m[8] + v3 * m[12]) * idet;
-		r[ 9] = -(v5 * m[0] - v2 * m[8] + v1 * m[12]) * idet;
-		r[10] =  (v4 * m[0] - v2 * m[4] + v0 * m[12]) * idet;
-		r[11] = -(v3 * m[0] - v1 * m[4] + v0 * m[ 8]) * idet;
-
-		v0 = m[ 6] * m[1] - m[ 2] * m[ 5];
-		v1 = m[10] * m[1] - m[ 2] * m[ 9];
-		v2 = m[14] * m[1] - m[ 2] * m[13];
-		v3 = m[10] * m[5] - m[ 6] * m[ 9];
-		v4 = m[14] * m[5] - m[ 6] * m[13];
-		v5 = m[14] * m[9] - m[10] * m[13];
-
-		r[12] = -(v5 * m[4] - v4 * m[8] + v3 * m[12]) * idet;
-		r[13] =  (v5 * m[0] - v2 * m[8] + v1 * m[12]) * idet;
-		r[14] = -(v4 * m[0] - v2 * m[4] + v0 * m[12]) * idet;
-		r[15] =  (v3 * m[0] - v1 * m[4] + v0 * m[ 8]) * idet;
-	},
-
-	inverse_affine: function(r, m)
-	{
-		var t0 = m[10] * m[5] - m[ 6] * m[9];
-		var t1 = m[ 2] * m[9] - m[10] * m[1];
-		var t2 = m[ 6] * m[1] - m[ 2] * m[5];
-
-		var idet = 1 / (m[0] * t0 + m[4] * t1 + m[8] * t2);
-
-		t0 *= idet;
-		t1 *= idet;
-		t2 *= idet;
-
-		var v0 = m[0] * idet;
-		var v4 = m[4] * idet;
-		var v8 = m[8] * idet;
-
-		r[ 0] = t0; 
-		r[ 1] = t1; 
-		r[ 2] = t2;
-		r[ 3] = 0;
-		r[ 4] = v8 * m[ 6] - v4 * m[10];
-		r[ 5] = v0 * m[10] - v8 * m[ 2];
-		r[ 6] = v4 * m[ 2] - v0 * m[ 6];
-		r[ 7] = 0;
-		r[ 8] = v4 * m[9] - v8 * m[5];
-		r[ 9] = v8 * m[1] - v0 * m[9];
-		r[10] = v0 * m[5] - v4 * m[1];
-		r[11] = 0;
-		r[12] = -(r[0] * m[12] + r[4] * m[13] + r[ 8] * m[14]);
-		r[13] = -(r[1] * m[12] + r[5] * m[13] + r[ 9] * m[14]);
-		r[14] = -(r[2] * m[12] + r[6] * m[13] + r[10] * m[14]);		
-		r[15] = 1;
-
-		return r;
-	},
-
-	set_position: function(m, p)
-	{
-		m[12] = p[0]; 
-		m[13] = p[1]; 
-		m[14] = p[2];
-	},
-
-	get_position: function(r, m)
-	{
-		r[0] = m[12];
-		r[1] = m[13];
-		r[2] = m[14];
-	},
-
-	set_scale: function(m, s)
-	{
-		m[ 0] = s[0]; 
-		m[ 5] = s[1]; 
-		m[10] = s[2];
-	},
-	scale: function(m, s)
-	{
-		m[ 0] *= s[0]; 
-		m[ 1] *= s[0]; 
-		m[ 2] *= s[0];
-		m[ 3] *= s[0];
-		m[ 4] *= s[1];
-		m[ 5] *= s[1];
-		m[ 6] *= s[1];
-		m[ 7] *= s[1];
-		m[ 8] *= s[2];
-		m[ 9] *= s[2];
-		m[10] *= s[2];
-		m[11] *= s[2];
-	},
-	get_scale: function(r, m)
-	{
-		r[0] = m[0];
-		r[1] = m[5];
-		r[2] = m[10];
-	},
-
-	set_rotation: function(m, r)
-	{
-		var x2 = 2 * r[0]; 
-		var y2 = 2 * r[1]; 
-		var z2 = 2 * r[2];
-		var xx = r[0] * x2; 
-		var xy = r[0] * y2; 
-		var xz = r[0] * z2;
-		var yy = r[1] * y2;
-		var yz = r[1] * z2;
-		var zz = r[2] * z2;
-		var wx = r[3] * x2; 
-		var wy = r[3] * y2;
-		var wz = r[3] * z2;
-
-		m[ 0] = 1 - (yy + zz);
-		m[ 1] = xy + wz;
-		m[ 2] = xz - wy;
-		m[ 3] = 0;
-		m[ 4] = xy - wz;
-		m[ 5] = 1 - (xx + zz);
-		m[ 6] = yz + wx;
-		m[ 7] = 0;
-		m[ 8] = xz + wy;
-		m[ 9] = yz - wx;
-		m[10] = 1 - (xx + yy);
-		m[11] = 0;
-		m[12] = 0;
-		m[13] = 0;
-		m[14] = 0;
-		m[15] = 1;
-	},
-
-	get_rotation: function(r, m)
-	{
-		var t;
-		if(m[10] < 0)
-		{
-			if(m[0] > m[5])
-			{
-				t = 1 + m[0] - m[5] - m[10];
-				r.set(t, m[1] + m[4], m[8] + m[2], m[6] - m[9]);
-			}
-			else
-			{
-				t = 1 - m[0] + m[5] - m[10];
-				r.set(m[1] + m[4], t, m[6] + m[9], m[8] - m[2]);
-			}
-		}
-		else
-		{
-			if (m[0] < -m[5])
-			{
-				t = 1 - m[0] - m[5] + m[10];
-				r.set(m[8] + m[2], m[6] + m[9], t, m[1] - m[4]);
-			}
-			else
-			{
-				t = 1 + m[0] + m[5] + m[10];
-				r.set(m[6] - m[9], m[8] - m[2], m[1] - m[4], t);
-			}
-		}
-
-		var q = gb.quat;
-		var rf = q.tmp();
-		q.mulf(rf, r, 0.5);
-		q.divf(r, rf, t);
-	},
-
-	compose: function(m, p, s, r)
-	{
-		var _t = gb.mat4;
-		_t.set_rotation(m,r);
-		_t.scale(m,s);
-		_t.set_position(m,p);
-	},
-
-	mul_point: function(r, m, p)
-	{
-		var x = m[0] * p[0] + m[4] * p[1] + m[ 8] * p[2] + m[12];
-		var y = m[1] * p[0] + m[5] * p[1] + m[ 9] * p[2] + m[13];
-		var z = m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14];
-		r[0] = x; r[1] = y; r[2] = z;
-	},
-
-	mul_projection: function(r, m, p)
-	{
-		var d = 1 / (m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]);
-		var x = (m[0] * p[0] + m[4] * p[1] + m[ 8] * p[2] + m[12]) * d;
-		var y = (m[1] * p[0] + m[5] * p[1] + m[ 9] * p[2] + m[13]) * d;
-		var z = (m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]) * d;
-		r[0] = x; r[1] = y; r[2] = z;
-	},
-}
 gb.Rect = function()
 {
 	this.x;
@@ -1226,134 +865,6 @@ gb.rect =
 		return r;
 	},
 }
-gb.AABB = function()
-{
-    this.min = gb.vec3.new();
-    this.max = gb.vec3.new();
-}
-
-gb.aabb = 
-{
-	stack: new gb.Stack(gb.AABB, 16),
-
-    new: function()
-    {
-        return new gb.AABB();
-    },
-    set:function(r, min, max)
-    {
-        gb.vec3.eq(r.min, min);
-        gb.vec3.eq(r.max, max);
-    },
-    eq:function(a, b)
-    {
-        gb.aabb.set(a, b.min, b.max);
-    },
-    setf:function(a, x,y,z)
-    {
-        a.min[0] = -x / 2;
-        a.max[0] = x / 2;
-        a.min[1] = -y / 2;
-        a.max[1] = y / 2;
-        a.min[2] = -z / 2;
-        a.max[2] = z / 2;
-    },
-	tmp: function(min, max)
-	{
-        var _t = gb.aabb;
-        var v = gb.stack.get(_t.stack);
-		if(min || max) _t.set(v, min, max);
-		return v;
-	},
-    contains: function(a, b)
-    {
-        return a.min[0] >= b.min[0] && 
-               a.max[0] <= b.max[0] && 
-               a.min[1] >= b.min[1] && 
-               a.max[1] <= b.max[1] && 
-               a.min[2] >= b.min[2] && 
-               a.max[2] <= b.max[2];
-    },
-    combine: function(r, a,b)
-    {
-        gb.vec3.min(r.min, a.min, b.min);
-        gb.vec3.max(r.max, a.max, b.max);
-    },
-    center: function(r, a)
-    {
-        r[0] = (a.min[0] + a.max[0]) / 2.0;
-        r[1] = (a.min[1] + a.max[1]) / 2.0;
-        r[2] = (a.min[2] + a.max[2]) / 2.0;
-    },
-    width: function(a)
-    {
-        return a.max[0] - a.min[0];
-    },
-    height: function(a)
-    {
-        return a.max[1] - a.min[1];
-    },
-    depth: function(a)
-    {
-        return a.max[2] - a.min[2];
-    },
-    test_min_max: function(p, min, max)
-    {
-        if(p[0] < min[0]) min[0] = p[0];
-        if(p[1] < min[1]) min[1] = p[1];
-        if(p[2] < min[2]) min[2] = p[2];
-
-        if(p[0] > max[0]) max[0] = p[0];
-        if(p[1] > max[1]) max[1] = p[1];
-        if(p[2] > max[2]) max[2] = p[2];        
-    },
-    transform: function(a, m)
-    {
-        var _t = gb.aabb;
-        var v3 = gb.vec3;
-        var m4 = gb.mat4;
-        
-        var stack = v3.push();
-
-        var e = a.min;
-        var f = a.max;
-
-        var p0 = v3.tmp(e[0],e[1],e[2]); 
-        var p1 = v3.tmp(f[0],e[1],e[2]);
-        var p2 = v3.tmp(e[0],f[1],e[2]);
-        var p3 = v3.tmp(f[0],f[1],e[2]);
-
-        var p4 = v3.tmp(e[0],e[1],f[2]); 
-        var p5 = v3.tmp(f[0],e[1],f[2]);
-        var p6 = v3.tmp(e[0],f[1],f[2]);
-        var p7 = v3.tmp(f[0],f[1],f[2]);
-
-        m4.mul_point(p0, m, p0);
-        m4.mul_point(p1, m, p1);
-        m4.mul_point(p2, m, p2);
-        m4.mul_point(p3, m, p3);
-        m4.mul_point(p4, m, p4);
-        m4.mul_point(p5, m, p5);
-        m4.mul_point(p6, m, p6);
-        m4.mul_point(p7, m, p7);
-
-        e = v3.tmp(p0[0], p0[1], p0[2]);
-        f = v3.tmp(p0[0], p0[1], p0[2]);
-        
-        _t.test_min_max(p1, e, f);
-        _t.test_min_max(p2, e, f);
-        _t.test_min_max(p3, e, f);
-        _t.test_min_max(p4, e, f);
-        _t.test_min_max(p5, e, f);
-        _t.test_min_max(p6, e, f);
-        _t.test_min_max(p7, e, f);
-
-        v3.eq(a.min, e);
-        v3.eq(a.max, f);
-
-        v3.pop(stack);
-    },
-}
 gb.Bezier = function()
 {
 	this.a = gb.vec3.new(0,0,0);
@@ -1368,6 +879,19 @@ gb.bezier =
 	new: function()
 	{
 		return new gb.Bezier();
+	},
+	free: function(ax,ay, bx,by, cx,cy, dx,dy)
+	{
+		var curve = new gb.Bezier();
+		curve.a[0] = ax;
+		curve.a[1] = ay;
+		curve.b[0] = bx;
+		curve.b[1] = by;
+		curve.c[0] = cx;
+		curve.c[1] = cy;
+		curve.d[0] = dx;
+		curve.d[1] = dy;
+		return curve;
 	},
 	clamped: function(a,b,c,d)
 	{
@@ -1466,6 +990,7 @@ gb.time =
     last: 0,
     dt: 0,
     at: 0,
+    scale: 1,
     paused: false,
 
     init: function()
@@ -1479,9 +1004,9 @@ gb.time =
     {
         var _t = gb.time;
     	_t.now = t;
-    	_t.dt = (t - _t.last) / 1000;
+    	_t.dt = ((t - _t.last) / 1000) * _t.scale;
     	_t.last = t;
-        _t.at += _t.dt;
+        _t.at += _t.dt * _t.scale;
         if(_t.at > 1) _t.at -=1;
     },
 }
@@ -1497,6 +1022,7 @@ gb.canvas =
 	element: null,
 	ctx: null,
 	view: null,
+	_dash_vals:[5,5],
 
 	new: function(container, config)
 	{
@@ -1509,6 +1035,7 @@ gb.canvas =
 		c.view = new gb.rect.new(0,0,width,height);
 		c.ctx = canvas.getContext('2d');
 		c.element = canvas;
+		gb.canvas.set_context(c);
 		return c;
 	},
 
@@ -1525,6 +1052,7 @@ gb.canvas =
 		var v = gb.canvas.view;
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.clearRect(v.x, v.y, v.width, v.height);
+		//ctx.restore();
 	},
 
 	blend_alpha: function(a)
@@ -1549,6 +1077,19 @@ gb.canvas =
 	rect_t: function(r)
 	{
 		return gb.canvas.rect(r.x, r.y, r.width, r.height);
+	},
+
+	box: function(x,y,w,h)
+	{
+		var ctx = gb.canvas.ctx;
+		ctx.beginPath();
+		var hw = w / 2;
+		var hh = h / 2;
+		ctx.moveTo(x-hw, y-hh);
+		ctx.lineTo(x-hw, y+hh);
+		ctx.lineTo(x+hw, y+hh);
+		ctx.lineTo(x+hw, y-hh);
+		return gb.canvas;
 	},
 
 	circle: function(x,y,r)
@@ -1593,10 +1134,8 @@ gb.canvas =
 
 	point: function(x,y, length)
 	{
-		gb.canvas.line(x - length, y, x + length, y);
-		gb.canvas.stroke();
-		gb.canvas.line(x, y - length, x, y + length);
-		gb.canvas.stroke();
+		gb.canvas.line(x - length, y, x + length, y).stroke();
+		gb.canvas.line(x, y - length, x, y + length).stroke();
 		return gb.canvas;
 	},
 	point_t: function(p, length)
@@ -1629,6 +1168,7 @@ gb.canvas =
 		}
 		return gb.canvas;
 	},
+
 
 	bezier_t: function(b)
 	{
@@ -1714,8 +1254,11 @@ gb.canvas =
 	},
 	dash: function(line, gap)
 	{
-		gb.canvas.ctx.setLineDash([line, dash]);
-		return gb.canvas;
+		var _t = gb.canvas;
+		_t._dash_vals[0] = line;
+		_t._dash_vals[1] = gap;
+		_t.ctx.setLineDash(_t._dash_vals);
+		return _t;
 	},
 	stroke: function()
 	{
@@ -1744,6 +1287,11 @@ gb.canvas =
 		return "rgba(" + ir + "," + ig + "," + ib + "," + a + ")";
 	},
 
+	screen_shot: function(path, callback)
+	{
+		var img = gb.canvas.ctx.toDataURL('png');
+		gb.ajax.save_file(path, 'text', data, callback);
+	},
 }
 //DEBUG
 gb.gl_draw = 
@@ -2341,6 +1889,10 @@ gb.random =
 	{
     	return Math.random() * (max - min) + min;
 	},
+	float_fuzzy: function(f, fuzz)
+	{
+		return gb.random.float(f-fuzz, f+fuzz);
+	},
 	vec2: function(r, min_x, max_x, min_y, max_y)
 	{
 		r[0] = Math.random() * (max_x - min_x) + min_x;
@@ -2370,6 +1922,14 @@ gb.random =
 		r[2] = Math.random() * (max_b - min_b) + min_b;
 		r[3] = Math.random() * (max_a - min_a) + min_a;
 	},
+	unit_circle: function(r)
+	{
+		var x = gb.rand.float(-1,1);
+		var y = gb.rand.float(-1,1);
+		var l = 1 / gb.math.sqrt(x * x + y * y);
+		r[0] = x * l;
+		r[1] = y * l;
+	}
 }
 gb.Keyframe = function()
 {
@@ -2533,199 +2093,155 @@ gb.animate =
 
 var focus = true;
 
-window.addEventListener('load', init, false);
+gb.init = init;
+gb.update = update;
 
-var Grid = function()
-{
-	this.cells_x;
-	this.cells_y;
-	this.cell_width;
-	this.cell_height;
-	this.hw;
-	this.hh;
-	this.cell_count;
-	this.cells = [];
-}
-
-var Cell = function(type)
-{
-	this.type = type;
-	this.vector;
-	this.density;
-}
-
-var grid;
-var grid_t;
-var surface_edit;
-var surface_x;
-var surface_y;
 var v2 = gb.vec2;
 var v3 = gb.vec3;
 var rand = gb.random;
 var draw = gb.canvas;
+var input = gb.input;
+var time = 1;
+var curve_x;
+var curve_y;
+
+
+var Trace = function()
+{
+	this.x;
+	this.y;
+	this.r;
+	this.t;
+	this.col;
+}
+var traces = [];
 
 function init()
 {
 	var k = gb.Keys;
-
-	gb.time.init();
 	gb.input.init(document,
 	{
-		keycodes: [k.mouse_left, k.a, k.x, k.z, k.one, k.two, k.three, k.up, k.down],
+		keycodes: [k.mouse_left, k.a, k.x, k.z, k.one, k.two, k.three, k.up, k.down, k.left, k.right],
 	});
-	var c = gb.canvas.new(gb.dom.find('.container'));
-	gb.canvas.set_context(c);
-	
-	window.onfocus = on_focus;
-	window.onblur = on_blur;
+	var c = draw.new(gb.dom.find('.container'));
 
-	grid = new Grid();
-	grid.cells_x = 10;
-	grid.cells_y = 10;
-	grid.cell_width = 50;
-	grid.cell_height = 50;
-	grid.cell_count = 100;
-	grid.hw = 25;
-	grid.hh = 25;
+	draw.clear_rgb(0.2,0.2,0.22,1);
+	//var r = rand.float(0.12, 0.2);
+	//var g = rand.float(0.12, 0.8);
+	//var b = rand.float(0.95, 1.0);
+	//draw.clear_rgb(r,g,b,1);
+	//draw.blend_alpha();
+	draw.blend_mode("screen");
+	//draw.blend_mode("overlay");
+	//draw.blend_mode("multiply");
 
-	for(var i = 0; i < grid.cell_count; ++i)
-	{
-		var c = new Cell();
-		c.type = 0;
-		c.vector = v2.new(1,0);
-		c.density = 1;
-		grid.cells.push(c);
-	}
+	curve_x = gb.bezier.free(0,1, 0.33,0.25, 0.66,0.1, 1,0.1);
+	curve_y = gb.bezier.free(0,0.7, 0.33,0.25, 0.66,0.1, 1,0.1);
 
-	surface_edit = false;
+	new_trace(0.2,0.4,0.95,1);
+	//new_trace(0.1,0.4,0.95,1);
+	//new_trace(0.2,0.45,0.2,1);
+	//new_trace(0.2,0.8,0.95,1);
 
-	requestAnimationFrame(update);
+
 }
-
-function on_focus(e)
-{
-	console.log('focus');
-	focus = true;
-}
-function on_blur(e)
-{
-	console.log('blur');
-	focus = false;
-}
-
-
 
 function update(t)
 {
-	gb.time.update(t);
-	if(gb.time.paused || focus === false)
-	{
-		requestAnimationFrame(update);
-		return;
-	}
-
-	var at = gb.time.at;
 	var dt = gb.time.dt;
-	gb.stack.clear_all();
-
 	var ctx = gb.canvas.ctx;
 	var view = gb.canvas.view;
 
-	var m_pos = gb.input.mouse_position;
-	var m_held = gb.input.held(0);
-	var m_up = gb.input.up(0);
-	var m_down = gb.input.down(0);
-	var m_delta = gb.input.mouse_delta;
+	var m_pos = input.mouse_position;
+	var m_held = input.held(gb.Keys.mouse_left);
+	var m_up = input.up(gb.Keys.mouse_left);
+	var m_delta = input.mouse_delta;
 
-	draw.clear();
+	//draw.clear();
 
-	
-	var ix = gb.math.floor(m_pos[0] / grid.cell_width);
-	var iy = gb.math.floor(m_pos[1] / grid.cell_height);
-
-	if(ix < 0) ix = 0;
-	else if(ix > grid.cells_x-1) ix = grid.cells_x - 1;
-	if(iy < 0) iy = 0;
-	else if(iy > grid.cells_y-1) iy = grid.cells_y - 1;
-
-	draw.fill_rgb(0.5,0.5,0.5,1);
-	draw.rect(ix * grid.cell_width, iy * grid.cell_height, grid.cell_width, grid.cell_height).fill();
-
-
-	// Draw cells
-	for(var x = 0; x < grid.cells_x; ++x)
+	if(input.held(gb.Keys.left))
 	{
-		for(var y = 0; y < grid.cells_y; ++y)
-		{
-			var i = x + (y * grid.cells_x);
-			var c = grid.cells[i];
-			var v = c.vector;
-			var d = c.density;
-
-			var cx = (x * grid.cell_width) + grid.hw;
-			var cy = (y * grid.cell_height) + grid.hh;
-
-			draw.stroke_rgb(v[0] / 2 + 0.5, v[1] / 2 + 0.5, 0.5, 1);
-			draw.line(cx - v[0] * 10, cy - v[1] * 10, cx + v[0] * 10, cy + v[1] * 10);
-			draw.stroke();
-
-			//draw.fill_rgb(v[0] / 2 + 0.5, v[1] / 2 + 0.5, 0.5, 1);
-			//draw.rect(x * grid.cell_width, y * grid.cell_height, grid.cell_width,grid.cell_height).fill();
-		}
+		gb.time.scale -= 0.1;
 	}
-
-	// Draw grid
-	draw.stroke_rgb(1,1,1,1);
-	draw.stroke_width(1);
-	for(var x = 0; x < grid.cells_x; ++x)
+	else if(input.held(gb.Keys.left))
 	{
-		for(var y = 0; y < grid.cells_y; ++y)
-		{
-			draw.rect(x * grid.cell_width, y * grid.cell_height, grid.cell_width,grid.cell_height).stroke();
-		}
+		gb.time.scale += 0.1;
 	}
+	gb.time.scale = gb.math.clamp(gb.time.scale, 0,4);
 
-	var ic = ix + (iy * grid.cells_x);
-
-	if(surface_edit === true)
-	{
-		if(gb.input.up(gb.Keys.a))
-		{
-			surface_edit = false;
-		}
-
-		var cx = (surface_x * grid.cell_width) + grid.hw;
-		var cy = (surface_y * grid.cell_height) + grid.hh;
-		var dx = m_pos[0] - cx;
-		var dy = m_pos[1] - cy;
-
-		var vt = v2.tmp(dx, dy);
-		var v = grid.cells[surface_x + (surface_y * grid.cells_x)].vector;
-		v2.normalized(v, vt);
-		//v2.eq(v,vt);
-
-		draw.line(cx,cy,m_pos[0],m_pos[1]).stroke(0);
+	var w = view.width;
+	var h = view.height;
+	var n = traces.length;
+	for(var i = 0; i < n; ++i)
+	{	
+		draw_trace(traces[i], 2, dt);
 	}
-	else
-	{
-		if(gb.input.down(gb.Keys.a))
-		{
-			surface_edit = true;
-			surface_x = ix;
-			surface_y = iy;
-		}
-	}
-
-	
-
-	if(m_down)
-	{
-		v2.set(grid.cells[ic].vector, 1,1);
-	}
-
-	gb.input.update();
-
-	requestAnimationFrame(update);
 }
-///INCLUDE particles.js
-///INCLUDE gravity.js
+
+function new_trace(r,g,b,a)
+{
+	var t = new Trace();
+	t.x = new Float32Array(4);
+	t.y = new Float32Array(4);
+	t.x[0] = rand.float(gb.canvas.view.width * 0.25, gb.canvas.view.width * 0.75);
+	t.y[0] = rand.float(gb.canvas.view.width * 0.25, gb.canvas.view.height * 0.75);
+	t.x[3] = t.x[0];
+	t.y[3] = t.y[0]
+	t.r = rand.float(50,1000);
+	t.t = rand.float(0,1);
+	t.col = gb.color.new(r,g,b,a);
+	traces.push(t);
+	return t;
+}
+
+function draw_trace(l, n, dt)
+{
+	l.t -= dt;
+	if(l.t < 0) l.t += 0.707;
+	draw.blend_alpha(rand.float(0,1));
+
+	draw.stroke_t(l.col);
+
+	var w = gb.canvas.view.width;
+	var h = gb.canvas.view.height;
+
+	var pos = gb.vec2.tmp();
+	for(var i = 1; i < 3; ++i)
+	{	
+		var x = rand.float(-1,1);
+		var y = rand.float(-1,1);
+		var len = 1 / gb.math.sqrt(x * x + y * y);
+		x *= len;
+		y *= len;
+
+		var rad_x = gb.bezier.eval_f(curve_x, rand.float(0,1));
+		var rad_y = gb.bezier.eval_f(curve_x, rand.float(0,1));
+		//var rad_x = 1;
+		//var rad_y = 1;
+
+		x *= l.r * rad_x;
+		y *= l.r * rad_y;
+		x += l.x[0];
+		y += l.y[0];
+
+		l.x[i] = x;
+		l.y[i] = y;		
+	}
+
+	/*
+	for(var i = 0; i < 3; ++i)
+	{
+		draw.line(l.x[i], l.y[i], l.x[i+1], l.y[i+1]).stroke();
+	}
+	*/
+	var ctx = gb.canvas.ctx;
+	ctx.beginPath();
+	ctx.moveTo(l.x[0], l.y[0]);
+	ctx.bezierCurveTo(l.x[1],l.y[1],l.x[2],l.x[2],l.x[3],l.y[3]);
+	draw.stroke();
+}
+
+
+
+
+

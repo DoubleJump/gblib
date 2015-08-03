@@ -30,6 +30,110 @@ gb.hit =
 
 gb.intersect = 
 {
+	point_circle: function(h, p, c, r)
+	{
+		var v2 = gb.vec2;
+		var delta = v2.tmp();
+		v2.sub(delta, c, p);
+		var l = v2.sqr_length(delta);
+		if(l < r * r)
+		{
+			var nl = gb.math.sqrt(l);
+			h.hit = true;
+			h.t = nl - r;
+			var nd = v2.tmp();
+			v2.mulf(nd, delta, 1/nl);
+			v2.eq(h.normal, nd);
+		}
+		else 
+		{
+			h.hit = false;
+		}
+	},
+
+	line_circle: function(h, c,r, a,b)
+	{
+		var lax = a[0] - c[0];
+		var lay = a[1] - c[1];
+		var lbx = b[0] - c[0];
+		var lby = b[1] - c[1];
+
+		var sx = lbx - lax;
+		var sy = lby - lay;
+
+		var a = sx * sx + sy * sy;
+		var b = 2 * ((sx * lax) + (sy * lay));
+		var c = (lax * lax) + (lay * lay) - (r * r);
+		var delta = b * b - (4 * a * c);
+		if(delta < 0)
+		{
+			h.hit = false;
+			return;
+		} 
+
+		var sd = gb.math.sqrt(delta);
+		var ta = (-b - sd) / (2 * a);
+
+		if(ta < 0 || ta > 1)
+		{
+			h.hit = false;
+			return;
+		}
+
+		h.point[0] = a[0] * (1 - ta) + ta * b[0];
+        h.point[1] = a[1] * (1 - ta) + ta * b[1];
+
+        /*
+		if(delta === 0)
+		{
+			h.hit = true;
+			h.t = t;
+            return;
+		}
+		*/
+
+		var tb = (-b + sd) / (2 * a);
+
+		draw.text("TA: " + ta, 10, 30)
+		draw.text("TB: " + tb, 10, 60);
+
+		if(gb.math.abs(ta - 0.5) < gb.math.abs(tb - 0.5))
+        {
+        	h.hit = true;
+            h.point[0] = a[0] * (1 - tb) + tb * b[0];
+        	h.point[1] = a[1] * (1 - tb) + tb * b[1];
+        	return;
+        }
+
+        //TODO: Get normals etc
+
+	},
+
+	line_line: function(h, a,b,c,d)
+	{
+		var lax = b[0] - a[0];
+		var lay = b[1] - a[1];
+		var lbx = d[0] - c[0];  
+		var lby = d[1] - c[1];
+
+		var d = -lbx * lay + lax * lby;
+
+		var s = (-lay * (a[0] - c[0]) + lax * (a[1] - c[1])) / d;
+		var t = ( lbx * (a[1] - c[1]) - lby * (a[0] - c[0])) / d;
+
+		if(s >= 0 && s <= 1 && t >= 0 && t <= 1)
+		{
+			h.hit = true;
+			h.point[0] = a[0] + (t * lbx);
+			h.point[1] = a[1] + (t * lby);
+			return 1;
+		}
+		else
+		{
+			h.hit = false;
+		}
+	},
+
 	aabb_aabb: function(a, b)
     {
        	if(a.min[0] > b.max[0]) return false;

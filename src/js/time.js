@@ -6,6 +6,7 @@ gb.time =
     last: 0,
     dt: 0,
     at: 0,
+    scale: 1,
     paused: false,
 
     init: function()
@@ -19,9 +20,9 @@ gb.time =
     {
         var _t = gb.time;
     	_t.now = t;
-    	_t.dt = (t - _t.last) / 1000;
+    	_t.dt = ((t - _t.last) / 1000) * _t.scale;
     	_t.last = t;
-        _t.at += _t.dt;
+        _t.at += _t.dt * _t.scale;
         if(_t.at > 1) _t.at -=1;
     },
 }

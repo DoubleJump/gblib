@@ -38,23 +38,31 @@ gb.vec2 =
 	},
 	add: function(r, a,b)
 	{
-		r[0] = a[0] + b[0];
-		r[1] = a[1] + b[1];
+		var x = a[0] + b[0];
+		var y = a[1] + b[1];
+		r[0] = x;
+		r[1] = y;
 	},
 	sub: function(r, a,b)
 	{
-		r[0] = a[0] - b[0];
-		r[1] = a[1] - b[1];
+		var x = a[0] - b[0];
+		var y = a[1] - b[1];
+		r[0] = x;
+		r[1] = y;
 	},
 	mulf: function(r, a,f)
 	{
-		r[0] = a[0] * f;
-		r[1] = a[1] * f;
+		var x = a[0] * f;
+		var y = a[1] * f;
+		r[0] = x;
+		r[1] = y;
 	},
 	divf: function(r, a,f)
 	{
-		r[0] = a[0] / f;
-		r[1] = a[1] / f;
+		var x = a[0] / f;
+		var y = a[1] / f;
+		r[0] = x;
+		r[1] = y;
 	},
 	inverse: function(r, a)
 	{
@@ -83,14 +91,19 @@ gb.vec2 =
 	{
 		var _t = gb.vec2;
 		var l = _t.sqr_length(v);
+		var x; var y;
 		if(l > gb.math.EPSILON)
 		{
-			_t.mulf(r, v, gb.math.sqrt(1 / l));
+			var il = gb.math.sqrt(1/l);
+			x = v[0] * il;
+			y = v[1] * il;
 		} 
 		else
 		{
-			_t.eq(r,v);
+			x = v[0];
+			y = v[1]; 
 		}
+		_t.set(r,x,y);
 	},
 	dot: function(a, b)
 	{
@@ -127,6 +140,13 @@ gb.vec2 =
 		r[0] = it * a[0] + t * b[0];
 		r[1] = it * a[1] + t * b[1];
 	},
+	clamp: function(r, min_x, min_y, max_x, max_y)
+	{
+		if(r[0] < min_x) r[0] = min_x;
+		if(r[0] > max_x) r[0] = max_x;
+		if(r[1] < min_y) r[1] = min_y;
+		if(r[1] > max_y) r[1] = max_y;
+	}
 }
 
 gb.vec3 = 

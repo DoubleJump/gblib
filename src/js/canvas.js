@@ -60,6 +60,7 @@ gb.canvas =
 		ctx.lineTo(x+w, y);
 		ctx.lineTo(x+w, y+h);
 		ctx.lineTo(x, y+h);
+		ctx.lineTo(x, y);
 		return gb.canvas;
 	},
 	rect_t: function(r)
@@ -205,7 +206,7 @@ gb.canvas =
 	{
 		gb.canvas.ctx.fillStyle = gb.canvas.rgba(r,g,b,a);
 	},
-	fill_c: function(c)
+	fill_t: function(c)
 	{
 		gb.canvas.ctx.fillStyle = gb.canvas.rgba(c[0], c[1], c[2], c[3]);
 	},

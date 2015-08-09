@@ -1,7 +1,6 @@
-gb.Rigidbody
+gb.Rigidbody = function()
 {
 	this.mass;
-	this.inv_mass;
 	this.position;
 	this.velocity;
 	this.acceleration;
@@ -12,10 +11,11 @@ gb.physics =
 	{
 		var v3 = gb.vec3;
 		var b = new gb.Rigidbody();
-		b.position = v3.new();
-		b.velocity = v3.new();
-		b.acceleration = v3.new();
+		b.position = v3.new(0,0,0);
+		b.velocity = v3.new(0,0,0);
+		b.acceleration = v3.new(0,0,0);
 		b.mass = mass;
+		return b;
 	},
 
 	add_force: function(b, f)
@@ -30,6 +30,19 @@ gb.physics =
 		b.acceleration[1] += y / b.mass;
 		b.acceleration[2] += z / b.mass;
 	},
+	add_impulse: function(b, f)
+	{
+		b.velocity[0] += f[0] / b.mass;
+		b.velocity[1] += f[1] / b.mass;
+		b.velocity[2] += f[2] / b.mass;
+	},
+	add_impulse_f: function(b, x,y,z)
+	{
+		b.velocity[0] += x / b.mass;
+		b.velocity[1] += y / b.mass;
+		b.velocity[2] += z / b.mass;
+	},
+
 	integrate_euler: function(b, dt)
 	{
 		var dts = dt * dt;
@@ -37,9 +50,9 @@ gb.physics =
 		b.velocity[1] += 0.5 * b.acceleration[1] * dts;
 		b.velocity[2] += 0.5 * b.acceleration[1] * dts; 
 
-		b.position[0] += b.velocity[0];
-		b.position[1] += b.velocity[1];
-		b.position[2] += b.velocity[2];
+		b.position[0] += b.velocity[0] * dt;
+		b.position[1] += b.velocity[1] * dt;
+		b.position[2] += b.velocity[2] * dt;
 		
 		b.acceleration[0] = 0;
 		b.acceleration[1] = 0;

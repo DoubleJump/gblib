@@ -373,27 +373,27 @@ gb.webgl =
 	},
 	set_shader_quat: function(shader, name, q)
 	{
-		gb.webgl.ctx.uniform4f(shader.uniforms[name], false, q[0], q[1], q[2], q[3]);
+		gb.webgl.ctx.uniform4f(shader.uniforms[name], q[0], q[1], q[2], q[3]);
 	},
 	set_shader_color: function(shader, name, c)
 	{
-		gb.webgl.ctx.uniform4f(shader.uniforms[name], false, c[0], c[1], c[2], c[3]);
+		gb.webgl.ctx.uniform4f(shader.uniforms[name], c[0], c[1], c[2], c[3]);
 	},
 	set_shader_vec3: function(shader, name, v)
 	{
-		gb.webgl.ctx.uniform3f(shader.uniforms[name], false, v[0], v[1], v[2]);
+		gb.webgl.ctx.uniform3f(shader.uniforms[name], v[0], v[1], v[2]);
 	},
 	set_shader_vec2: function(shader, name, v)
 	{
-		gb.webgl.ctx.uniform2f(shader.uniforms[name], false, v[0], v[1]);
+		gb.webgl.ctx.uniform2f(shader.uniforms[name], v[0], v[1]);
 	},
 	set_shader_float: function(shader, name, f)
 	{
-		gb.webgl.ctx.uniformf(shader.uniforms[name], false, f);
+		gb.webgl.ctx.uniformf(shader.uniforms[name], f);
 	},
 	set_shader_int: function(shader, name, i)
 	{
-		gb.webgl.ctx.uniformi(shader.uniforms[name], false, i);
+		gb.webgl.ctx.uniformi(shader.uniforms[name], i);
 	},
 
 	world_to_screen: function(r, camera, world, view)

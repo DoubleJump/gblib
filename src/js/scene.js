@@ -129,6 +129,9 @@ gb.scene =
 		}
 		gb.mat4.inverse(c.view, c.entity.world_matrix);
 		gb.mat4.mul(c.view_projection, c.view, c.projection);
+		gb.mat3.from_mat4(c.normal, c.view);
+		gb.mat3.inverse(c.normal, c.normal);
+		gb.mat3.transposed(c.normal, c.normal);
 	},
 
 	update_entity: function(e)

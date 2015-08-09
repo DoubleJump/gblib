@@ -60,11 +60,9 @@ var assets_loaded;
 var construct;
 var viewer;
 var texture;
-var rotation;
-var nutmeg;
 var render_target;
-var animA;
-var curve;
+var sphere;
+var light_position; //change to enitity
 
 var RenderGroup = function()
 {
@@ -120,54 +118,67 @@ function load_complete(asset_group)
 function link_complete()
 {
 	render_target = gb.render_target.new(gb.webgl.view, 1 | 2);
-
 	construct = scene.new();
-	
+
 	viewer = camera.new();
+	entity.set_position(viewer.entity, 0,0,5);
 	scene.add_camera(construct, viewer);
 
-	nutmeg = sprite.new(assets.textures.nutmeg, 16,18);
-	scene.add_sprite(construct, nutmeg);
-    gb.webgl.link_mesh(nutmeg.entity.mesh);
-	sprite.set_animation(nutmeg, 0, 4, 4, -1);
+	sphere = entity.new();
+	sphere.mesh = assets.meshes.sphere;
+	scene.add_entity(construct, sphere);
 
 	render_group = new RenderGroup();
-	render_group.entities.push(nutmeg.entity);
-	render_group.shader = assets.shaders.textured;
+	render_group.entities.push(sphere);
+	render_group.shader = assets.shaders.pbr;
 
-	curve = gb.bezier.clamped(0.3,0.0,0.8,1.0);
-
-	animA = anim.new(nutmeg.entity.scale, v3.lerp, null);
-	anim.add_frame(animA, v3.new(1,1,1), 0.0, curve);
-	anim.add_frame(animA, v3.new(2,2,1), 1.0, null);
-	anim.add_frame(animA, v3.new(0.5,0.5,1), 1.5, curve);
-
-	rotation = 0;
+	light_position = v3.new(3,3,3);
 
 	assets_loaded = true;
 }
 
 
-function update(timestamp)
+function update(t)
 {
 	if(assets_loaded === false) return;
 
-	rotation += 1.0 * gb.time.dt;
+	var dt = gb.time.dt; 
 
-	entity.set_position(viewer.entity, 0,0,8);
-
-	if(gb.input.down(gb.Keys.mouse_left))
-	{
-		anim.loop(animA);
-		sprite.play(nutmeg);
-	}
+	gb.gl_draw.clear();
 
 	scene.update(construct);
-	anim.update(gb.time.dt);
 
-	//gb.gl_draw.wire_mesh(nutmeg.entity.mesh, nutmeg.entity.world_matrix);
+	if(input.held(gb.Keys.left))
+	{
+		light_position[0] -= dt;
+	}	
+	else if(input.held(gb.Keys.right))
+	{
+		light_position[0] += dt;
+	}
 
-	render(render_target);
+	if(input.held(gb.Keys.up))
+	{
+		light_position[1] += dt;
+	}	
+	else if(input.held(gb.Keys.down))
+	{
+		light_position[1] -= dt;
+	}
+
+	if(input.held(gb.Keys.z))
+	{
+		light_position[2] += dt;
+	}	
+	else if(input.held(gb.Keys.x))
+	{
+		light_position[2] -= dt;
+	}
+
+
+	gb.gl_draw.line(v3.tmp(0,0,0), light_position);
+
+	render_to(render_target);
 	display(render_target);
 }
 
@@ -184,18 +195,24 @@ function draw_group(group, cam)
 		var e = group.entities[i];
 		r.link_attributes(s, e.mesh);
 		m4.mul(mvp, e.world_matrix, cam.view_projection);
-		r.set_shader_mat4(s, "mvp", mvp);
-		r.set_shader_texture(s, "tex", assets.textures.nutmeg, 0);
+		
+		r.set_shader_mat4(s, "proj_matrix", cam.projection);
+		r.set_shader_mat4(s, "view_matrix", cam.view);
+		r.set_shader_mat4(s, "model_matrix", e.world_matrix);
+		r.set_shader_mat3(s, "normal_matrix", cam.normal);
+		r.set_shader_vec3(s, "light_position", light_position);
+
+		//r.set_shader_mat4(s, "mvp", mvp);
+		r.set_shader_texture(s, "tex", assets.textures.orange, 0);
 		r.draw_mesh_elements(e.mesh);
 		//r.draw_mesh_arrays(e.mesh);
 	}
 }
 
-function render(target)
+function render_to(target)
 {
 	var r = gb.webgl;
 
-	gb.gl_draw.clear();
 	r.set_render_target(target, true);
 	draw_group(render_group, viewer);
 	gb.gl_draw.draw(viewer);

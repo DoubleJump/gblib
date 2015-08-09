@@ -156,9 +156,9 @@ gb.vec3 =
 	new: function(x,y,z)
 	{
 		var r = new gb.Vec3();
-		r[0] = x;
-		r[1] = y;
-		r[2] = z;
+		r[0] = x || 0;
+		r[1] = y || 0;
+		r[2] = z || 0;
 		return r;
 	},
 	push: function()

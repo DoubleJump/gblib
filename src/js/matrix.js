@@ -30,6 +30,18 @@ gb.mat3 =
 		_t.identity(r);
 		return r;
 	},
+	from_mat4: function(r, m)
+	{
+		r[0] = m[0]; 
+		r[1] = m[1]; 
+		r[2] = m[2];
+		r[3] = m[4]; 
+		r[4] = m[5]; 
+		r[5] = m[6];
+		r[6] = m[8]; 
+		r[7] = m[9]; 
+		r[8] = m[10];
+	},
 
 	identity: function(m)
 	{
@@ -49,19 +61,19 @@ gb.mat3 =
 	{
 		var math = gb.math;
 		var _t = gb.mat3;
-		var t = this.tmp();
+		var t = _t.tmp();
 
-	    r[0] = m[4] * m[8] - m[5] * m[7];
-	    r[1] = m[2] * m[7] - m[1] * m[8];
-	    r[2] = m[1] * m[5] - m[2] * m[4];
-	    r[3] = m[5] * m[6] - m[3] * m[8];
-	    r[4] = m[0] * m[8] - m[2] * m[6];
-	    r[5] = m[2] * m[3] - m[0] * m[5];
-	    r[6] = m[3] * m[7] - m[4] * m[6];
-	    r[7] = m[1] * m[6] - m[0] * m[7];
-	    r[8] = m[0] * m[4] - m[1] * m[3];
+	    t[0] = m[4] * m[8] - m[5] * m[7];
+	    t[1] = m[2] * m[7] - m[1] * m[8];
+	    t[2] = m[1] * m[5] - m[2] * m[4];
+	    t[3] = m[5] * m[6] - m[3] * m[8];
+	    t[4] = m[0] * m[8] - m[2] * m[6];
+	    t[5] = m[2] * m[3] - m[0] * m[5];
+	    t[6] = m[3] * m[7] - m[4] * m[6];
+	    t[7] = m[1] * m[6] - m[0] * m[7];
+	    t[8] = m[0] * m[4] - m[1] * m[3];
 
-	    var det = m[0] * r[0] + m[1] * r[3] + m[2] * r[6];
+	    var det = m[0] * t[0] + m[1] * t[3] + m[2] * t[6];
 	    if(math.abs(det) <= math.EPSILON)
 	    {
 	    	_t.identity(r);
@@ -69,7 +81,7 @@ gb.mat3 =
 
 	   	var idet = 1 / det;
 	   	for(var i = 0; i < 9; ++i)
-	   		r[i] *= idet;
+	   		r[i] = t[i] * idet;
 	},
 
 	mul: function(r, a,b)
@@ -87,13 +99,17 @@ gb.mat3 =
 
 	transposed: function(r,m)
 	{
-		r[1] = m[3];
-		r[2] = m[6]; 
-		r[3] = m[1];
-		r[5] = m[7]; 
-		r[6] = m[2]; 
-		r[7] = m[5];
-		r[8] = m[0];		
+		var _t = gb.mat3;
+		var t = _t.tmp();
+		t[1] = m[3];
+		t[2] = m[6]; 
+		t[3] = m[1];
+		t[5] = m[7]; 
+		t[6] = m[2]; 
+		t[7] = m[5];
+		t[8] = m[0];
+		for(var i = 0; i < 9; ++i)
+	   		r[i] = t[i];		
 	},
 
 	set_rotation: function(m, r)

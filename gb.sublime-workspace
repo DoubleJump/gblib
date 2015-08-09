@@ -520,34 +520,10 @@
 	"buffers":
 	[
 		{
-			"file": "src/js/wgl_dev.js",
+			"file": "src/js/main.js",
 			"settings":
 			{
-				"buffer_size": 3844,
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"file": "src/js/mesh_tools.js",
-			"settings":
-			{
-				"buffer_size": 1487,
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"file": "src/js/asset_group.js",
-			"settings":
-			{
-				"buffer_size": 3079,
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"file": "src/py/resource_compiler.py",
-			"settings":
-			{
-				"buffer_size": 3807,
+				"buffer_size": 316,
 				"line_ending": "Windows"
 			}
 		},
@@ -555,40 +531,32 @@
 			"file": "build/main.js",
 			"settings":
 			{
-				"buffer_size": 79391,
+				"buffer_size": 42273,
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "src/js/webgl.js",
+			"file": "src/js/canvas.js",
 			"settings":
 			{
-				"buffer_size": 11649,
+				"buffer_size": 5487,
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "src/js/texture.js",
+			"file": "src/js/demos/shapes.js",
 			"settings":
 			{
-				"buffer_size": 3824,
+				"buffer_size": 3209,
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "src/js/sprite.js",
+			"file": "/C/webdev/BrakingBadly/onyx/src/ts/meshtools.ts",
 			"settings":
 			{
-				"buffer_size": 1689,
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"file": "src/glsl/textured.glsl",
-			"settings":
-			{
-				"buffer_size": 295,
-				"line_ending": "Windows"
+				"buffer_size": 6481,
+				"line_ending": "Unix"
 			}
 		},
 		{
@@ -601,10 +569,10 @@
 			}
 		},
 		{
-			"contents": "Reading file: main.js\nReading file: wgl_dev.js\nReading file: gb.js\nReading file: debug.js\nReading file: dom.js\nReading file: stack.js\nReading file: math.js\nReading file: serialize.js\nReading file: vector.js\nReading file: quaternion.js\nReading file: matrix.js\nReading file: rect.js\nReading file: aabb.js\nReading file: ray.js\nReading file: bezier.js\nReading file: intersect.js\nReading file: color.js\nReading file: camera.js\nReading file: time.js\nReading file: scene.js\nReading file: webgl.js\nReading file: mesh.js\nReading file: mesh_tools.js\nReading file: texture.js\nReading file: shader.js\nReading file: render_target.js\nReading file: gl_draw.js\nReading file: audio.js\nReading file: input.js\nReading file: random.js\nReading file: asset_group.js\nReading file: sprite.js\nReading file: animate.js\nCompiled shader: flat\nCompiled shader: shader\nCompiled shader: textured\nCompiled mesh: cube\nCompiled mesh: monkey\nCompiled mesh: prism\nCompiled texture: nutmeg\n[Finished in 0.3s]",
+			"contents": "Reading file: main.js\nReading file: demos/shapes.js\nReading file: gb.js\nReading file: debug.js\nReading file: dom.js\nReading file: stack.js\nReading file: math.js\nReading file: vector.js\nReading file: quaternion.js\nReading file: rect.js\nReading file: bezier.js\nReading file: color.js\nReading file: time.js\nReading file: canvas.js\nReading file: gl_draw.js\nReading file: input.js\nReading file: random.js\nReading file: animate.js\nCompiled shader: flat\nCompiled shader: shader\nCompiled shader: textured\nCompiled mesh: cube\nCompiled mesh: monkey\nCompiled mesh: prism\nCompiled texture: dxt5\nCompiled texture: nutmeg\n[Finished in 0.2s]",
 			"settings":
 			{
-				"buffer_size": 972,
+				"buffer_size": 627,
 				"line_ending": "Windows",
 				"name": "Build output",
 				"scratch": true
@@ -718,54 +686,83 @@
 	],
 	"file_history":
 	[
-		"/C/webdev/gblib/src/glsl/shader.glsl",
-		"/C/webdev/gblib/src/glsl/flat.glsl",
-		"/C/webdev/gblib/src/js/mesh.js",
+		"/C/webdev/gblib/src/js/time.js",
+		"/C/Users/Gareth/Desktop/gravit",
 		"/C/webdev/gblib/src/js/mesh_tools.js",
-		"/C/webdev/gblib/src/js/main.js",
-		"/C/webdev/gblib/src/js/asset_group.js",
-		"/C/webdev/gblib/src/py/resource_compiler.py",
-		"/C/webdev/gblib/src/js/scene.js",
-		"/C/webdev/gblib/src/js/camera.js",
-		"/C/webdev/gblib/build/index.html",
-		"/C/webdev/gblib/src/js/serialize.js",
-		"/C/webdev/gblib/src/js/canvas_dev.js",
-		"/C/webdev/gblib/src/js/canvas.js",
-		"/C/webdev/gblib/build/style.css",
-		"/C/webdev/gblib/src/js/input.js",
 		"/C/webdev/gblib/src/js/random.js",
+		"/C/webdev/gblib/src/js/physics.js",
+		"/C/webdev/gblib/src/js/demos/lines4.js",
+		"/C/webdev/gblib/src/js/demos/orb.js",
+		"/C/webdev/gblib/src/js/vector.js",
+		"/C/webdev/gblib/src/js/rect.js",
+		"/C/webdev/gblib/src/js/bezier.js",
+		"/C/webdev/gblib/src/js/demos/lines3.js",
+		"/C/webdev/gblib/src/js/canvas.js",
+		"/C/webdev/gblib/src/js/demos/lines2.js",
+		"/C/webdev/gblib/src/glsl/flat.glsl",
+		"/C/webdev/gblib/src/js/color.js",
+		"/C/webdev/gblib/src/js/ajax.js",
+		"/C/webdev/gblib/src/js/demos/lines.js",
+		"/C/webdev/gblib/build/style.css",
+		"/C/webdev/gblib/build/main.js",
+		"/C/webdev/gblib/src/js/demos/particles.js",
+		"/C/webdev/gblib/src/js/gb.js",
+		"/C/webdev/gblib/src/js/particles.js",
+		"/C/webdev/gblib/src/js/dom.js",
+		"/C/webdev/gblib/src/js/input.js",
+		"/C/webdev/gblib/src/js/impulse.js",
+		"/C/webdev/gblib/src/js/gravity.js",
+		"/C/webdev/gblib/src/js/intersect.js",
+		"/C/winGL/code/collision.cpp",
+		"/C/webdev/gblib/src/js/matrix.js",
+		"/C/webdev/gblib/src/js/stack.js",
+		"/C/Users/Gareth/Downloads/L05/L05/capsuleLineCollide/capsuleLineCollide_TESTFILE.max",
+		"/C/Users/Gareth/Downloads/L05/L05/capsuleLineCollide/capsuleLineCollide_V3.ms",
+		"/C/webdev/gblib/src/js/main.js",
+		"/C/webdev/gblib/src/js/fluid_sim.js",
+		"/C/webdev/gblib/src/js/math.js",
+		"/C/webdev/gblib/src/js/quaternion.js",
+		"/C/webdev/gblib/src/js/canvas_dev.js",
+		"/C/webdev/gblib/src/js/webgl.js",
+		"/C/webdev/gblib/build/index.html",
+		"/C/webdev/gblib/src/js/wgl_dev.js",
+		"/C/webdev/gblib/src/js/debug_gui.js",
+		"/C/webdev/gblib/build/gblib.css",
+		"/C/webdev/BrakingBadly/onyx/src/ts/debug.ts",
+		"/C/webdev/BrakingBadly/onyx/src/css/_onyx-debug.scss",
+		"/C/webdev/gblib/src/js/animate.js",
+		"/C/shells/gblib.bat",
+		"/C/Users/Gareth/Desktop/questionnaire",
+		"/C/Users/Gareth/Desktop/RSYNC",
+		"/C/webdev/gblib/src/js/texture.js",
+		"/C/webdev/gblib/src/js/mesh.js",
+		"/C/webdev/gblib/src/js/scene.js",
+		"/C/webdev/gblib/src/glsl/textured.glsl",
+		"/C/webdev/gblib/src/js/sprite.js",
+		"/C/Users/Gareth/Documents/Visual Studio 2013/Projects/onyx-engine/onyx-engine/onyx-sprite.cpp",
+		"/C/Parallax/gblib-master/gblib-master/src/js/math.js",
+		"/C/webdev/gblib/src/js/render_target.js",
+		"/C/webdev/gblib/src/js/gl_draw.js",
+		"/C/webdev/gblib/src/js/asset_group.js",
+		"/C/webdev/gblib/src/js/camera.js",
+		"/C/webdev/gblib/src/js/shader.js",
+		"/C/webdev/gblib/src/glsl/shader.glsl",
+		"/C/webdev/gblib/src/js/aabb.js",
+		"/C/webdev/gblib/src/js/ray.js",
+		"/C/webdev/gblib/src/py/resource_compiler.py",
+		"/C/webdev/gblib/src/js/serialize.js",
 		"/C/Parallax/gblib-master/gblib-master/src/js/bezier.js",
 		"/C/Parallax/gblib-master/gblib-master/src/js/random.js",
 		"/C/Parallax/gblib-master/gblib-master/src/js/input.js",
-		"/C/webdev/gblib/src/js/wgl_dev.js",
-		"/C/webdev/gblib/src/js/sprite.js",
-		"/C/webdev/gblib/build/main.js",
-		"/C/webdev/gblib/src/js/gl_draw.js",
-		"/C/Users/Gareth/Documents/Visual Studio 2013/Projects/onyx-engine/onyx-engine/onyx-sprite.cpp",
 		"/C/Users/Gareth/Documents/Visual Studio 2013/Projects/onyx-engine/onyx-engine/onyx-tween.cpp",
-		"/C/webdev/gblib/src/js/rect.js",
-		"/C/webdev/gblib/src/js/math.js",
 		"/C/webdev/Maze/src/js/math.js",
-		"/C/webdev/gblib/src/js/texture.js",
-		"/C/webdev/gblib/src/js/webgl.js",
-		"/C/webdev/gblib/src/js/matrix.js",
-		"/C/webdev/gblib/src/js/dom.js",
 		"/C/Users/Gareth/AppData/Roaming/Sublime Text 3/Packages/User/JS.sublime-build",
 		"/C/webdev/Maze/src/js/dom.js",
 		"/C/webdev/keyboard/index.js",
-		"/C/webdev/gblib/src/js/vector.js",
-		"/C/webdev/gblib/src/js/stack.js",
-		"/C/webdev/gblib/src/js/animate.js",
 		"/C/webdev/lerp/tweem.js",
-		"/C/webdev/gblib/src/js/bezier.js",
 		"/C/Users/Gareth/Documents/Unity/Daylight/Daylight/Assets/FrameWork/Animation/Tween.cs",
 		"/C/Users/Gareth/Documents/Visual Studio 2013/Projects/onyx-engine/onyx-engine/onyx-tween.h",
-		"/C/webdev/gblib/src/js/intersect.js",
 		"/C/winGL/code/vec3.cpp",
-		"/C/webdev/gblib/src/js/ray.js",
-		"/C/webdev/gblib/src/js/aabb.js",
-		"/C/webdev/gblib/src/js/quaternion.js",
-		"/C/webdev/gblib/src/js/color.js",
 		"/C/webdev/onyx-project/onyx/src/ts/intersect.ts",
 		"/C/webdev/gblib/build.sh",
 		"/C/webdev/onyx-project/onyx/src/ts/vec3.ts",
@@ -816,36 +813,7 @@
 		"/C/webdev/Onyx2/build.bat",
 		"/C/webdev/Onyx2/src/js/audio.js",
 		"/C/webdev/Onyx2/src/js/onyx.js",
-		"/C/webdev/Onyx2/src/js/ajax.js",
-		"/C/webdev/Onyx2/src/js/webgl.js",
-		"/C/webdev/Onyx2/src/js/main.js",
-		"/C/webdev/Onyx2/src/js/renderer.js",
-		"/C/webdev/Onyx2/src/js/vector3.js",
-		"/C/shells/onyx.bat",
-		"/C/xampp/apache_start.bat",
-		"/C/webdev/Onyx2/build/onyx.js",
-		"/C/Users/Gareth/Dropbox/Onyx2/src/py/io_export_onyx_json.py",
-		"/C/webdev/Onyx2/src/glsl/shader.glsl",
-		"/C/webdev/Onyx2/src/glsl/normals.glsl",
-		"/C/webdev/BrakingBadly/onyx/src/py/io_export_onyx_json.py",
-		"/C/webdev/BrakingBadly/onyx/src/ts/resources.ts",
-		"/C/webdev/BrakingBadly/onyx/src/ts/texture.ts",
-		"/C/webdev/BrakingBadly/onyx/src/ts/camera.ts",
-		"/C/winGL/code/win32_opengl.cpp",
-		"/C/winGL/data/frame.vert",
-		"/C/winGL/code/renderer.cpp",
-		"/C/webdev/BrakingBadly/onyx/src/ts/render-target.ts",
-		"/C/webdev/BrakingBadly/onyx/build/js/main.js",
-		"/C/webdev/BrakingBadly/onyx/src/ts/entity.ts",
-		"/C/Users/Gareth/Desktop/new.js",
-		"/C/webdev/BrakingBadly/onyx/src/ts/onyx.ts",
-		"/C/webdev/BrakingBadly/onyx/build/js/onyx.js",
-		"/C/webdev/Onyx2/src/js/assets.js",
-		"/C/webdev/BrakingBadly/onyx/src/ts/input.ts",
-		"/C/webdev/onyx-project/onyx/src/ts/scene.ts",
-		"/C/webdev/onyx-project/onyx/src/ts/entity.ts",
-		"/C/webdev/Onyx2/src/js/material.js",
-		"/C/webdev/Onyx2/src/js/math_types.js"
+		"/C/webdev/Onyx2/src/js/ajax.js"
 	],
 	"find":
 	{
@@ -853,7 +821,7 @@
 	},
 	"find_in_files":
 	{
-		"height": 0.0,
+		"height": 90.0,
 		"where_history":
 		[
 			""
@@ -864,6 +832,12 @@
 		"case_sensitive": true,
 		"find_history":
 		[
+			"point_t",
+			"p2_x",
+			"p0_x",
+			"s1_y",
+			"delta[0] = p.position[0] - e.position[0];\n			delta[1] = p.position[1] - e.position[1];",
+			"Vec3",
 			"fred",
 			"pool",
 			"this",
@@ -985,13 +959,7 @@
 			"fOuterRadius",
 			"fInnerRadius",
 			"v3sampleRay",
-			"v3Start",
-			"fFar",
-			"fNear",
-			"v3Ray",
-			"v3Pos",
-			"v3SamplePoint",
-			"fScatter"
+			"v3Start"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -999,6 +967,9 @@
 		"regex": false,
 		"replace_history":
 		[
+			"c[0]",
+			"a[0]",
+			"lay",
 			"stack",
 			"_t",
 			"[1]",
@@ -1123,10 +1094,7 @@
 			"sample_ray",
 			"ray",
 			"start",
-			"near",
-			"far",
-			"SAMPLES",
-			"depth"
+			"near"
 		],
 		"reverse": false,
 		"show_context": true,
@@ -1137,53 +1105,52 @@
 	"groups":
 	[
 		{
-			"selected": 2,
+			"selected": 4,
 			"sheets":
 			[
 				{
 					"buffer": 0,
-					"file": "src/js/wgl_dev.js",
+					"file": "src/js/main.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 3844,
+						"buffer_size": 316,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								1972,
-								1972
+								315,
+								315
 							]
 						],
 						"settings":
 						{
-							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
-							"translate_tabs_to_spaces": false
+							"syntax": "Packages/JavaScript/JavaScript.tmLanguage"
 						},
 						"translation.x": 0.0,
-						"translation.y": 1732.0,
+						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 5,
+					"stack_index": 4,
 					"type": "text"
 				},
 				{
 					"buffer": 1,
-					"file": "src/js/mesh_tools.js",
+					"file": "build/main.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 1487,
+						"buffer_size": 42273,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								297,
-								297
+								41531,
+								41531
 							]
 						],
 						"settings":
@@ -1192,37 +1159,36 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 37502.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 9,
+					"stack_index": 3,
 					"type": "text"
 				},
 				{
 					"buffer": 2,
-					"file": "src/js/asset_group.js",
+					"file": "src/js/canvas.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 3079,
+						"buffer_size": 5487,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								1926,
-								1926
+								1875,
+								1839
 							]
 						],
 						"settings":
 						{
 							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
+							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 1488.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 2,
@@ -1230,40 +1196,40 @@
 				},
 				{
 					"buffer": 3,
-					"file": "src/py/resource_compiler.py",
+					"file": "src/js/demos/shapes.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 3807,
+						"buffer_size": 3209,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								426,
-								426
+								3208,
+								3208
 							]
 						],
 						"settings":
 						{
-							"syntax": "Packages/Python/Python.tmLanguage",
+							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 2387.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 3,
+					"stack_index": 1,
 					"type": "text"
 				},
 				{
 					"buffer": 4,
-					"file": "build/main.js",
+					"file": "/C/webdev/BrakingBadly/onyx/src/ts/meshtools.ts",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 79391,
+						"buffer_size": 6481,
 						"regions":
 						{
 						},
@@ -1276,128 +1242,14 @@
 						],
 						"settings":
 						{
-							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
+							"syntax": "Packages/Text/Plain text.tmLanguage",
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 42361.0,
+						"translation.y": 1486.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 4,
-					"type": "text"
-				},
-				{
-					"buffer": 5,
-					"file": "src/js/webgl.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 11649,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								8531,
-								8531
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": 0.0,
-						"translation.y": 978.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 8,
-					"type": "text"
-				},
-				{
-					"buffer": 6,
-					"file": "src/js/texture.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 3824,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								3304,
-								3304
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.tmLanguage"
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 10,
-					"type": "text"
-				},
-				{
-					"buffer": 7,
-					"file": "src/js/sprite.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 1689,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								1235,
-								1235
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": 0.0,
-						"translation.y": 172.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 7,
-					"type": "text"
-				},
-				{
-					"buffer": 8,
-					"file": "src/glsl/textured.glsl",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 295,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								198,
-								198
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/Shader Syntax (GLSL HLSL Cg)/OpenGL SL.tmLanguage"
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 6,
+					"stack_index": 0,
 					"type": "text"
 				}
 			]
@@ -1407,7 +1259,7 @@
 			"sheets":
 			[
 				{
-					"buffer": 9,
+					"buffer": 5,
 					"semi_transient": false,
 					"settings":
 					{
@@ -1430,26 +1282,26 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 6.0,
+						"translation.y": 2718.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 1,
+					"stack_index": 6,
 					"type": "text"
 				},
 				{
-					"buffer": 10,
+					"buffer": 6,
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 972,
+						"buffer_size": 627,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								972,
-								972
+								251,
+								251
 							]
 						],
 						"settings":
@@ -1457,10 +1309,10 @@
 							"syntax": "Packages/Text/Plain text.tmLanguage"
 						},
 						"translation.x": 0.0,
-						"translation.y": 363.0,
+						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 0,
+					"stack_index": 5,
 					"type": "text"
 				}
 			]
@@ -1530,52 +1382,312 @@
 		"selected_items":
 		[
 			[
-				"res",
-				"src\\py\\resource_compiler.py"
-			],
-			[
-				"shader",
-				"src\\glsl\\shader.glsl"
-			],
-			[
-				"gl",
-				"src\\glsl\\shader.glsl"
-			],
-			[
-				"flat",
-				"src\\glsl\\flat.glsl"
-			],
-			[
-				"mes",
+				"mesh",
 				"src\\js\\mesh_tools.js"
 			],
 			[
-				"ass",
-				"src\\js\\asset_group.js"
+				"rand",
+				"src\\js\\random.js"
 			],
 			[
-				"mesh",
-				"src\\js\\mesh.js"
+				"lines",
+				"src\\js\\demos\\lines4.js"
+			],
+			[
+				"ve",
+				"src\\js\\vector.js"
+			],
+			[
+				"ph",
+				"src\\js\\physics.js"
+			],
+			[
+				"canvas",
+				"src\\js\\canvas.js"
+			],
+			[
+				"re",
+				"src\\js\\rect.js"
+			],
+			[
+				"bez",
+				"src\\js\\bezier.js"
+			],
+			[
+				"be",
+				"src\\js\\bezier.js"
+			],
+			[
+				"vec",
+				"src\\js\\vector.js"
+			],
+			[
+				"canva",
+				"src\\js\\canvas.js"
+			],
+			[
+				"glsl",
+				"src\\glsl\\flat.glsl"
+			],
+			[
+				"color",
+				"src\\js\\color.js"
+			],
+			[
+				"main",
+				"build\\main.js"
+			],
+			[
+				"a",
+				"src\\js\\ajax.js"
+			],
+			[
+				"par",
+				"src\\js\\demos\\particles.js"
+			],
+			[
+				"tim",
+				"src\\js\\time.js"
+			],
+			[
+				"dom",
+				"src\\js\\dom.js"
+			],
+			[
+				"cs",
+				"build\\style.css"
+			],
+			[
+				"in",
+				"src\\js\\input.js"
+			],
+			[
+				"int",
+				"src\\js\\intersect.js"
+			],
+			[
+				"gra",
+				"src\\js\\gravity.js"
+			],
+			[
+				"part",
+				"src\\js\\particles.js"
+			],
+			[
+				"mat",
+				"src\\js\\matrix.js"
+			],
+			[
+				"sta",
+				"src\\js\\stack.js"
+			],
+			[
+				"gb",
+				"src\\js\\gb.js"
+			],
+			[
+				"inter",
+				"src\\js\\intersect.js"
+			],
+			[
+				"g",
+				"src\\js\\gb.js"
+			],
+			[
+				"grav",
+				"src\\js\\gravity.js"
+			],
+			[
+				"fl",
+				"src\\js\\fluid_sim.js"
+			],
+			[
+				"math",
+				"src\\js\\math.js"
+			],
+			[
+				"time",
+				"src\\js\\time.js"
+			],
+			[
+				"rad",
+				"src\\js\\random.js"
+			],
+			[
+				"v",
+				"src\\js\\vector.js"
+			],
+			[
+				"inpu",
+				"src\\js\\input.js"
+			],
+			[
+				"qu",
+				"src\\js\\quaternion.js"
+			],
+			[
+				"ran",
+				"src\\js\\random.js"
+			],
+			[
+				"f",
+				"src\\js\\fluid_sim.js"
+			],
+			[
+				"inp",
+				"src\\js\\input.js"
+			],
+			[
+				"rec",
+				"src\\js\\rect.js"
+			],
+			[
+				"web",
+				"src\\js\\webgl.js"
+			],
+			[
+				"css",
+				"build\\style.css"
+			],
+			[
+				"index",
+				"build\\index.html"
+			],
+			[
+				"input",
+				"src\\js\\input.js"
+			],
+			[
+				"ca",
+				"src\\js\\canvas_dev.js"
+			],
+			[
+				"html",
+				"build\\index.html"
+			],
+			[
+				"anim",
+				"src\\js\\animate.js"
+			],
+			[
+				"col",
+				"src\\js\\color.js"
+			],
+			[
+				"quat",
+				"src\\js\\quaternion.js"
+			],
+			[
+				"tex",
+				"src\\js\\texture.js"
+			],
+			[
+				"draw",
+				"src\\js\\gl_draw.js"
 			],
 			[
 				"sc",
 				"src\\js\\scene.js"
 			],
 			[
+				"te",
+				"src\\glsl\\textured.glsl"
+			],
+			[
 				"sp",
 				"src\\js\\sprite.js"
 			],
 			[
-				"wgl",
-				"src\\js\\wgl_dev.js"
+				"wegl",
+				"src\\js\\webgl.js"
 			],
 			[
-				"ca",
+				"camera",
 				"src\\js\\camera.js"
 			],
 			[
 				"sce",
 				"src\\js\\scene.js"
+			],
+			[
+				"ren",
+				"src\\js\\render_target.js"
+			],
+			[
+				"cam",
+				"src\\js\\camera.js"
+			],
+			[
+				"shader",
+				"src\\js\\shader.js"
+			],
+			[
+				"gl",
+				"src\\js\\gl_draw.js"
+			],
+			[
+				"colo",
+				"src\\js\\color.js"
+			],
+			[
+				"mes",
+				"src\\js\\mesh_tools.js"
+			],
+			[
+				"",
+				"src\\js\\shader.js"
+			],
+			[
+				"ms",
+				"src\\js\\mesh.js"
+			],
+			[
+				"ass",
+				"src\\js\\asset_group.js"
+			],
+			[
+				"aa",
+				"src\\js\\aabb.js"
+			],
+			[
+				"ra",
+				"src\\js\\ray.js"
+			],
+			[
+				"matr",
+				"src\\js\\matrix.js"
+			],
+			[
+				"ray",
+				"src\\js\\ray.js"
+			],
+			[
+				"aabb",
+				"src\\js\\aabb.js"
+			],
+			[
+				"min",
+				"build\\main.js"
+			],
+			[
+				"ma",
+				"src\\js\\math.js"
+			],
+			[
+				"animate",
+				"src\\js\\animate.js"
+			],
+			[
+				"res",
+				"src\\py\\resource_compiler.py"
+			],
+			[
+				"flat",
+				"src\\glsl\\flat.glsl"
+			],
+			[
+				"wgl",
+				"src\\js\\wgl_dev.js"
 			],
 			[
 				"spr",
@@ -1586,10 +1698,6 @@
 				"src\\js\\serialize.js"
 			],
 			[
-				"html",
-				"build\\index.html"
-			],
-			[
 				"text",
 				"src\\js\\texture.js"
 			],
@@ -1598,60 +1706,8 @@
 				"src\\js\\webgl.js"
 			],
 			[
-				"in",
-				"src\\js\\input.js"
-			],
-			[
-				"css",
-				"build\\style.css"
-			],
-			[
-				"ra",
-				"src\\js\\random.js"
-			],
-			[
-				"ran",
-				"src\\js\\random.js"
-			],
-			[
 				"cn",
 				"src\\js\\canvas.js"
-			],
-			[
-				"main",
-				"build\\main.js"
-			],
-			[
-				"canvas",
-				"src\\js\\canvas.js"
-			],
-			[
-				"camera",
-				"src\\js\\camera.js"
-			],
-			[
-				"re",
-				"src\\js\\rect.js"
-			],
-			[
-				"ma",
-				"src\\js\\math.js"
-			],
-			[
-				"matr",
-				"src\\js\\matrix.js"
-			],
-			[
-				"te",
-				"src\\js\\texture.js"
-			],
-			[
-				"web",
-				"src\\js\\webgl.js"
-			],
-			[
-				"ve",
-				"src\\js\\vector.js"
 			],
 			[
 				"st",
@@ -1666,56 +1722,8 @@
 				"src\\js\\webgl.js"
 			],
 			[
-				"cam",
-				"src\\js\\camera.js"
-			],
-			[
 				"as",
 				"src\\js\\asset_group.js"
-			],
-			[
-				"be",
-				"src\\js\\bezier.js"
-			],
-			[
-				"math",
-				"src\\js\\math.js"
-			],
-			[
-				"mat",
-				"src\\js\\matrix.js"
-			],
-			[
-				"tex",
-				"src\\js\\texture.js"
-			],
-			[
-				"aa",
-				"src\\js\\aabb.js"
-			],
-			[
-				"qu",
-				"src\\js\\quaternion.js"
-			],
-			[
-				"",
-				"src\\js\\rect.js"
-			],
-			[
-				"ray",
-				"src\\js\\ray.js"
-			],
-			[
-				"colo",
-				"src\\js\\color.js"
-			],
-			[
-				"sta",
-				"src\\js\\stack.js"
-			],
-			[
-				"vec",
-				"src\\js\\vector.js"
 			],
 			[
 				"r",
@@ -1724,10 +1732,6 @@
 			[
 				"rau",
 				"src\\js\\audio.js"
-			],
-			[
-				"inter",
-				"src\\js\\intersect.js"
 			],
 			[
 				"gi",
@@ -1746,32 +1750,16 @@
 				"src\\js\\matrix.js"
 			],
 			[
-				"aabb",
-				"src\\js\\aabb.js"
-			],
-			[
 				"gl_",
 				"src\\js\\gl_draw.js"
-			],
-			[
-				"rand",
-				"src\\js\\random.js"
 			],
 			[
 				"b",
 				"build.bat"
 			],
 			[
-				"rec",
-				"src\\js\\rect.js"
-			],
-			[
 				"po",
 				"src\\js\\pool.js"
-			],
-			[
-				"quat",
-				"src\\js\\quaternion.js"
 			],
 			[
 				"poo",
@@ -1810,24 +1798,8 @@
 				"src\\py\\io_export_onyx_json.py"
 			],
 			[
-				"tim",
-				"src\\js\\time.js"
-			],
-			[
-				"fl",
-				"src\\glsl\\flat.glsl"
-			],
-			[
 				"sh",
 				"src\\js\\shader.js"
-			],
-			[
-				"color",
-				"src\\js\\color.js"
-			],
-			[
-				"dom",
-				"src\\js\\dom.js"
 			],
 			[
 				"mai",
@@ -1842,16 +1814,8 @@
 				"src\\js\\audio.js"
 			],
 			[
-				"gb",
-				"src\\js\\gb.js"
-			],
-			[
 				"deb",
 				"src\\js\\debug.js"
-			],
-			[
-				"a",
-				"src\\js\\ajax.js"
 			],
 			[
 				"i",
@@ -1864,14 +1828,6 @@
 			[
 				"at",
 				"src\\js\\matrix.js"
-			],
-			[
-				"col",
-				"src\\js\\color.js"
-			],
-			[
-				"v",
-				"src\\js\\vector3.js"
 			],
 			[
 				"qua",
@@ -1910,19 +1866,11 @@
 				"build.py"
 			],
 			[
-				"ren",
-				"src\\js\\renderer.js"
-			],
-			[
 				"fla",
 				"src\\glsl\\flat.glsl"
 			],
 			[
 				"glg",
-				"src\\glsl\\shader.glsl"
-			],
-			[
-				"glsl",
 				"src\\glsl\\shader.glsl"
 			],
 			[
@@ -1944,90 +1892,6 @@
 			[
 				"htl",
 				"build\\onyx.html"
-			],
-			[
-				"mati",
-				"src\\js\\matrix.js"
-			],
-			[
-				".py",
-				"src\\py\\resource_compiler.py"
-			],
-			[
-				"atr",
-				"src\\js\\matrix.js"
-			],
-			[
-				"inp",
-				"src\\js\\input.js"
-			],
-			[
-				"s",
-				"build\\style.css"
-			],
-			[
-				"styl",
-				"build\\style.css"
-			],
-			[
-				"m",
-				"build\\onyx.html"
-			],
-			[
-				"matj",
-				"src\\js\\math.js"
-			],
-			[
-				"pool",
-				"src\\js\\pool.js"
-			],
-			[
-				"vc",
-				"src\\js\\vector3.js"
-			],
-			[
-				"material",
-				"src\\js\\material.js"
-			],
-			[
-				"red",
-				"src\\js\\render_target.js"
-			],
-			[
-				"mater",
-				"src\\js\\material.js"
-			],
-			[
-				"tet",
-				"src\\js\\texture.js"
-			],
-			[
-				"materi",
-				"src\\js\\material.js"
-			],
-			[
-				"src",
-				"src.js"
-			],
-			[
-				"debg",
-				"src\\js\\debug.js"
-			],
-			[
-				"sr",
-				"src.js"
-			],
-			[
-				"sty",
-				"build\\style.css"
-			],
-			[
-				"stly",
-				"style.css"
-			],
-			[
-				"style",
-				"style.css"
 			]
 		],
 		"width": 0.0

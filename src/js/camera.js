@@ -4,6 +4,7 @@ gb.Camera = function()
 	this.projection = gb.mat4.new();
 	this.view = gb.mat4.new();
 	this.view_projection = gb.mat4.new();
+	this.normal = gb.mat3.new();
 	this.mask;
 	this.dirty;
 	this.aspect;

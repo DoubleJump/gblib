@@ -48,23 +48,3 @@ gb.serialize =
 		return r;
 	},
 }
-
-/*
-	r_wav: function(br)
-	{
-		var s = gb.Searalize;
-        var n = s.r_string(br);
-		var header = new Uint32Array(br.buffer, br.offset, 13);
-		var sound = new gb.Sound();
-		sound.data = 
-	},
-	r_ogg: function(br)
-	{
-		var s = gb.Searalize;
-        var n = s.r_string(br);
-		var header = new Uint32Array(br.buffer, br.offset, 13);
-		var sound = new gb.Sound();
-		sound.data = 
-
-	},
-	*/

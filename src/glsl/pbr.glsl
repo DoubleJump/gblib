@@ -1,7 +1,7 @@
 #VERTEX
 attribute vec3 position;
 attribute vec3 normal;
-attribute vec2 uv;
+//attribute vec2 uv;
 
 uniform mat4 proj_matrix;
 uniform mat4 view_matrix;
@@ -12,11 +12,11 @@ uniform vec3 light_position;
 varying vec3 _position;
 varying vec3 _normal;
 varying vec3 _light_position;
-varying vec2 _uv;
+//varying vec2 _uv;
 
 void main()
 { 
-	_uv = uv;
+	//_uv = uv;
 
 	vec4 pos = view_matrix * model_matrix * vec4(position, 1.0);
 
@@ -34,10 +34,10 @@ const float GAMMA = 2.2;
 
 varying vec3 _position;
 varying vec3 _normal;
-varying vec2 _uv;
+//varying vec2 _uv;
 varying vec3 _light_position;
 
-uniform sampler2D tex;
+//uniform sampler2D tex;
 
 float lambert(vec3 L, vec3 N) 
 {
@@ -67,7 +67,8 @@ void main()
 
     float diffuse = lambert(L, N);
 
-    vec4 diffuse_color = linear(texture2D(tex, _uv));
+    vec4 diffuse_color = linear(vec4(1.0));
+    //vec4 diffuse_color = linear(texture2D(tex, _uv));
     vec4 light_color = linear(vec4(1.0));
 
     vec4 result = vec4(diffuse_color.rgb * light_color.rgb * diffuse, 1.0);

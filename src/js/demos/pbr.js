@@ -10,9 +10,9 @@ TODO:
 
 //INCLUDE gb.js
 //DEBUG
-//INCLUDE debug.js
+//INCLUDE gl/debug.js
 //END
-//INCLUDE dom.js
+//INCLUDE dom/dom.js
 //INCLUDE stack.js
 //INCLUDE math.js
 //INCLUDE serialize.js
@@ -27,16 +27,16 @@ TODO:
 //INCLUDE color.js
 //INCLUDE camera.js
 //INCLUDE time.js
-//INCLUDE scene.js
-//INCLUDE webgl.js
+//INCLUDE gl/scene.js
+//INCLUDE gl/webgl.js
 //DEBUG
-//INCLUDE gl_draw.js
+//INCLUDE gl/draw.js
 //END
 //INCLUDE audio.js
 //INCLUDE input.js
 //INCLUDE random.js
 //INCLUDE asset_group.js
-//INCLUDE gl_sprite.js
+//INCLUDE gl/sprite.js
 //INCLUDE animate.js
 
 gb.init = init;
@@ -54,6 +54,7 @@ var camera = gb.camera;
 var entity = gb.entity;
 var sprite = gb.sprite;
 var anim = gb.animate;
+var webgl = gb.webgl;
 var assets;
 var assets_loaded;
 
@@ -78,22 +79,24 @@ function init()
 	assets_loaded = false;
 
 	var k = gb.Keys;
-	gb.input.init(document,
+	input.init(document,
 	{
 		keycodes: [k.mouse_left, k.a, k.x, k.z, k.one, k.two, k.three, k.up, k.down, k.left, k.right],
 	});
 
-	gb.audio.init();
-
-	gb.webgl.init(gb.dom.find('.container'),
+	webgl.init(gb.dom.find('.container'),
 	{
+		//width: 1024,
+		//height: 576,
 		resolution: 1,
 		alpha: false,
-		depth: true,
-		stencil: false,
-		antialias: false,
-		premultipliedAlpha: true,
-		preserveDrawingBuffer: false,
+	    depth: true,
+	    stencil: false,
+	    antialias: true,
+	    premultipliedAlpha: false,
+	    preserveDrawingBuffer: false,
+	    preferLowPowerToHighPerformance: false,
+	    failIfMajorPerformanceCaveat: false
 	});
 
 	//DEBUG
@@ -101,7 +104,7 @@ function init()
 	//END
 
 	assets = new gb.Asset_Group();
-	if(gb.webgl.extensions.dds !== null)
+	if(webgl.extensions.dds !== null)
 	{
 		gb.load_asset_group("assets.gl", assets, load_complete, load_progress);
 	}
@@ -117,11 +120,11 @@ function load_complete(asset_group)
 }
 function link_complete()
 {
-	render_target = gb.render_target.new(gb.webgl.view, 1 | 2);
+	render_target = gb.render_target.new(webgl.view, 1 | 2);
 	construct = scene.new();
 
 	viewer = camera.new();
-	entity.set_position(viewer.entity, 0,0,5);
+	entity.set_position(viewer.entity, 0,0,2);
 	scene.add_camera(construct, viewer);
 
 	sphere = entity.new();
@@ -133,6 +136,8 @@ function link_complete()
 	render_group.shader = assets.shaders.pbr;
 
 	light_position = v3.new(3,3,3);
+
+	webgl.set_clear_color(0.2,0.2,0.2,1.0);
 
 	assets_loaded = true;
 }
@@ -148,6 +153,7 @@ function update(t)
 
 	scene.update(construct);
 
+	/*
 	if(input.held(gb.Keys.left))
 	{
 		light_position[0] -= dt;
@@ -174,6 +180,7 @@ function update(t)
 	{
 		light_position[2] -= dt;
 	}
+	*/
 
 
 	gb.gl_draw.line(v3.tmp(0,0,0), light_position);
@@ -203,7 +210,7 @@ function draw_group(group, cam)
 		r.set_shader_vec3(s, "light_position", light_position);
 
 		//r.set_shader_mat4(s, "mvp", mvp);
-		r.set_shader_texture(s, "tex", assets.textures.orange, 0);
+		//r.set_shader_texture(s, "tex", assets.textures.orange, 0);
 		r.draw_mesh_elements(e.mesh);
 		//r.draw_mesh_arrays(e.mesh);
 	}

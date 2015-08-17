@@ -16,8 +16,8 @@ gb.canvas =
 	{
 		var c = new gb.Canvas2D();
 	    var canvas = gb.dom.insert('canvas', container);
-		var width = container.offsetWidth;
-	    var height = container.offsetHeight;
+	    var width = config.width || container.offsetWidth;
+	    var height = config.height || container.offsetHieght;
 	    canvas.width = width;
 	    canvas.height = height;
 		c.view = new gb.rect.new(0,0,width,height);
@@ -41,6 +41,45 @@ gb.canvas =
 		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.clearRect(v.x, v.y, v.width, v.height);
 		//ctx.restore();
+	},
+
+	translate: function(x,y)
+	{
+		gb.canvas.ctx.translate(x,y);
+	},
+
+	rotate: function(angle)
+	{
+		gb.canvas.ctx.rotate(angle * gb.math.DEG2RAD);
+	},
+
+	scale: function(x,y)
+	{
+		gb.canvas.ctx.scale(x,y);
+	},
+
+	set_transform: function(tx,ty,sx,sy,r)
+	{
+		var ctx = gb.canvas.ctx;
+		/*
+		var theta = r * gb.math.DEG2RAD;
+		var sin_t = gb.math.sin(theta);
+		var cos_t = gb.math.cos(theta);
+		gb.canvas.ctx.setTransform(cos_t * sx, -sin_t, sin_t, cos_t * sy, tx, ty);
+		*/
+		ctx.setTransform(1,0,0,1,0,0);
+		ctx.rotate(r * gb.math.DEG2RAD);
+		ctx.scale(sx, sy)
+		ctx.translate(tx, ty);
+	},
+	set_transform_t: function(m)
+	{
+		gb.canvas.ctx.setTransform(m[0], m[3], m[1], m[4], m[2], m[5]);
+	},
+
+	clear_transform: function()
+	{
+		gb.canvas.ctx.setTransform(1,0,0,1,0,0);
 	},
 
 	blend_alpha: function(a)

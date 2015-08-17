@@ -1,8 +1,8 @@
-//INCLUDE mesh.js
-//INCLUDE mesh_tools.js
-//INCLUDE texture.js
-//INCLUDE shader.js
-//INCLUDE render_target.js
+//INCLUDE gl/mesh.js
+//INCLUDE gl/mesh_tools.js
+//INCLUDE gl/texture.js
+//INCLUDE gl/shader.js
+//INCLUDE gl/render_target.js
 
 gb.webgl = 
 {
@@ -26,8 +26,18 @@ gb.webgl =
 		var _t = gb.webgl;
 		var gl;
 
-		var width = container.offsetWidth * config.resolution;
-        var height = container.offsetHeight * config.resolution;
+		var width = 0;
+		var height = 0;
+		if(config.width)
+		{
+			width = config.width * config.resolution;
+			height = config.height * config.resolution;
+		}
+		else
+		{
+			width = container.offsetWidth * config.resolution;
+        	height = container.offsetHeight * config.resolution;	
+		}
         var canvas = gb.dom.insert('canvas', container);
         canvas.width = width;
         canvas.height = height;
@@ -93,6 +103,11 @@ gb.webgl =
         _t.screen_shader = gb.shader.new(v_src, f_src);
         _t.link_shader(_t.screen_shader);
 		_t.m_offsets = new Uint32Array(5);
+	},
+
+	set_clear_color: function(r,g,b,a)
+	{
+		gb.webgl.ctx.clearColor(r,g,b,a);
 	},
 
 	link_mesh: function(m)

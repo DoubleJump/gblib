@@ -1,7 +1,14 @@
-gb.Shader_Attribute = function()
+gb.ShaderAttribute = function()
 {
 	this.location;
 	this.index;
+}
+gb.ShaderUniform = function()
+{
+    this.location;
+    this.name;
+    this.type;
+    this.size;
 }
 gb.Shader = function()
 {

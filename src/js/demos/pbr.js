@@ -9,13 +9,13 @@ TODO:
 */
 
 //INCLUDE gb.js
-//DEBUG
-//INCLUDE gl/debug.js
-//END
+
 //INCLUDE dom/dom.js
 //INCLUDE stack.js
+//INCLUDE time.js
 //INCLUDE math.js
 //INCLUDE serialize.js
+//INCLUDE audio.js
 //INCLUDE vector.js
 //INCLUDE quaternion.js
 //INCLUDE matrix.js
@@ -25,19 +25,18 @@ TODO:
 //INCLUDE bezier.js
 //INCLUDE intersect.js
 //INCLUDE color.js
-//INCLUDE camera.js
-//INCLUDE time.js
+//INCLUDE random.js
+//INCLUDE input.js
+//INCLUDE animate.js
+//INCLUDE gl/camera.js
 //INCLUDE gl/scene.js
 //INCLUDE gl/webgl.js
+//INCLUDE gl/asset_group.js
+//INCLUDE gl/sprite.js
 //DEBUG
 //INCLUDE gl/draw.js
+//INCLUDE gl/debug.js
 //END
-//INCLUDE audio.js
-//INCLUDE input.js
-//INCLUDE random.js
-//INCLUDE asset_group.js
-//INCLUDE gl/sprite.js
-//INCLUDE animate.js
 
 gb.init = init;
 gb.update = update;
@@ -68,10 +67,18 @@ var light_position; //change to enitity
 var RenderGroup = function()
 {
 	this.shader;
-	//this.textures = [null,null,null,null,null,null,null,null];
 	this.entities = [];
 }
 var render_group;
+
+gb.DrawCall = function()
+{
+	this.clear;
+	this.target;
+	this.material;
+	this.entity;
+	this.lights;
+}
 
 
 function init()
@@ -86,8 +93,8 @@ function init()
 
 	webgl.init(gb.dom.find('.container'),
 	{
-		//width: 1024,
-		//height: 576,
+		width: 1024,
+		height: 576,
 		resolution: 1,
 		alpha: false,
 	    depth: true,
@@ -131,9 +138,14 @@ function link_complete()
 	sphere.mesh = assets.meshes.sphere;
 	scene.add_entity(construct, sphere);
 
+	/*
 	render_group = new RenderGroup();
 	render_group.entities.push(sphere);
 	render_group.shader = assets.shaders.pbr;
+	*/
+
+	//create material
+	//create draw call
 
 	light_position = v3.new(3,3,3);
 
@@ -152,6 +164,8 @@ function update(t)
 	gb.gl_draw.clear();
 
 	scene.update(construct);
+
+	//MODIFY MESH FOR LULZ
 
 	/*
 	if(input.held(gb.Keys.left))
@@ -189,6 +203,8 @@ function update(t)
 	display(render_target);
 }
 
+
+/*
 function draw_group(group, cam)
 {
 	var r = gb.webgl;
@@ -215,7 +231,9 @@ function draw_group(group, cam)
 		//r.draw_mesh_arrays(e.mesh);
 	}
 }
+*/
 
+/*
 function render_to(target)
 {
 	var r = gb.webgl;
@@ -238,3 +256,4 @@ function display(target)
 	r.set_shader_texture(s, "tex", target.color, 0);
 	r.draw_mesh_elements(m);
 }
+*/

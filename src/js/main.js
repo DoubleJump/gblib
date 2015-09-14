@@ -11,5 +11,5 @@
 ///INCLUDE demos/lines4.js
 ///INCLUDE demos/orb.js
 ///INCLUDE demos/shapes.js
-///INCLUDE demos/pbr.js
-//INCLUDE demos/diamond.js
+///INCLUDE demos/diamond.js
+//INCLUDE demos/pbr.js

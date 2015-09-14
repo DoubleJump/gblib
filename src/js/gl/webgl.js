@@ -6,6 +6,32 @@
 
 gb.webgl = 
 {
+	shader_types:
+	{
+        0x8B50: 'FLOAT_VEC2',
+        0x8B51: 'FLOAT_VEC3',
+        0x8B52: 'FLOAT_VEC4',
+        0x8B53: 'INT_VEC2',
+        0x8B54: 'INT_VEC3',
+        0x8B55: 'INT_VEC4',
+        0x8B56: 'BOOL',
+        0x8B57: 'BOOL_VEC2',
+        0x8B58: 'BOOL_VEC3',
+        0x8B59: 'BOOL_VEC4',
+        0x8B5A: 'FLOAT_MAT2',
+        0x8B5B: 'FLOAT_MAT3',
+        0x8B5C: 'FLOAT_MAT4',
+        0x8B5E: 'SAMPLER_2D',
+        0x8B60: 'SAMPLER_CUBE',
+        0x1400: 'BYTE',
+        0x1401: 'UNSIGNED_BYTE',
+        0x1402: 'SHORT',
+        0x1403: 'UNSIGNED_SHORT',
+        0x1404: 'INT',
+        0x1405: 'UNSIGNED_INT',
+        0x1406: 'FLOAT'
+    },
+
 	extensions: 
 	{
 		depth_texture: null,
@@ -142,7 +168,8 @@ gb.webgl =
 
 	link_shader: function(s)
 	{
-		var gl = gb.webgl.ctx;
+		var _t = gb.webgl;
+		var gl = _t.ctx;
 		var vs = gl.createShader(gl.VERTEX_SHADER);
 	    gl.shaderSource(vs, s.vertex_src);
 	    gl.compileShader(vs);
@@ -181,7 +208,7 @@ gb.webgl =
 	    	var loc = gl.getAttribLocation(id, attr.name);
 	    	if(loc !== -1) 
 	    	{
-	    		var sa = new gb.Shader_Attribute();
+	    		var sa = new gb.ShaderAttribute();
 	    		sa.location = loc;
 	    		sa.index = i;
 	    		s.attributes[c] = sa;
@@ -192,8 +219,11 @@ gb.webgl =
 	    for(var i = 0; i < s.num_uniforms; ++i)
 	    {
 	        var uniform = gl.getActiveUniform(id, i);
-	        var location = gl.getUniformLocation(id, uniform.name);
-	        s.uniforms[uniform.name] = location;
+	        var su = new gb.ShaderUniform();
+	        su.location = gl.getUniformLocation(id, uniform.name);
+	        su.type = _t.shader_types[uniform.type];
+	        su.size = uniform.size;
+	        s.uniforms[uniform.name] = su;
 	    }
 
 	    return s;
@@ -371,45 +401,140 @@ gb.webgl =
 		}
 	},
 
+	render_draw_call: function (dc)
+	{
+		var _t = gb.webgl;
+		var gl = _t.ctx;
+		_t.set_render_target(dc.target, dc.clear);
+		_t.use_shader(dc.material.shader);
+		_t.link_attributes(dc.material.shader, dc.entity.mesh);
+		var sampler_index = 0;
+		for(var key in dc.material.uniforms)
+		{
+			var uniform = dc.material.shader.uniforms[key];
+			var loc = uniform.location;
+			var val = dc.material.uniforms[key];
+			switch(uniform.type)
+			{
+				case 'FLOAT_VEC2':
+				{
+					gl.uniform2f(loc, val[0], val[1]);
+					break;
+				}
+		        case 'FLOAT_VEC3':
+		        {
+					gl.uniform3f(loc, val[0], val[1], val[2]);
+					break;
+				}
+		        case 'FLOAT_VEC4':
+		        {
+					gl.uniform4f(loc, val[0], val[1], val[2], val[3]);
+					break;
+				}
+		        //case 'INT_VEC2':
+		        //case 'INT_VEC3':
+		        //case 'INT_VEC4':
+		        case 'BOOL':
+		        {
+		        	break;
+		        }
+		        //case 'BOOL_VEC2':
+		        //case 'BOOL_VEC3':
+		        //case 'BOOL_VEC4':
+		        //case 'FLOAT_MAT2':
+		        case 'FLOAT_MAT3':
+		        {
+					gl.uniformMatrix3fv(loc, false, val);
+					break;
+				}
+		        case 'FLOAT_MAT4':
+		        {
+					gl.uniformMatrix4fv(loc, false, val);
+					break;
+				}
+		        case 'SAMPLER_2D':
+		        {
+					gl.bindTexture(gl.TEXTURE_2D, val.id);
+					gl.activeTexture(gl.TEXTURE0 + sampler_index);
+					gl.uniform1i(loc, val.id);
+					sampler_index++;
+					break;
+				}
+		        //case 'SAMPLER_CUBE':
+		        //case 'BYTE':
+		        //case 'UNSIGNED_BYTE':
+		        //case 'SHORT':
+		        //case 'UNSIGNED_SHORT':
+		        case 'INT':
+		        {
+					ctx.uniformi(loc, val);
+					break;
+				}
+		        //case 'UNSIGNED_INT':
+		        case 'FLOAT': 
+		        {
+					ctx.uniformf(loc, val);
+					break;
+				}
+				default:
+				{
+					ASSERT(false, uniform.type + ' is an unsupported uniform type');
+				}
+			}
+		}
+		if(dc.entity.mesh.index_buffer !== null)
+		{
+			_t.draw_mesh_elements(dc.entity.mesh);
+		}
+		else
+		{
+			_t.draw_mesh_arrays(dc.entity.mesh);
+		}
+	},
+
+
+	// THESE ARE ALL REDUDANT WITH THE MATERIAL SYSTEM
+	/*
 	set_shader_texture: function(shader, name, texture, index)
 	{
 		var gl = gb.webgl.ctx;
 		gl.bindTexture(gl.TEXTURE_2D, texture.id);
 		gl.activeTexture(gl.TEXTURE0 + index);
-		gl.uniform1i(shader.uniforms[name], texture.id);
+		gl.uniform1i(shader.uniforms[name].location, texture.id);
 	},
 	set_shader_mat4: function(shader, name, m)
 	{
-		gb.webgl.ctx.uniformMatrix4fv(shader.uniforms[name], false, m);
+		gb.webgl.ctx.uniformMatrix4fv(shader.uniforms[name].location, false, m);
 	},
 	set_shader_mat3: function(shader, name, m)
 	{
-		gb.webgl.ctx.uniformMatrix3fv(shader.uniforms[name], false, m);
+		gb.webgl.ctx.uniformMatrix3fv(shader.uniforms[name].location, false, m);
 	},
 	set_shader_quat: function(shader, name, q)
 	{
-		gb.webgl.ctx.uniform4f(shader.uniforms[name], q[0], q[1], q[2], q[3]);
+		gb.webgl.ctx.uniform4f(shader.uniforms[name].location, q[0], q[1], q[2], q[3]);
 	},
 	set_shader_color: function(shader, name, c)
 	{
-		gb.webgl.ctx.uniform4f(shader.uniforms[name], c[0], c[1], c[2], c[3]);
+		gb.webgl.ctx.uniform4f(shader.uniforms[name].location, c[0], c[1], c[2], c[3]);
 	},
 	set_shader_vec3: function(shader, name, v)
 	{
-		gb.webgl.ctx.uniform3f(shader.uniforms[name], v[0], v[1], v[2]);
+		gb.webgl.ctx.uniform3f(shader.uniforms[name].location, v[0], v[1], v[2]);
 	},
 	set_shader_vec2: function(shader, name, v)
 	{
-		gb.webgl.ctx.uniform2f(shader.uniforms[name], v[0], v[1]);
+		gb.webgl.ctx.uniform2f(shader.uniforms[name].location, v[0], v[1]);
 	},
 	set_shader_float: function(shader, name, f)
 	{
-		gb.webgl.ctx.uniformf(shader.uniforms[name], f);
+		gb.webgl.ctx.uniformf(shader.uniforms[name].location, f);
 	},
 	set_shader_int: function(shader, name, i)
 	{
-		gb.webgl.ctx.uniformi(shader.uniforms[name], i);
+		gb.webgl.ctx.uniformi(shader.uniforms[name].location, i);
 	},
+	*/
 
 	world_to_screen: function(r, camera, world, view)
     {

@@ -1,3 +1,24 @@
+gb.Material = function()
+{
+	this.shader;
+	this.uniforms;
+	this.textures;
+}
+gb.material = 
+{
+	new: function(shader)
+	{
+		var m = new gb.Material();
+		m.shader = shader;
+		m.uniforms = {};
+		for(var key in shader.uniforms)
+		{
+			m.uniforms[key] = null;
+		}
+		return m;
+	},
+}
+
 gb.Entity = function()
 {
 	this.parent;

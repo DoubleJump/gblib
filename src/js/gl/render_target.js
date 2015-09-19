@@ -6,6 +6,7 @@ gb.Render_Target = function()
 	this.color;
 	this.depth;
 	this.stencil;
+    this.linked = false;
 }
 
 gb.render_target = 

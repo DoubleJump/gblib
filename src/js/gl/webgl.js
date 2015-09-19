@@ -1,8 +1,17 @@
-//INCLUDE gl/mesh.js
-//INCLUDE gl/mesh_tools.js
-//INCLUDE gl/texture.js
-//INCLUDE gl/shader.js
-//INCLUDE gl/render_target.js
+gb.DrawCall = function()
+{
+	this.clear = false;
+	this.target;
+	this.camera;
+	this.material;
+	this.entities = [];
+	this.lights;
+}
+gb.PostCall = function()
+{
+	this.mesh;
+	this.material;
+}
 
 gb.webgl = 
 {
@@ -120,14 +129,6 @@ gb.webgl =
 		ex.fp_texture = gl.getExtension("OES_texture_float");
 		ex.uint = gl.getExtension("OES_element_index_uint");
 
-		_t.screen_mesh = gb.mesh.generate.quad(2,2);
-		_t.link_mesh(_t.screen_mesh);
-
-        var v_src = "attribute vec3 position;\n attribute vec2 uv;\n varying vec2 _uv;\n void main()\n {\n _uv = uv;\n gl_Position = vec4(position, 1.0);\n }";
-        var f_src = "precision mediump float;\n varying vec2 _uv;\n uniform sampler2D tex;\n void main()\n {\n gl_FragColor = texture2D(tex, _uv);\n }";
-
-        _t.screen_shader = gb.shader.new(v_src, f_src);
-        _t.link_shader(_t.screen_shader);
 		_t.m_offsets = new Uint32Array(5);
 	},
 
@@ -144,6 +145,7 @@ gb.webgl =
 		if(m.index_buffer)
 			m.index_buffer.id = gl.createBuffer();
 		_t.update_mesh(m);
+		m.linked = true;
 	},
 	update_mesh: function(m)
 	{
@@ -226,10 +228,12 @@ gb.webgl =
 	        s.uniforms[uniform.name] = su;
 	    }
 
+	    s.linked = true;
+
 	    return s;
 	},
 
-	set_shader: function(s)
+	use_shader: function(s)
 	{
 		gb.webgl.ctx.useProgram(s.id);
 	},
@@ -243,6 +247,7 @@ gb.webgl =
 		gl.bindTexture(gl.TEXTURE_2D, t.id);
 		_t.update_texture(t);
 		_t.set_sampler(t.sampler);
+		t.linked = true;
 	},
 
 	set_sampler:function(s)
@@ -270,6 +275,8 @@ gb.webgl =
 
 		if(t.mipmaps > 1) 
 			gl.generateMipmap(gl.TEXTURE_2D);
+
+		t.dirty = false;
 	},
 
 	set_viewport: function(v)
@@ -350,6 +357,8 @@ gb.webgl =
 		//DEBUG
 		gb.debug.verify_render_target(gl);
 		//END
+
+		rt.linked = true;
 	},
 
 	clear: function(rt)
@@ -401,19 +410,16 @@ gb.webgl =
 		}
 	},
 
-	render_draw_call: function (dc)
+	set_uniforms: function(shader, uniforms)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
-		_t.set_render_target(dc.target, dc.clear);
-		_t.use_shader(dc.material.shader);
-		_t.link_attributes(dc.material.shader, dc.entity.mesh);
 		var sampler_index = 0;
-		for(var key in dc.material.uniforms)
+		for(var key in uniforms)
 		{
-			var uniform = dc.material.shader.uniforms[key];
+			var uniform = shader.uniforms[key];
 			var loc = uniform.location;
-			var val = dc.material.uniforms[key];
+			var val = uniforms[key];
 			switch(uniform.type)
 			{
 				case 'FLOAT_VEC2':
@@ -454,6 +460,10 @@ gb.webgl =
 				}
 		        case 'SAMPLER_2D':
 		        {
+		        	if(val.dirty === true)
+		        	{
+		        		_t.update_texture(val);
+		        	}
 					gl.bindTexture(gl.TEXTURE_2D, val.id);
 					gl.activeTexture(gl.TEXTURE0 + sampler_index);
 					gl.uniform1i(loc, val.id);
@@ -482,59 +492,85 @@ gb.webgl =
 				}
 			}
 		}
-		if(dc.entity.mesh.index_buffer !== null)
-		{
-			_t.draw_mesh_elements(dc.entity.mesh);
-		}
-		else
-		{
-			_t.draw_mesh_arrays(dc.entity.mesh);
-		}
 	},
 
+	render_draw_call: function (dc)
+	{
+		var _t = gb.webgl;
+		var gl = _t.ctx;
+		var mat = dc.material;
+		var shader = mat.shader;
+		var cam = dc.camera;
 
-	// THESE ARE ALL REDUDANT WITH THE MATERIAL SYSTEM
-	/*
-	set_shader_texture: function(shader, name, texture, index)
-	{
-		var gl = gb.webgl.ctx;
-		gl.bindTexture(gl.TEXTURE_2D, texture.id);
-		gl.activeTexture(gl.TEXTURE0 + index);
-		gl.uniform1i(shader.uniforms[name].location, texture.id);
+		//TODO: obvs do this before draw call list
+		gl.enable(gl.DEPTH_TEST);
+
+		if(dc.target.linked === false)
+		{
+			_t.link_render_target(dc.target);
+		}
+		_t.set_render_target(dc.target, dc.clear);
+
+		if(shader.linked === false) 
+		{
+			_t.link_shader(shader);
+		}
+		_t.use_shader(shader);
+
+		if(shader.camera === true)
+		{
+			mat.uniforms.proj_matrix = cam.projection;
+			mat.uniforms.view_matrix = cam.view;
+			mat.uniforms.normal_matrix = cam.normal;
+		}
+
+		//if(shader.lights)
+		
+		var n = dc.entities.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var e = dc.entities[i];
+			var mesh = e.mesh;
+			if(mesh.linked === false) _t.link_mesh(mesh);
+			if(mesh.dirty === true) _t.update_mesh(mesh);
+			_t.link_attributes(shader, mesh);
+
+			if(shader.mvp === true)
+			{
+				gb.mat4.mul(mat.uniforms.mvp, e.world_matrix, cam.view_projection);
+			}
+			else
+			{
+				mat.uniforms.model_matrix = e.world_matrix;
+			}
+		}
+		
+		_t.set_uniforms(shader, mat.uniforms);
+
+		if(mesh.index_buffer) _t.draw_mesh_elements(mesh);
+		else _t.draw_mesh_arrays(mesh);
 	},
-	set_shader_mat4: function(shader, name, m)
+
+	render_post_call: function(pc)
 	{
-		gb.webgl.ctx.uniformMatrix4fv(shader.uniforms[name].location, false, m);
+		var _t = gb.webgl;
+		var gl = _t.ctx;
+
+		var mesh = pc.mesh;
+		var mat = pc.material;
+		var shader = mat.shader;
+
+		if(shader.linked === false) _t.link_shader(shader);
+		if(mesh.linked === false) _t.link_mesh(mesh);
+		if(mesh.dirty === true) _t.update_mesh(mesh);
+
+		gl.disable(gl.DEPTH_TEST);
+		_t.set_render_target(null);
+		_t.use_shader(shader);
+		_t.link_attributes(shader, mesh);
+		_t.set_uniforms(shader, mat.uniforms);
+		_t.draw_mesh_elements(mesh);
 	},
-	set_shader_mat3: function(shader, name, m)
-	{
-		gb.webgl.ctx.uniformMatrix3fv(shader.uniforms[name].location, false, m);
-	},
-	set_shader_quat: function(shader, name, q)
-	{
-		gb.webgl.ctx.uniform4f(shader.uniforms[name].location, q[0], q[1], q[2], q[3]);
-	},
-	set_shader_color: function(shader, name, c)
-	{
-		gb.webgl.ctx.uniform4f(shader.uniforms[name].location, c[0], c[1], c[2], c[3]);
-	},
-	set_shader_vec3: function(shader, name, v)
-	{
-		gb.webgl.ctx.uniform3f(shader.uniforms[name].location, v[0], v[1], v[2]);
-	},
-	set_shader_vec2: function(shader, name, v)
-	{
-		gb.webgl.ctx.uniform2f(shader.uniforms[name].location, v[0], v[1]);
-	},
-	set_shader_float: function(shader, name, f)
-	{
-		gb.webgl.ctx.uniformf(shader.uniforms[name].location, f);
-	},
-	set_shader_int: function(shader, name, i)
-	{
-		gb.webgl.ctx.uniformi(shader.uniforms[name].location, i);
-	},
-	*/
 
 	world_to_screen: function(r, camera, world, view)
     {

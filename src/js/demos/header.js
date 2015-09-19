@@ -65,6 +65,7 @@ var sphere;
 var post;
 var light_position; //change to enitity
 
+
 var draw_call;
 var post_call;
 
@@ -93,6 +94,10 @@ function init()
 	    failIfMajorPerformanceCaveat: false
 	});
 
+	//DEBUG
+	gb.gl_draw.init({buffer_size: 4096});
+	//END
+
 	assets = new gb.Asset_Group();
 	if(gl.extensions.dds !== null)
 	{
@@ -110,10 +115,6 @@ function load_complete(asset_group)
 }
 function link_complete()
 {
-	//DEBUG
-	gb.gl_draw.init({buffer_size: 160000});
-	//END
-
 	render_target = gb.render_target.new(gl.view, 1 | 2);
 	construct = gb.scene.new();
 
@@ -121,27 +122,15 @@ function link_complete()
 	gb.entity.set_position(camera.entity, 0,0,2);
 	gb.scene.add_camera(construct, camera);
 
-	sphere = gb.entity.new();
-	sphere.mesh = assets.meshes.text;
-	gb.scene.add_entity(construct, sphere);
-	gb.entity.set_scale(sphere, 0.5,0.5,0.5);
-
-
-	light_position = v3.new(3,3,3);
-
-	//90 33 148
-	gl.set_clear_color(0.35,0.13,0.58,1.0);
+	gl.set_clear_color(0.352, 0.129, 0.58, 1.0);
 
 	// TODO: create draw calls automatically
 	draw_call = new gb.DrawCall();
 	draw_call.clear = true;
 	draw_call.camera = camera;
-	draw_call.entities.push(sphere);
+	draw_call.entity = sphere;
 	draw_call.target = render_target;
 	draw_call.material = gb.material.new(assets.shaders.pbr);
-
-	gb.gl_draw.draw_call.camera = camera;
-	gb.gl_draw.draw_call.target = render_target;
 
 	post_call = new gb.PostCall();
 	post_call.mesh = gb.mesh.generate.quad(2,2);
@@ -189,13 +178,12 @@ function update(t)
 		light_position[2] -= dt;
 	}
 
-	gb.gl_draw.line(v3.tmp(0,0,0), light_position);
-	//gb.gl_draw.wire_mesh(sphere.mesh, sphere.world_matrix);
+	//need a draw call for debug draw
+	//gb.gl_draw.line(v3.tmp(0,0,0), light_position);
 
 	draw_call.material.uniforms.light_position = light_position;
 	
 	gb.webgl.render_draw_call(draw_call);
-	gb.webgl.render_draw_call(gb.gl_draw.draw_call);
 
 	post_call.material.uniforms.tex = render_target.color;
 	gl.render_post_call(post_call);

@@ -45,6 +45,11 @@ var gb =
 		gb.input.update();
 		requestAnimationFrame(gb._update);
 	},
+
+	has_flag_set: function(mask, flag)
+	{
+	    return (flag & mask) === flag;
+	}
 }
 window.addEventListener('load', gb._init, false);
 window.onfocus = gb.focus;

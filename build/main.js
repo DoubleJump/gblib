@@ -69,6 +69,11 @@ var gb =
 		gb.input.update();
 		requestAnimationFrame(gb._update);
 	},
+
+	has_flag_set: function(mask, flag)
+	{
+	    return (flag & mask) === flag;
+	}
 }
 window.addEventListener('load', gb._init, false);
 window.onfocus = gb.focus;
@@ -2573,6 +2578,7 @@ gb.Entity = function()
 	this.world_matrix = gb.mat4.new();
 	this.bounds = gb.aabb.new();
 
+	//this.material = null;
 	this.mesh = null;
 }
 gb.entity = 
@@ -2759,11 +2765,12 @@ gb.Index_Buffer = function()
 gb.Mesh = function()
 {
 	this.layout;
-	this.vertex_buffer;
-	this.vertex_count;
-	this.index_buffer;
-	this.index_count;
-	this.dirty;
+	this.vertex_buffer = null;
+	this.vertex_count = 0;
+	this.index_buffer = null;
+	this.index_count = 0;
+	this.dirty = true;
+	this.linked = false;
 }
 
 gb.mesh = 
@@ -2786,7 +2793,6 @@ gb.mesh =
 	    m.index_buffer = ib;
 
 	    m.index_count = indices.length;
-	    m.dirty = true;
 	    return m;
 	},
 	get_stride: function(m, n)
@@ -2920,6 +2926,8 @@ gb.Texture = function()
 	this.mipmaps = 0;
 	this.sampler;
 	this.compressed = false;
+	this.dirty = true;
+	this.linked = false;
 }
 gb.Sampler = function()
 {
@@ -2965,7 +2973,6 @@ gb.texture =
 	    return t;
 	},
 }
-
 gb.serialize.r_dds = function(br)
 {
 	// http://msdn.microsoft.com/en-us/library/bb943991.aspx/
@@ -3016,78 +3023,6 @@ gb.serialize.r_dds = function(br)
 
     return t;
 }
-
-gb.serialize.r_pvr = function(br)
-{
-	//https://developer.apple.com/library/ios/samplecode/PVRTextureLoader/Listings/Classes_PVRTexture_m.html#//apple_ref/doc/uid/DTS40008121-Classes_PVRTexture_m-DontLinkElementID_12
-
-	var s = gb.serialize;
-	var pvr = gb.webgl.extensions.pvr;
-
-	var header = new Uint32Array(br.buffer, br.offset, 13);
-	var header_size = header[12];
-	
-	var PVRTC_3 = 55727696;
-	//var PVRTC_2 = 0x21525650;
-	var version = header[0];
-
-	ASSERT(version === PVRTC_3, "Unsupported PVRTC format");
-
-	/*
-	for(var i = 0; i < 13; ++i)
-	{
-		console.log("Header " + i + ": " + header[i]);
-	}
-	*/
-
-	var t = new gb.Texture();
-	t.width = header[7];
-	t.height = header[6];
-	t.mipmaps = header[11];
-
-	var format = header[2];
-	var block_width = 8;
-	var block_height = 4;
-	switch(format)
-	{
-		case 0:
-			t.format = pvr.COMPRESSED_RGB_PVRTC_2BPPV1_IMG;
-			t.byte_size = 2;
-		break;
-		case 1:
-			t.format = pvr.COMPRESSED_RGBA_PVRTC_2BPPV1_IMG;
-			t.byte_size = 2;
-		break;
-		case 2:
-			t.format = pvr.COMPRESSED_RGB_PVRTC_4BPPV1_IMG;
-			t.byte_size = 4;
-			block_width = 4;
-		break;
-		case 3:
-			t.format = pvr.COMPRESSED_RGBA_PVRTC_4BPPV1_IMG;
-			t.byte_size = 4;
-			block_width = 4;
-		break;
-	}
-
-	var block_size = (block_width * block_height) * t.byte_size / 8;
-
-	br.offset += header_size; //+52?
-
-	var size = t.width * t.height;
-	t.pixels = new Uint8Array(br.buffer, br.offset, 10);
-	for(var i = 0; i < 10; ++i)
-	{
-		console.log(t.pixels[i]);
-	}
-    t.compressed = true;
-    br.offset += size * t.byte_size;
-
-	gb.renderer.link_texture(t, gb.default_sampler);
-    gb.textures[n] = t;
-    return t;
-}
-
 gb.ShaderAttribute = function()
 {
 	this.location;
@@ -3108,7 +3043,11 @@ gb.Shader = function()
     this.num_attributes;
     this.num_uniforms;
     this.attributes = [null, null, null, null, null];
+    this.mvp = false;
+    this.camera = false;
+    this.lights = false;
     this.uniforms = {};
+    this.linked = false;
 }
 gb.shader = 
 {
@@ -3123,9 +3062,39 @@ gb.shader =
 gb.serialize.r_shader = function(br)
 {
 	var s = gb.serialize;
+    var uniform_mask = s.r_i32(br);
    	var vs = s.r_string(br);
    	var fs = s.r_string(br);
-    return gb.shader.new(vs, fs);
+    var shader = gb.shader.new(vs, fs);
+    shader.mvp = gb.has_flag_set(uniform_mask, 1);
+    shader.camera = gb.has_flag_set(uniform_mask, 2);
+    shader.lights = gb.has_flag_set(uniform_mask, 4);
+    return shader;
+}
+
+gb.Material = function()
+{
+    this.shader;
+    this.uniforms;
+    this.textures;
+}
+gb.material = 
+{
+    new: function(shader)
+    {
+        var m = new gb.Material();
+        m.shader = shader;
+        m.uniforms = {};
+        for(var key in shader.uniforms)
+        {
+            m.uniforms[key] = null;
+        }
+        if(shader.mvp === true)
+        {
+            m.uniforms.mvp = gb.mat4.new();
+        }
+        return m;
+    },
 }
 gb.Render_Target = function()
 {
@@ -3135,6 +3104,7 @@ gb.Render_Target = function()
 	this.color;
 	this.depth;
 	this.stencil;
+    this.linked = false;
 }
 
 gb.render_target = 
@@ -3164,6 +3134,20 @@ gb.render_target =
     },
 }
 
+gb.DrawCall = function()
+{
+	this.clear = false;
+	this.target;
+	this.camera;
+	this.material;
+	this.entities = [];
+	this.lights;
+}
+gb.PostCall = function()
+{
+	this.mesh;
+	this.material;
+}
 
 gb.webgl = 
 {
@@ -3281,14 +3265,6 @@ gb.webgl =
 		ex.fp_texture = gl.getExtension("OES_texture_float");
 		ex.uint = gl.getExtension("OES_element_index_uint");
 
-		_t.screen_mesh = gb.mesh.generate.quad(2,2);
-		_t.link_mesh(_t.screen_mesh);
-
-        var v_src = "attribute vec3 position;\n attribute vec2 uv;\n varying vec2 _uv;\n void main()\n {\n _uv = uv;\n gl_Position = vec4(position, 1.0);\n }";
-        var f_src = "precision mediump float;\n varying vec2 _uv;\n uniform sampler2D tex;\n void main()\n {\n gl_FragColor = texture2D(tex, _uv);\n }";
-
-        _t.screen_shader = gb.shader.new(v_src, f_src);
-        _t.link_shader(_t.screen_shader);
 		_t.m_offsets = new Uint32Array(5);
 	},
 
@@ -3305,6 +3281,7 @@ gb.webgl =
 		if(m.index_buffer)
 			m.index_buffer.id = gl.createBuffer();
 		_t.update_mesh(m);
+		m.linked = true;
 	},
 	update_mesh: function(m)
 	{
@@ -3387,10 +3364,12 @@ gb.webgl =
 	        s.uniforms[uniform.name] = su;
 	    }
 
+	    s.linked = true;
+
 	    return s;
 	},
 
-	set_shader: function(s)
+	use_shader: function(s)
 	{
 		gb.webgl.ctx.useProgram(s.id);
 	},
@@ -3404,6 +3383,7 @@ gb.webgl =
 		gl.bindTexture(gl.TEXTURE_2D, t.id);
 		_t.update_texture(t);
 		_t.set_sampler(t.sampler);
+		t.linked = true;
 	},
 
 	set_sampler:function(s)
@@ -3431,6 +3411,8 @@ gb.webgl =
 
 		if(t.mipmaps > 1) 
 			gl.generateMipmap(gl.TEXTURE_2D);
+
+		t.dirty = false;
 	},
 
 	set_viewport: function(v)
@@ -3511,6 +3493,8 @@ gb.webgl =
 		//DEBUG
 		gb.debug.verify_render_target(gl);
 		//END
+
+		rt.linked = true;
 	},
 
 	clear: function(rt)
@@ -3562,46 +3546,166 @@ gb.webgl =
 		}
 	},
 
+	set_uniforms: function(shader, uniforms)
+	{
+		var _t = gb.webgl;
+		var gl = _t.ctx;
+		var sampler_index = 0;
+		for(var key in uniforms)
+		{
+			var uniform = shader.uniforms[key];
+			var loc = uniform.location;
+			var val = uniforms[key];
+			switch(uniform.type)
+			{
+				case 'FLOAT_VEC2':
+				{
+					gl.uniform2f(loc, val[0], val[1]);
+					break;
+				}
+		        case 'FLOAT_VEC3':
+		        {
+					gl.uniform3f(loc, val[0], val[1], val[2]);
+					break;
+				}
+		        case 'FLOAT_VEC4':
+		        {
+					gl.uniform4f(loc, val[0], val[1], val[2], val[3]);
+					break;
+				}
+		        //case 'INT_VEC2':
+		        //case 'INT_VEC3':
+		        //case 'INT_VEC4':
+		        case 'BOOL':
+		        {
+		        	break;
+		        }
+		        //case 'BOOL_VEC2':
+		        //case 'BOOL_VEC3':
+		        //case 'BOOL_VEC4':
+		        //case 'FLOAT_MAT2':
+		        case 'FLOAT_MAT3':
+		        {
+					gl.uniformMatrix3fv(loc, false, val);
+					break;
+				}
+		        case 'FLOAT_MAT4':
+		        {
+					gl.uniformMatrix4fv(loc, false, val);
+					break;
+				}
+		        case 'SAMPLER_2D':
+		        {
+		        	if(val.dirty === true)
+		        	{
+		        		_t.update_texture(val);
+		        	}
+					gl.bindTexture(gl.TEXTURE_2D, val.id);
+					gl.activeTexture(gl.TEXTURE0 + sampler_index);
+					gl.uniform1i(loc, val.id);
+					sampler_index++;
+					break;
+				}
+		        //case 'SAMPLER_CUBE':
+		        //case 'BYTE':
+		        //case 'UNSIGNED_BYTE':
+		        //case 'SHORT':
+		        //case 'UNSIGNED_SHORT':
+		        case 'INT':
+		        {
+					ctx.uniformi(loc, val);
+					break;
+				}
+		        //case 'UNSIGNED_INT':
+		        case 'FLOAT': 
+		        {
+					ctx.uniformf(loc, val);
+					break;
+				}
+				default:
+				{
+					ASSERT(false, uniform.type + ' is an unsupported uniform type');
+				}
+			}
+		}
+	},
 
-	// THESE ARE ALL REDUDANT WITH THE MATERIAL SYSTEM
-	set_shader_texture: function(shader, name, texture, index)
+	render_draw_call: function (dc)
 	{
-		var gl = gb.webgl.ctx;
-		gl.bindTexture(gl.TEXTURE_2D, texture.id);
-		gl.activeTexture(gl.TEXTURE0 + index);
-		gl.uniform1i(shader.uniforms[name].location, texture.id);
+		var _t = gb.webgl;
+		var gl = _t.ctx;
+		var mat = dc.material;
+		var shader = mat.shader;
+		var cam = dc.camera;
+
+		//TODO: obvs do this before draw call list
+		gl.enable(gl.DEPTH_TEST);
+
+		if(dc.target.linked === false)
+		{
+			_t.link_render_target(dc.target);
+		}
+		_t.set_render_target(dc.target, dc.clear);
+
+		if(shader.linked === false) 
+		{
+			_t.link_shader(shader);
+		}
+		_t.use_shader(shader);
+
+		if(shader.camera === true)
+		{
+			mat.uniforms.proj_matrix = cam.projection;
+			mat.uniforms.view_matrix = cam.view;
+			mat.uniforms.normal_matrix = cam.normal;
+		}
+
+		//if(shader.lights)
+		
+		var n = dc.entities.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var e = dc.entities[i];
+			var mesh = e.mesh;
+			if(mesh.linked === false) _t.link_mesh(mesh);
+			if(mesh.dirty === true) _t.update_mesh(mesh);
+			_t.link_attributes(shader, mesh);
+
+			if(shader.mvp === true)
+			{
+				gb.mat4.mul(mat.uniforms.mvp, e.world_matrix, cam.view_projection);
+			}
+			else
+			{
+				mat.uniforms.model_matrix = e.world_matrix;
+			}
+		}
+		
+		_t.set_uniforms(shader, mat.uniforms);
+
+		if(mesh.index_buffer) _t.draw_mesh_elements(mesh);
+		else _t.draw_mesh_arrays(mesh);
 	},
-	set_shader_mat4: function(shader, name, m)
+
+	render_post_call: function(pc)
 	{
-		gb.webgl.ctx.uniformMatrix4fv(shader.uniforms[name].location, false, m);
-	},
-	set_shader_mat3: function(shader, name, m)
-	{
-		gb.webgl.ctx.uniformMatrix3fv(shader.uniforms[name].location, false, m);
-	},
-	set_shader_quat: function(shader, name, q)
-	{
-		gb.webgl.ctx.uniform4f(shader.uniforms[name].location, q[0], q[1], q[2], q[3]);
-	},
-	set_shader_color: function(shader, name, c)
-	{
-		gb.webgl.ctx.uniform4f(shader.uniforms[name].location, c[0], c[1], c[2], c[3]);
-	},
-	set_shader_vec3: function(shader, name, v)
-	{
-		gb.webgl.ctx.uniform3f(shader.uniforms[name].location, v[0], v[1], v[2]);
-	},
-	set_shader_vec2: function(shader, name, v)
-	{
-		gb.webgl.ctx.uniform2f(shader.uniforms[name].location, v[0], v[1]);
-	},
-	set_shader_float: function(shader, name, f)
-	{
-		gb.webgl.ctx.uniformf(shader.uniforms[name].location, f);
-	},
-	set_shader_int: function(shader, name, i)
-	{
-		gb.webgl.ctx.uniformi(shader.uniforms[name].location, i);
+		var _t = gb.webgl;
+		var gl = _t.ctx;
+
+		var mesh = pc.mesh;
+		var mat = pc.material;
+		var shader = mat.shader;
+
+		if(shader.linked === false) _t.link_shader(shader);
+		if(mesh.linked === false) _t.link_mesh(mesh);
+		if(mesh.dirty === true) _t.update_mesh(mesh);
+
+		gl.disable(gl.DEPTH_TEST);
+		_t.set_render_target(null);
+		_t.use_shader(shader);
+		_t.link_attributes(shader, mesh);
+		_t.set_uniforms(shader, mat.uniforms);
+		_t.draw_mesh_elements(mesh);
 	},
 
 	world_to_screen: function(r, camera, world, view)
@@ -3851,19 +3955,26 @@ gb.sprite =
 //DEBUG
 gb.gl_draw = 
 {
+	entity: null,
 	mesh: null,
 	offset: null,
 	color: null,
 	matrix: null,
-	shader: null,
+	draw_call: null,
 
 	init: function(config)
 	{
 		var _t = gb.gl_draw;
 		var wgl = gb.webgl;
+
+		_t.draw_call = new gb.DrawCall();
+		_t.draw_call.clear = false;
+		_t.entity = gb.entity.new();
+		_t.draw_call.entities.push(_t.entity);
+		_t.matrix = _t.entity.world_matrix;
+
 		_t.offset = 0;
 		_t.color = gb.color.new(1,1,1,1);
-		_t.matrix = gb.mat4.new();
 
 		var m = new gb.Mesh();
 		m.layout = wgl.ctx.LINES;
@@ -3874,16 +3985,10 @@ gb.gl_draw =
 	    m.vertex_buffer = vb;
 	    m.vertex_count = 0;
 	    m.dirty = true;
-
-	    wgl.link_mesh(m);
-	    
-	    var v_src = "attribute vec3 position;\n attribute vec4 color;\n uniform mat4 mvp;\n varying vec4 _color;\n void main()\n {\n _color = color;\n gl_Position = mvp * vec4(position, 1.0);\n}";
-
-        var f_src = "precision mediump float;\n varying vec4 _color;\n void main()\n {\n gl_FragColor = _color;\n }\n";
-
-        _t.shader = gb.shader.new(v_src, f_src);
-        wgl.link_shader(_t.shader);
+	    _t.entity.mesh = m;
 	    _t.mesh = m;
+
+        _t.draw_call.material = gb.material.new(assets.shaders.debug); 
 	},
 	set_position_f: function(x,y,z)
 	{
@@ -3934,6 +4039,7 @@ gb.gl_draw =
 
 		_t.offset += 14;
 		_t.mesh.vertex_count += 2;
+		_t.mesh.dirty = true;
 	},
 	ray: function(r)
 	{
@@ -3963,6 +4069,7 @@ gb.gl_draw =
 		_t.line(tr, br);
 		_t.line(br, bl);
 	},
+	/*
 	draw: function(camera)
 	{
 		var _t = gb.gl_draw;
@@ -3973,6 +4080,7 @@ gb.gl_draw =
 		w.set_shader_mat4(_t.shader, "mvp", camera.view_projection);
 		w.draw_mesh_arrays(_t.mesh);
 	},
+	*/
 	cube: function(width, height, depth)
 	{
 		var _t = gb.gl_draw;
@@ -4086,7 +4194,8 @@ gb.gl_draw =
 	{
 		var _t = gb.gl_draw;
 		var v3 = gb.vec3;
-		gb.mat4.eq(_t.matrix, matrix);
+		var mt = gb.mat4;
+		m4.eq(_t.matrix, matrix);
 		var stride = gb.mesh.get_stride(mesh);
 		var n = mesh.vertex_count / 3;
 		var d = mesh.vertex_buffer.data;
@@ -4105,7 +4214,7 @@ gb.gl_draw =
 			_t.line(tc, ta);
 			v3.pop(stack);
 		}
-		gb.mat4.identity(_t.matrix);
+		m4.identity(_t.matrix);
 	},
 	bezier: function(b, segments)
 	{
@@ -4213,50 +4322,32 @@ var qt = gb.quat;
 var m4 = gb.mat4;
 var rand = gb.random;
 var math = gb.math;
-var input = gb.input;
-var scene = gb.scene;
-var camera = gb.camera;
-var entity = gb.entity;
-var sprite = gb.sprite;
-var anim = gb.animate;
-var webgl = gb.webgl;
+var gl = gb.webgl;
 var assets;
 var assets_loaded;
 
 var construct;
-var viewer;
+var camera;
 var texture;
 var render_target;
 var sphere;
+var post;
 var light_position; //change to enitity
 
-var RenderGroup = function()
-{
-	this.shader;
-	this.entities = [];
-}
-var render_group;
-
-var DrawCall = function()
-{
-	this.target;
-	this.material;
-	this.entity;
-	this.lights;
-}
-
+var draw_call;
+var post_call;
 
 function init()
 {
 	assets_loaded = false;
 
 	var k = gb.Keys;
-	input.init(document,
+	gb.input.init(document,
 	{
 		keycodes: [k.mouse_left, k.a, k.x, k.z, k.one, k.two, k.three, k.up, k.down, k.left, k.right],
 	});
 
-	webgl.init(gb.dom.find('.container'),
+	gl.init(gb.dom.find('.container'),
 	{
 		width: 1024,
 		height: 576,
@@ -4271,12 +4362,8 @@ function init()
 	    failIfMajorPerformanceCaveat: false
 	});
 
-	//DEBUG
-	gb.gl_draw.init({buffer_size: 4096});
-	//END
-
 	assets = new gb.Asset_Group();
-	if(webgl.extensions.dds !== null)
+	if(gl.extensions.dds !== null)
 	{
 		gb.load_asset_group("assets.gl", assets, load_complete, load_progress);
 	}
@@ -4292,25 +4379,42 @@ function load_complete(asset_group)
 }
 function link_complete()
 {
-	render_target = gb.render_target.new(webgl.view, 1 | 2);
-	construct = scene.new();
+	//DEBUG
+	gb.gl_draw.init({buffer_size: 160000});
+	//END
 
-	viewer = camera.new();
-	entity.set_position(viewer.entity, 0,0,2);
-	scene.add_camera(construct, viewer);
+	render_target = gb.render_target.new(gl.view, 1 | 2);
+	construct = gb.scene.new();
 
-	sphere = entity.new();
-	sphere.mesh = assets.meshes.sphere;
-	scene.add_entity(construct, sphere);
+	camera = gb.camera.new();
+	gb.entity.set_position(camera.entity, 0,0,2);
+	gb.scene.add_camera(construct, camera);
 
-	render_group = new RenderGroup();
-	render_group.entities.push(sphere);
-	render_group.shader = assets.shaders.pbr;
+	sphere = gb.entity.new();
+	sphere.mesh = assets.meshes.text;
+	gb.scene.add_entity(construct, sphere);
+	gb.entity.set_scale(sphere, 0.5,0.5,0.5);
+
 
 	light_position = v3.new(3,3,3);
 
-	webgl.set_clear_color(0.2,0.2,0.2,1.0);
+	//90 33 148
+	gl.set_clear_color(0.35,0.13,0.58,1.0);
 
+	// TODO: create draw calls automatically
+	draw_call = new gb.DrawCall();
+	draw_call.clear = true;
+	draw_call.camera = camera;
+	draw_call.entities.push(sphere);
+	draw_call.target = render_target;
+	draw_call.material = gb.material.new(assets.shaders.pbr);
+
+	gb.gl_draw.draw_call.camera = camera;
+	gb.gl_draw.draw_call.target = render_target;
+
+	post_call = new gb.PostCall();
+	post_call.mesh = gb.mesh.generate.quad(2,2);
+	post_call.material = gb.material.new(assets.shaders.screen);
 	assets_loaded = true;
 }
 
@@ -4323,93 +4427,46 @@ function update(t)
 
 	gb.gl_draw.clear();
 
-	scene.update(construct);
+	gb.scene.update(construct);
 
 	//MODIFY MESH FOR LULZ
 
-	/*
-	if(input.held(gb.Keys.left))
+	if(gb.input.held(gb.Keys.left))
 	{
 		light_position[0] -= dt;
 	}	
-	else if(input.held(gb.Keys.right))
+	else if(gb.input.held(gb.Keys.right))
 	{
 		light_position[0] += dt;
 	}
 
-	if(input.held(gb.Keys.up))
+	if(gb.input.held(gb.Keys.up))
 	{
 		light_position[1] += dt;
 	}	
-	else if(input.held(gb.Keys.down))
+	else if(gb.input.held(gb.Keys.down))
 	{
 		light_position[1] -= dt;
 	}
 
-	if(input.held(gb.Keys.z))
+	if(gb.input.held(gb.Keys.z))
 	{
 		light_position[2] += dt;
 	}	
-	else if(input.held(gb.Keys.x))
+	else if(gb.input.held(gb.Keys.x))
 	{
 		light_position[2] -= dt;
 	}
-	*/
-
 
 	gb.gl_draw.line(v3.tmp(0,0,0), light_position);
+	//gb.gl_draw.wire_mesh(sphere.mesh, sphere.world_matrix);
 
-	render_to(render_target);
-	display(render_target);
-}
-
-function draw_group(group, cam)
-{
-	var r = gb.webgl;
-	var s = group.shader;
-	r.set_shader(s);
-
-	var mvp = m4.tmp();
-	var ne = group.entities.length;
-	for(var i = 0; i < ne; ++i)
-	{
-		var e = group.entities[i];
-		r.link_attributes(s, e.mesh);
-		m4.mul(mvp, e.world_matrix, cam.view_projection);
-		
-		r.set_shader_mat4(s, "proj_matrix", cam.projection);
-		r.set_shader_mat4(s, "view_matrix", cam.view);
-		r.set_shader_mat4(s, "model_matrix", e.world_matrix);
-		r.set_shader_mat3(s, "normal_matrix", cam.normal);
-		r.set_shader_vec3(s, "light_position", light_position);
-
-		//r.set_shader_mat4(s, "mvp", mvp);
-		//r.set_shader_texture(s, "tex", assets.textures.orange, 0);
-		r.draw_mesh_elements(e.mesh);
-		//r.draw_mesh_arrays(e.mesh);
-	}
-}
-
-function render_to(target)
-{
-	var r = gb.webgl;
-
-	r.set_render_target(target, true);
-	draw_group(render_group, viewer);
-	gb.gl_draw.draw(viewer);
-}
-
-function display(target)
-{
-	var r = gb.webgl;
-	var s = r.screen_shader;
-	var m = r.screen_mesh;
+	draw_call.material.uniforms.light_position = light_position;
 	
-	r.ctx.disable(r.ctx.DEPTH_TEST);
-	r.set_render_target(null);
-	r.set_shader(s);
-	r.link_attributes(s, m);
-	r.set_shader_texture(s, "tex", target.color, 0);
-	r.draw_mesh_elements(m);
+	gb.webgl.render_draw_call(draw_call);
+	gb.webgl.render_draw_call(gb.gl_draw.draw_call);
+
+	post_call.material.uniforms.tex = render_target.color;
+	gl.render_post_call(post_call);
 }
 

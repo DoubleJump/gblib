@@ -1,24 +1,25 @@
+#MVP
 #VERTEX
+
 attribute vec3 position;
-attribute vec2 uv;
+attribute vec4 color;
+
 uniform mat4 mvp;
 
-varying vec2 _uv;
+varying vec4 _color;
 
 void main()
 { 
-	_uv = uv;
+	_color = color;
 	gl_Position = mvp * vec4(position, 1.0); 
 }
 
 #FRAGMENT
 precision mediump float;
 
-varying vec2 _uv;
-
-uniform sampler2D tex;
+varying vec4 _color;
 
 void main()
 { 
-	gl_FragColor = texture2D(tex, _uv);
+	gl_FragColor = _color;
 }

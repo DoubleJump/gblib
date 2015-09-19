@@ -28,11 +28,12 @@ gb.Index_Buffer = function()
 gb.Mesh = function()
 {
 	this.layout;
-	this.vertex_buffer;
-	this.vertex_count;
-	this.index_buffer;
-	this.index_count;
-	this.dirty;
+	this.vertex_buffer = null;
+	this.vertex_count = 0;
+	this.index_buffer = null;
+	this.index_count = 0;
+	this.dirty = true;
+	this.linked = false;
 }
 
 gb.mesh = 
@@ -55,7 +56,6 @@ gb.mesh =
 	    m.index_buffer = ib;
 
 	    m.index_count = indices.length;
-	    m.dirty = true;
 	    return m;
 	},
 	get_stride: function(m, n)

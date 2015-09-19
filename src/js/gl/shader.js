@@ -18,7 +18,11 @@ gb.Shader = function()
     this.num_attributes;
     this.num_uniforms;
     this.attributes = [null, null, null, null, null];
+    this.mvp = false;
+    this.camera = false;
+    this.lights = false;
     this.uniforms = {};
+    this.linked = false;
 }
 gb.shader = 
 {
@@ -33,7 +37,37 @@ gb.shader =
 gb.serialize.r_shader = function(br)
 {
 	var s = gb.serialize;
+    var uniform_mask = s.r_i32(br);
    	var vs = s.r_string(br);
    	var fs = s.r_string(br);
-    return gb.shader.new(vs, fs);
+    var shader = gb.shader.new(vs, fs);
+    shader.mvp = gb.has_flag_set(uniform_mask, 1);
+    shader.camera = gb.has_flag_set(uniform_mask, 2);
+    shader.lights = gb.has_flag_set(uniform_mask, 4);
+    return shader;
+}
+
+gb.Material = function()
+{
+    this.shader;
+    this.uniforms;
+    this.textures;
+}
+gb.material = 
+{
+    new: function(shader)
+    {
+        var m = new gb.Material();
+        m.shader = shader;
+        m.uniforms = {};
+        for(var key in shader.uniforms)
+        {
+            m.uniforms[key] = null;
+        }
+        if(shader.mvp === true)
+        {
+            m.uniforms.mvp = gb.mat4.new();
+        }
+        return m;
+    },
 }

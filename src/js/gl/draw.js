@@ -1,18 +1,25 @@
 gb.gl_draw = 
 {
+	entity: null,
 	mesh: null,
 	offset: null,
 	color: null,
 	matrix: null,
-	shader: null,
+	draw_call: null,
 
 	init: function(config)
 	{
 		var _t = gb.gl_draw;
 		var wgl = gb.webgl;
+
+		_t.draw_call = new gb.DrawCall();
+		_t.draw_call.clear = false;
+		_t.entity = gb.entity.new();
+		_t.draw_call.entities.push(_t.entity);
+		_t.matrix = _t.entity.world_matrix;
+
 		_t.offset = 0;
 		_t.color = gb.color.new(1,1,1,1);
-		_t.matrix = gb.mat4.new();
 
 		var m = new gb.Mesh();
 		m.layout = wgl.ctx.LINES;
@@ -23,16 +30,10 @@ gb.gl_draw =
 	    m.vertex_buffer = vb;
 	    m.vertex_count = 0;
 	    m.dirty = true;
-
-	    wgl.link_mesh(m);
-	    
-	    var v_src = "attribute vec3 position;\n attribute vec4 color;\n uniform mat4 mvp;\n varying vec4 _color;\n void main()\n {\n _color = color;\n gl_Position = mvp * vec4(position, 1.0);\n}";
-
-        var f_src = "precision mediump float;\n varying vec4 _color;\n void main()\n {\n gl_FragColor = _color;\n }\n";
-
-        _t.shader = gb.shader.new(v_src, f_src);
-        wgl.link_shader(_t.shader);
+	    _t.entity.mesh = m;
 	    _t.mesh = m;
+
+        _t.draw_call.material = gb.material.new(assets.shaders.debug); 
 	},
 	set_position_f: function(x,y,z)
 	{
@@ -83,6 +84,7 @@ gb.gl_draw =
 
 		_t.offset += 14;
 		_t.mesh.vertex_count += 2;
+		_t.mesh.dirty = true;
 	},
 	ray: function(r)
 	{
@@ -112,6 +114,7 @@ gb.gl_draw =
 		_t.line(tr, br);
 		_t.line(br, bl);
 	},
+	/*
 	draw: function(camera)
 	{
 		var _t = gb.gl_draw;
@@ -122,6 +125,7 @@ gb.gl_draw =
 		w.set_shader_mat4(_t.shader, "mvp", camera.view_projection);
 		w.draw_mesh_arrays(_t.mesh);
 	},
+	*/
 	cube: function(width, height, depth)
 	{
 		var _t = gb.gl_draw;
@@ -235,7 +239,8 @@ gb.gl_draw =
 	{
 		var _t = gb.gl_draw;
 		var v3 = gb.vec3;
-		gb.mat4.eq(_t.matrix, matrix);
+		var mt = gb.mat4;
+		m4.eq(_t.matrix, matrix);
 		var stride = gb.mesh.get_stride(mesh);
 		var n = mesh.vertex_count / 3;
 		var d = mesh.vertex_buffer.data;
@@ -254,7 +259,7 @@ gb.gl_draw =
 			_t.line(tc, ta);
 			v3.pop(stack);
 		}
-		gb.mat4.identity(_t.matrix);
+		m4.identity(_t.matrix);
 	},
 	bezier: function(b, segments)
 	{

@@ -1,3 +1,6 @@
+#CAMERA
+#LIGHTS
+
 #VERTEX
 attribute vec3 position;
 attribute vec3 normal;

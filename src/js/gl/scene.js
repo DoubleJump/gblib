@@ -15,6 +15,7 @@ gb.Entity = function()
 	this.world_matrix = gb.mat4.new();
 	this.bounds = gb.aabb.new();
 
+	//this.material = null;
 	this.mesh = null;
 }
 gb.entity = 

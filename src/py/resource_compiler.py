@@ -27,6 +27,9 @@ def compile_mesh_file(name, src_file, writer):
 
 def compile_shader_file(name, src_file, writer):
 	read_state = 0
+	uniform_mvp = False
+	uniform_camera = False
+	uniform_lights = False
 	vertex_shader_found = False
 	fragment_shader_found = False
 
@@ -34,9 +37,15 @@ def compile_shader_file(name, src_file, writer):
 	fragment_src = ""
 
 	for line in src_file:
-		#print line
+
 		if read_state == 0:
-			if line == "#VERTEX\n":
+			if line == "#MVP\n":
+				uniform_mvp = True
+			elif line == "#CAMERA\n":
+				uniform_camera = True
+			elif line == "#LIGHTS\n":
+				uniform_lights = True
+			elif line == "#VERTEX\n":
 				vertex_shader_found = True
 				read_state = 1
 		elif read_state == 1:
@@ -56,7 +65,13 @@ def compile_shader_file(name, src_file, writer):
 		print "Could not find fragment shader in file: " + name
 		return False
 
+	uniform_mask = 0
+	if uniform_mvp: uniform_mask |= 1
+	if uniform_camera: uniform_mask |= 2
+	if uniform_lights: uniform_mask |= 4
+
 	write_str(writer, name)
+	write_int(writer, uniform_mask)
 	write_str(writer, vertex_src)
 	write_str(writer, fragment_src)
 	return True

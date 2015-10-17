@@ -48,14 +48,15 @@ def write_float(writer, val):
 	writer.offset += 4
 
 def write_str(writer, val):
-	strlen = len(val)
+	out_str = val.lower().encode('ascii')
+	strlen = len(out_str)
 	new_offset = writer.offset + strlen
 	next_boundary = ((new_offset / 4) + 1) * 4
 	padding = int(next_boundary - new_offset)
 
 	write_int(writer, padding)
 	write_int(writer, strlen)
-	writer.target.write(val)
+	writer.target.write(out_str)
 	writer.offset += strlen
 	for i in range(0, padding):
 		writer.target.write(pack("B", 128))
@@ -74,13 +75,11 @@ def round_vec2(v):
 	return round(v[0], fp_precision), round(v[1], fp_precision)
 
 
-def write_object(writer, ob):
-	write_str(writer, ob.name.encode('ascii'))
+def write_transform(writer, ob):
 	if(ob.parent == None): 
-		write_str(writer, "None".encode('ascii'))
+		write_str(writer, "none")
 	else:
 		write_str(writer, ob.parent) 
-	write_str(writer, ob.material_slots[0].material.name.encode('ascii'))
 	write_float(writer, ob.location.x)
 	write_float(writer, ob.location.y)
 	write_float(writer, ob.location.z)
@@ -90,12 +89,35 @@ def write_object(writer, ob):
 	write_float(writer, ob.rotation_quaternion.x)
 	write_float(writer, ob.rotation_quaternion.y) 
 	write_float(writer, ob.rotation_quaternion.z) 
-	write_float(writer, ob.rotation_quaternion.w) 
-	
+	write_float(writer, ob.rotation_quaternion.w)
+
+def write_material(writer, ob):
+	write_str(writer, ob.material_slots[0].material.name)
+
+def write_object(writer, ob):
+	write_str(writer, ob.name)
+	write_transform(writer, ob)
+	write_material(writer, ob)
+
+def write_lamp(writer, ob):
+	write_str(writer, ob.name)
+	write_transform(writer, ob)
+	lamp = bpy.data.lamps[ob.name]
+	write_float(writer, lamp.energy)
+	write_float(writer, lamp.distance)
+
+def write_camera(writer, ob):
+	write_str(writer, ob.name)
+	write_transform(writer, ob)
+	camera = bpy.data.cameras[ob.name]
+	if camera.type == 'PERSP': write_int(writer, 0)
+	else: write_int(writer, 1)
+	write_float(writer, camera.clip_start)
+	write_float(writer, camera.clip_end)
+	write_float(writer, camera.lens)
 		
 def write_mesh(writer, name):
-
-	write_str(writer, name.encode('ascii'))
+	write_str(writer, name)
 	mesh = bpy.data.meshes[name]
 
 	vertex_buffer = []
@@ -201,21 +223,32 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 
 		exportable_objects = []
 		exportable_meshes = []
+		exportable_lamps = []
+		exportable_cameras = []
 
 		for ob in scene.objects:
 			if ob.type == 'CAMERA': 
-				continue
-			if ob.type == 'LAMP': 
-				continue
-			exportable_objects.append(ob)
-			if ob.type == 'MESH':
-				mesh = ob.data.name
-				if mesh in exportable_meshes:
-					continue
-				exportable_meshes.append(mesh)
+				exportable_cameras.append(ob)
+			elif ob.type == 'LAMP': 
+				exportable_lamps.append(ob)
+			else:
+				exportable_objects.append(ob)
+				if ob.type == 'MESH':
+					mesh = ob.data.name
+					if mesh in exportable_meshes:
+						continue
+					exportable_meshes.append(mesh)
 
+		write_int(writer, len(exportable_cameras))
+		write_int(writer, len(exportable_lamps))
 		write_int(writer, len(exportable_objects))
 		write_int(writer, len(exportable_meshes))
+
+		for cam in exportable_cameras:
+			write_camera(writer, cam)
+
+		for lamp in exportable_lamps:
+			write_lamp(writer, lamp)
 
 		for ob in exportable_objects:
 			write_object(writer, ob)

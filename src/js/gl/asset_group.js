@@ -1,6 +1,7 @@
 gb.Asset_Group = function()
 {
     this.shaders = {};
+    this.entities = {};
     this.meshes = {};
     this.textures = {};
     this.sounds = {};
@@ -20,25 +21,22 @@ gb.load_asset_group = function(url, asset_group, on_load, on_progress)
 gb.on_asset_load = function(e)
 {
 	// NOTE: asset data encoded in little endian (x86)
+    console.log(e.target);
     if(e.target.status === 200)
     {
         var s = gb.serialize;
         var br = new gb.Binary_Reader(e.target.response);
         var ag = e.target.upload.asset_group;
 
-        //console.log(ag);
-
         var header = s.r_i32_array(br, 3);
         var n_shaders = header[0];
-        var n_meshes = header[1];
+        var n_scenes = header[1];
         var n_textures = header[2];
-        //var n_sounds = header[3];
 
         //DEBUG
         console.log("Shaders: " + n_shaders);
-        console.log("Meshes: " + n_meshes);
+        console.log("Scenes: " + n_scenes);
         console.log("Textures: " + n_textures);
-        //console.log("Sounds: " + n_sounds);
         //END
 
         for(var i = 0; i < n_shaders; ++i)
@@ -50,12 +48,43 @@ gb.on_asset_load = function(e)
             //END
         }
 
-        for(var i = 0; i < n_meshes; ++i)
+        for(var i = 0; i < n_scenes; ++i)
         {
         	var name = s.r_string(br);
-            ag.meshes[name] = s.r_mesh(br);
+            var n_entities = s.r_i32(br);
+            var n_meshes = s.r_i32(br);
+
+            console.log("Entities: " + n_entities);
+            console.log("Meshes: " + n_meshes);
+
+            for(var j = 0; j < n_entities; ++j)
+            {
+                //s.r_entity(br);
+                console.log("Name: " + s.r_string(br));
+                console.log("Parent: " + s.r_string(br));
+                console.log("Material: " + s.r_string(br));
+                console.log("X: " + s.r_f32(br));
+                console.log("Y: " + s.r_f32(br));
+                console.log("Z: " + s.r_f32(br));
+                console.log("SX: " + s.r_f32(br));
+                console.log("SY: " + s.r_f32(br));
+                console.log("SZ: " + s.r_f32(br));
+                console.log("QX: " + s.r_f32(br));
+                console.log("QY: " + s.r_f32(br));
+                console.log("QZ: " + s.r_f32(br));
+                console.log("QW: " + s.r_f32(br));
+            }
+            for(var m = 0; m < n_meshes; ++m)
+            {
+                var mesh_name = s.r_string(br);
+                var mesh = s.r_mesh(br);
+                mesh.name = mesh_name;
+                ag.meshes[mesh_name] = mesh;
+                //console.log("Loaded Mesh: " + mesh_name);
+            }
+            //ag.scenes[name] = s.r_scene(br);
              //DEBUG
-            console.log("Loaded Mesh: " + name);
+            console.log("Loaded Scene: " + name);
             //END
         }
         
@@ -81,14 +110,6 @@ gb.on_asset_load = function(e)
                 //END
             }
         }
-
-
-        /*
-        //test wav / ogg
-        for(var i = 0; i < n_sounds; ++i)
-            s.r_wav(br);
-        */
-              
         e.target.upload.callback(ag);    
     }
     else
@@ -110,6 +131,5 @@ gb.link_asset_group = function(asset_group, callback)
     {
         gb.webgl.link_texture(asset_group.textures[t]);
     }
-    //audio
     callback();
 }

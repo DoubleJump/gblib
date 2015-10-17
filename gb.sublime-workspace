@@ -523,23 +523,31 @@
 			"file": "build/main.js",
 			"settings":
 			{
-				"buffer_size": 54081,
+				"buffer_size": 90838,
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "src/js/main.js",
+			"file": "src/js/gl/shader.js",
 			"settings":
 			{
-				"buffer_size": 368,
+				"buffer_size": 1463,
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "src/js/demos/diamond.js",
+			"file": "src/js/gl/webgl.js",
 			"settings":
 			{
-				"buffer_size": 3208,
+				"buffer_size": 13994,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "src/js/demos/pbr.js",
+			"settings":
+			{
+				"buffer_size": 3914,
 				"line_ending": "Windows"
 			}
 		},
@@ -547,65 +555,49 @@
 			"file": "build/style.css",
 			"settings":
 			{
-				"buffer_size": 216,
+				"buffer_size": 251,
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "src/js/matrix.js",
+			"file": "src/glsl/debug.glsl",
 			"settings":
 			{
-				"buffer_size": 11123,
+				"buffer_size": 279,
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "src/js/canvas/scene.js",
+			"contents": "#5a2194 90 33 148\n#00eccc\n#b855f2",
 			"settings":
 			{
-				"buffer_size": 3018,
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"file": "src/js/canvas/canvas.js",
-			"settings":
-			{
-				"buffer_size": 6290,
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"contents": "/**\n * @fileoverview dds - Utilities for loading DDS texture files\n * @author Brandon Jones\n * @version 0.1\n */\n\n/*\n * Copyright (c) 2012 Brandon Jones\n *\n * This software is provided 'as-is', without any express or implied\n * warranty. In no event will the authors be held liable for any damages\n * arising from the use of this software.\n *\n * Permission is granted to anyone to use this software for any purpose,\n * including commercial applications, and to alter it and redistribute it\n * freely, subject to the following restrictions:\n *\n *    1. The origin of this software must not be misrepresented; you must not\n *    claim that you wrote the original software. If you use this software\n *    in a product, an acknowledgment in the product documentation would be\n *    appreciated but is not required.\n *\n *    2. Altered source versions must be plainly marked as such, and must not\n *    be misrepresented as being the original software.\n *\n *    3. This notice may not be removed or altered from any source\n *    distribution.\n */\n\n(function(global) {\n\n    \"use strict\";\n    \n    // All values and structures referenced from:\n    // http://msdn.microsoft.com/en-us/library/bb943991.aspx/\n    var DDS_MAGIC = 0x20534444;\n    \n    var DDSD_CAPS = 0x1,\n        DDSD_HEIGHT = 0x2,\n        DDSD_WIDTH = 0x4,\n        DDSD_PITCH = 0x8,\n        DDSD_PIXELFORMAT = 0x1000,\n        DDSD_MIPMAPCOUNT = 0x20000,\n        DDSD_LINEARSIZE = 0x80000,\n        DDSD_DEPTH = 0x800000;\n\n    var DDSCAPS_COMPLEX = 0x8,\n        DDSCAPS_MIPMAP = 0x400000,\n        DDSCAPS_TEXTURE = 0x1000;\n        \n    var DDSCAPS2_CUBEMAP = 0x200,\n        DDSCAPS2_CUBEMAP_POSITIVEX = 0x400,\n        DDSCAPS2_CUBEMAP_NEGATIVEX = 0x800,\n        DDSCAPS2_CUBEMAP_POSITIVEY = 0x1000,\n        DDSCAPS2_CUBEMAP_NEGATIVEY = 0x2000,\n        DDSCAPS2_CUBEMAP_POSITIVEZ = 0x4000,\n        DDSCAPS2_CUBEMAP_NEGATIVEZ = 0x8000,\n        DDSCAPS2_VOLUME = 0x200000;\n\n    var DDPF_ALPHAPIXELS = 0x1,\n        DDPF_ALPHA = 0x2,\n        DDPF_FOURCC = 0x4,\n        DDPF_RGB = 0x40,\n        DDPF_YUV = 0x200,\n        DDPF_LUMINANCE = 0x20000;\n\n    function FourCCToInt32(value) {\n        return value.charCodeAt(0) +\n            (value.charCodeAt(1) << 8) +\n            (value.charCodeAt(2) << 16) +\n            (value.charCodeAt(3) << 24);\n    }\n\n    function Int32ToFourCC(value) {\n        return String.fromCharCode(\n            value & 0xff,\n            (value >> 8) & 0xff,\n            (value >> 16) & 0xff,\n            (value >> 24) & 0xff\n        );\n    }\n\n    var FOURCC_DXT1 = FourCCToInt32(\"DXT1\");\n    var FOURCC_DXT5 = FourCCToInt32(\"DXT5\");\n\n    var headerLengthInt = 31; // The header length in 32 bit ints\n\n    // Offsets into the header array\n    var off_magic = 0;\n\n    var off_size = 1;\n    var off_flags = 2;\n    var off_height = 3;\n    var off_width = 4;\n\n    var off_mipmapCount = 7;\n\n    var off_pfFlags = 20;\n    var off_pfFourCC = 21;\n    \n    // Little reminder for myself where the above values come from\n    /*DDS_PIXELFORMAT {\n        int32 dwSize; // offset: 19\n        int32 dwFlags;\n        char[4] dwFourCC;\n        int32 dwRGBBitCount;\n        int32 dwRBitMask;\n        int32 dwGBitMask;\n        int32 dwBBitMask;\n        int32 dwABitMask; // offset: 26\n    };\n    \n    DDS_HEADER {\n        int32 dwSize; // 1\n        int32 dwFlags; \n        int32 dwHeight;\n        int32 dwWidth;\n        int32 dwPitchOrLinearSize;\n        int32 dwDepth;\n        int32 dwMipMapCount; // offset: 7\n        int32[11] dwReserved1;\n        DDS_PIXELFORMAT ddspf; // offset 19\n        int32 dwCaps; // offset: 27\n        int32 dwCaps2;\n        int32 dwCaps3;\n        int32 dwCaps4;\n        int32 dwReserved2; // offset 31\n    };*/\n\n    /**\n     * Parses a DDS file from the given arrayBuffer and uploads it into the currently bound texture\n     *\n     * @param {WebGLRenderingContext} gl WebGL rendering context\n     * @param {WebGLCompressedTextureS3TC} ext WEBGL_compressed_texture_s3tc extension object\n     * @param {TypedArray} arrayBuffer Array Buffer containing the DDS files data\n     * @param {boolean} [loadMipmaps] If false only the top mipmap level will be loaded, otherwise all available mipmaps will be uploaded\n     *\n     * @returns {number} Number of mipmaps uploaded, 0 if there was an error\n     */\n    var uploadDDSLevels = global.uploadDDSLevels = function (gl, ext, arrayBuffer, loadMipmaps) {\n        var header = new Int32Array(arrayBuffer, 0, headerLengthInt),\n            fourCC, blockBytes, internalFormat,\n            width, height, dataLength, dataOffset,\n            byteArray, mipmapCount, i;\n\n        if(header[off_magic] != DDS_MAGIC) {\n            console.error(\"Invalid magic number in DDS header\");\n            return 0;\n        }\n        \n        if(!header[off_pfFlags] & DDPF_FOURCC) {\n            console.error(\"Unsupported format, must contain a FourCC code\");\n            return 0;\n        }\n\n        fourCC = header[off_pfFourCC];\n        switch(fourCC) {\n            case FOURCC_DXT1:\n                blockBytes = 8;\n                internalFormat = ext.COMPRESSED_RGBA_S3TC_DXT1_EXT;\n                break;\n\n            case FOURCC_DXT5: \n                blockBytes = 16;\n                internalFormat = ext.COMPRESSED_RGBA_S3TC_DXT5_EXT;\n                break;\n\n            default:\n                console.error(\"Unsupported FourCC code:\", Int32ToFourCC(fourCC));\n                return null;\n        }\n\n        mipmapCount = 1;\n        if(header[off_flags] & DDSD_MIPMAPCOUNT && loadMipmaps !== false) {\n            mipmapCount = Math.max(1, header[off_mipmapCount]);\n        }\n\n        width = header[off_width];\n        height = header[off_height];\n        dataOffset = header[off_size] + 4;\n\n        for(i = 0; i < mipmapCount; ++i) {\n            dataLength = Math.max( 4, width )/4 * Math.max( 4, height )/4 * blockBytes;\n            byteArray = new Uint8Array(arrayBuffer, dataOffset, dataLength);\n            gl.compressedTexImage2D(gl.TEXTURE_2D, i, internalFormat, width, height, 0, byteArray);\n            dataOffset += dataLength;\n            width *= 0.5;\n            height *= 0.5;\n        }\n\n        return mipmapCount;\n    }\n\n    /**\n     * Creates a texture from the DDS file at the given URL. Simple shortcut for the most common use case\n     *\n     * @param {WebGLRenderingContext} gl WebGL rendering context\n     * @param {WebGLCompressedTextureS3TC} ext WEBGL_compressed_texture_s3tc extension object\n     * @param {string} src URL to DDS file to be loaded\n     * @param {function} [callback] callback to be fired when the texture has finished loading\n     *\n     * @returns {WebGLTexture} New texture that will receive the DDS image data\n     */\n    global.loadDDSTexture = function(gl, ext, src, callback) {\n        var texture = gl.createTexture(),\n            ddsXhr = new XMLHttpRequest();\n        \n        ddsXhr.open('GET', src, true);\n        ddsXhr.responseType = \"arraybuffer\";\n        ddsXhr.onload = function() {\n            gl.bindTexture(gl.TEXTURE_2D, texture);\n            var mipmaps = uploadDDSLevels(gl, ext, this.response);\n            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);\n            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mipmaps > 1 ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);\n            \n            if(callback) {\n                callback(texture);\n            }\n        };\n        ddsXhr.send(null);\n\n        return texture;\n    }\n\n})((typeof(exports) != 'undefined') ? global : window); // Account for CommonJS environments",
-			"settings":
-			{
-				"buffer_size": 7525,
+				"buffer_size": 33,
 				"line_ending": "Windows",
-				"name": "/**"
+				"name": "#5a2194 90 33 148"
 			}
 		},
 		{
-			"contents": "Reading file: main.js\nReading file: demos/diamond.js\nReading file: gb.js\nReading file: dom/dom.js\nReading file: stack.js\nReading file: math.js\nReading file: matrix.js\nReading file: vector.js\nReading file: quaternion.js\nReading file: rect.js\nReading file: bezier.js\nReading file: color.js\nReading file: time.js\nReading file: intersect.js\nReading file: canvas/canvas.js\nReading file: canvas/scene.js\nReading file: input.js\nReading file: random.js\nReading file: animate.js\nCompiled shader: flat\nCompiled shader: pbr\nCompiled shader: shader\nCompiled shader: textured\nCompiled mesh: sphere\n[Finished in 0.2s]",
+			"contents": "Reading file: main.js\nReading file: demos/pbr.js\nReading file: gb.js\nReading file: dom/dom.js\nReading file: stack.js\nReading file: time.js\nReading file: math.js\nReading file: serialize.js\nReading file: audio.js\nReading file: vector.js\nReading file: quaternion.js\nReading file: matrix.js\nReading file: rect.js\nReading file: aabb.js\nReading file: ray.js\nReading file: bezier.js\nReading file: intersect.js\nReading file: color.js\nReading file: random.js\nReading file: input.js\nReading file: animate.js\nReading file: gl/camera.js\nReading file: gl/scene.js\nReading file: gl/mesh.js\nReading file: gl/mesh_tools.js\nReading file: gl/texture.js\nReading file: gl/dds.js\nReading file: gl/shader.js\nReading file: gl/render_target.js\nReading file: gl/webgl.js\nReading file: gl/asset_group.js\nReading file: gl/sprite.js\nReading file: gl/draw.js\nReading file: gl/debug.js\nCompiled shader: flat\nCompiled shader: pbr\nCompiled shader: screen\nCompiled shader: shader\nCompiled shader: textured\nCompiled mesh: sphere\n[Finished in 0.2s]",
 			"settings":
 			{
-				"buffer_size": 604,
+				"buffer_size": 1013,
 				"line_ending": "Windows",
 				"name": "Build output",
 				"scratch": true
 			}
 		},
 		{
-			"contents": "Reading file: main.js\nReading file: demos/diamond.js\nReading file: gb.js\nReading file: dom/dom.js\nReading file: stack.js\nReading file: math.js\nReading file: matrix.js\nReading file: vector.js\nReading file: quaternion.js\nReading file: rect.js\nReading file: bezier.js\nReading file: color.js\nReading file: time.js\nReading file: intersect.js\nReading file: canvas/canvas.js\nReading file: canvas/scene.js\nReading file: input.js\nReading file: random.js\nReading file: animate.js\nCompiled shader: flat\nCompiled shader: pbr\nCompiled shader: shader\nCompiled shader: textured\nCompiled mesh: sphere\n[Finished in 0.3s]",
+			"contents": "Reading file: main.js\nReading file: demos/pbr.js\nReading file: gb.js\nReading file: dom/dom.js\nReading file: stack.js\nReading file: time.js\nReading file: math.js\nReading file: serialize.js\nReading file: audio.js\nReading file: vector.js\nReading file: quaternion.js\nReading file: matrix.js\nReading file: rect.js\nReading file: aabb.js\nReading file: ray.js\nReading file: bezier.js\nReading file: intersect.js\nReading file: color.js\nReading file: random.js\nReading file: input.js\nReading file: animate.js\nReading file: gl/camera.js\nReading file: gl/scene.js\nReading file: gl/mesh.js\nReading file: gl/mesh_tools.js\nReading file: gl/texture.js\nReading file: gl/dds.js\nReading file: gl/shader.js\nReading file: gl/render_target.js\nReading file: gl/webgl.js\nReading file: gl/asset_group.js\nReading file: gl/sprite.js\nReading file: gl/draw.js\nReading file: gl/debug.js\nCompiled shader: debug\nCompiled shader: pbr\nCompiled shader: screen\nCompiled mesh: cube\nCompiled mesh: monkey\nCompiled mesh: sphere\nCompiled mesh: text\n[Finished in 0.2s]",
 			"settings":
 			{
-				"buffer_size": 604,
+				"buffer_size": 1027,
 				"line_ending": "Windows",
 				"name": "Build output",
 				"scratch": true
 			}
 		}
 	],
-	"build_system": "Packages/User/JS.sublime-build",
+	"build_system": "Packages/User/Shell.sublime-build",
 	"build_system_choices":
 	[
 		[
@@ -621,6 +613,22 @@
 			],
 			[
 				"Packages/User/JS.sublime-build",
+				""
+			]
+		],
+		[
+			[
+				[
+					"Packages/User/Shell.sublime-build",
+					""
+				],
+				[
+					"Packages/User/Shell.sublime-build",
+					"Run"
+				]
+			],
+			[
+				"Packages/User/Shell.sublime-build",
 				""
 			]
 		]
@@ -712,31 +720,49 @@
 	],
 	"file_history":
 	[
+		"/C/webdev/gblib/src/js/gl/texture.js",
+		"/C/webdev/gblib/src/js/gl/draw.js",
 		"/C/webdev/gblib/src/js/gl/scene.js",
-		"/C/webdev/gblib/src/js/gb.js",
-		"/C/webdev/gblib/src/js/demos/shapes.js",
-		"/C/webdev/gblib/src/js/matrix.js",
-		"/C/webdev/gblib/src/js/canvas/scene.js",
-		"/C/webdev/gblib/build/index.html",
-		"/C/webdev/gblib/src/js/gl/webgl.js",
-		"/C/webdev/gblib/src/js/demos/pbr.js",
+		"/C/webdev/gblib/src/js/gl/mesh.js",
+		"/C/webdev/gblib/src/glsl/pbr.glsl",
+		"/C/webdev/gblib/src/glsl/debug.glsl",
+		"/C/webdev/gblib/src/glsl/screen.glsl",
 		"/C/webdev/gblib/src/js/gl/debug.js",
+		"/C/webdev/gblib/src/py/resource_compiler.py",
+		"/C/webdev/gblib/src/glsl/textured.glsl",
+		"/C/webdev/gblib/src/js/gl/camera.js",
+		"/C/webdev/gblib/src/js/matrix.js",
+		"/C/webdev/gblib/src/js/gb.js",
+		"/C/webdev/gblib/src/js/gl/asset_group.js",
+		"/C/webdev/gblib/src/js/serialize.js",
+		"/C/webdev/gblib/src/js/gl/webgl.js",
+		"/C/archive/dds loader.js",
+		"/C/webdev/gblib/src/js/demos/header.js",
+		"/C/webdev/gblib/src/js/demos/pbr.js",
+		"/C/webdev/gblib/src/js/gl/shader.js",
+		"/C/webdev/gblib/src/py/io_export_onyx_json.py",
+		"/C/webdev/gblib/src/js/gl/mesh_tools.js",
+		"/C/webdev/gblib/src/js/gl/render_target.js",
+		"/C/webdev/gblib/src/js/gl/dds.js",
+		"/C/webdev/gblib/src/glsl/flat.glsl",
+		"/C/webdev/gblib/src/js/canvas/scene.js",
+		"/C/webdev/gblib/src/js/gl/pvr.js",
+		"/C/webdev/gblib/build/style.css",
+		"/C/webdev/gblib/src/js/main.js",
 		"/C/webdev/gblib/src/js/canvas/canvas.js",
+		"/C/webdev/gblib/src/js/demos/diamond.js",
+		"/C/webdev/gblib/src/js/demos/shapes.js",
+		"/C/webdev/gblib/build/index.html",
 		"/C/webdev/gblib/src/js/canvas.js",
 		"/C/webdev/gblib/src/js/debug.js",
-		"/C/webdev/gblib/src/js/serialize.js",
 		"/C/webdev/gblib/src/js/scene.js",
 		"/C/webdev/gblib/src/js/dom.js",
 		"/C/webdev/gblib/src/js/webgl.js",
-		"/C/webdev/gblib/src/glsl/pbr.glsl",
-		"/C/webdev/gblib/build/style.css",
 		"/C/webdev/gblib/src/js/demos/impulse.js",
 		"/C/webdev/gblib/src/js/socket.js",
 		"/C/webdev/gblib/src/js/camera.js",
-		"/C/webdev/gblib/src/glsl/textured.glsl",
 		"/C/webdev/gblib/src/js/gl_draw.js",
 		"/C/webdev/gblib/src/js/demos/wgl_dev.js",
-		"/C/webdev/gblib/src/js/main.js",
 		"/C/webdev/gblib/src/js/asset_group.js",
 		"/C/webdev/BrakingBadly/onyx/src/ts/meshtools.ts",
 		"/C/webdev/gblib/src/js/time.js",
@@ -751,7 +777,6 @@
 		"/C/webdev/gblib/src/js/bezier.js",
 		"/C/webdev/gblib/src/js/demos/lines3.js",
 		"/C/webdev/gblib/src/js/demos/lines2.js",
-		"/C/webdev/gblib/src/glsl/flat.glsl",
 		"/C/webdev/gblib/src/js/color.js",
 		"/C/webdev/gblib/src/js/ajax.js",
 		"/C/webdev/gblib/src/js/demos/lines.js",
@@ -789,7 +814,6 @@
 		"/C/webdev/gblib/src/glsl/shader.glsl",
 		"/C/webdev/gblib/src/js/aabb.js",
 		"/C/webdev/gblib/src/js/ray.js",
-		"/C/webdev/gblib/src/py/resource_compiler.py",
 		"/C/Parallax/gblib-master/gblib-master/src/js/bezier.js",
 		"/C/Parallax/gblib-master/gblib-master/src/js/random.js",
 		"/C/Parallax/gblib-master/gblib-master/src/js/input.js",
@@ -823,27 +847,11 @@
 		"/C/webdev/Onyx2/build/onyx.html",
 		"/C/webdev/Onyx2/src/js/time.js",
 		"/C/webdev/Onyx2/src/js/texture.js",
-		"/C/webdev/Onyx2/src/js/serialize.js",
-		"/C/webdev/Onyx2/src/js/scene.js",
-		"/C/webdev/Onyx2/src/js/random.js",
-		"/C/webdev/Onyx2/src/js/mesh_tools.js",
-		"/C/webdev/Onyx2/src/js/mesh.js",
-		"/C/webdev/Onyx2/src/js/math.js",
-		"/C/webdev/Onyx2/src/js/input.js",
-		"/C/webdev/Onyx2/src/js/gl_types.js",
-		"/C/webdev/Onyx2/src/js/dom.js",
-		"/C/webdev/Onyx2/src/js/debug.js",
-		"/C/webdev/Onyx2/src/js/camera.js",
-		"/C/webdev/Onyx2/src/js/asset_group.js",
-		"/C/webdev/Onyx2/build/fft.js",
-		"/C/webdev/BrakingBadly/onyx/src/ts/draw.ts",
-		"/C/webdev/Onyx2/src/glsl/flat.glsl",
-		"/C/webdev/BrakingBadly/onyx/src/ts/mesh.ts",
-		"/C/webdev/BrakingBadly/onyx/src/ts/scene.ts"
+		"/C/webdev/Onyx2/src/js/serialize.js"
 	],
 	"find":
 	{
-		"height": 34.0
+		"height": 24.0
 	},
 	"find_in_files":
 	{
@@ -1131,7 +1139,7 @@
 	"groups":
 	[
 		{
-			"selected": 2,
+			"selected": 4,
 			"sheets":
 			[
 				{
@@ -1140,15 +1148,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 54081,
+						"buffer_size": 90838,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								33683,
-								33683
+								69240,
+								69240
 							]
 						],
 						"settings":
@@ -1157,55 +1165,57 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 29526.0,
+						"translation.y": 52429.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "src/js/gl/shader.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1463,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1396,
+								1396
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 485.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 6,
 					"type": "text"
 				},
 				{
-					"buffer": 1,
-					"file": "src/js/main.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 368,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								367,
-								367
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.tmLanguage"
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 7,
-					"type": "text"
-				},
-				{
 					"buffer": 2,
-					"file": "src/js/demos/diamond.js",
+					"file": "src/js/gl/webgl.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 3208,
+						"buffer_size": 13994,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								2926,
-								2926
+								12604,
+								12604
 							]
 						],
 						"settings":
@@ -1214,27 +1224,56 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 2292.0,
+						"translation.y": 8417.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 0,
+					"stack_index": 5,
 					"type": "text"
 				},
 				{
 					"buffer": 3,
-					"file": "build/style.css",
+					"file": "src/js/demos/pbr.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 216,
+						"buffer_size": 3914,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								110,
-								110
+								1474,
+								1474
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 1714.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"file": "build/style.css",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 251,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								249,
+								249
 							]
 						],
 						"settings":
@@ -1246,62 +1285,32 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 5,
-					"type": "text"
-				},
-				{
-					"buffer": 4,
-					"file": "src/js/matrix.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 11123,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								5196,
-								5196
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": 0.0,
-						"translation.y": 7610.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 3,
+					"stack_index": 0,
 					"type": "text"
 				},
 				{
 					"buffer": 5,
-					"file": "src/js/canvas/scene.js",
+					"file": "src/glsl/debug.glsl",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 3018,
+						"buffer_size": 279,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								2623,
-								2623
+								271,
+								271
 							]
 						],
 						"settings":
 						{
-							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
-							"translate_tabs_to_spaces": false
+							"syntax": "Packages/Text/Plain text.tmLanguage"
 						},
 						"translation.x": 0.0,
-						"translation.y": 2189.0,
+						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 4,
@@ -1309,37 +1318,36 @@
 				},
 				{
 					"buffer": 6,
-					"file": "src/js/canvas/canvas.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 6290,
+						"buffer_size": 33,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								1457,
-								1457
+								17,
+								8
 							]
 						],
 						"settings":
 						{
-							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
-							"translate_tabs_to_spaces": false
+							"auto_name": "#5a2194 90 33 148",
+							"syntax": "Packages/Text/Plain text.tmLanguage"
 						},
 						"translation.x": 0.0,
-						"translation.y": 757.0,
+						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 1,
+					"stack_index": 3,
 					"type": "text"
 				}
 			]
 		},
 		{
-			"selected": 2,
+			"selected": 1,
 			"sheets":
 			[
 				{
@@ -1347,45 +1355,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 7525,
+						"buffer_size": 1013,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								2765,
-								2774
-							]
-						],
-						"settings":
-						{
-							"auto_name": "/**",
-							"syntax": "Packages/Text/Plain text.tmLanguage",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 2718.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 9,
-					"type": "text"
-				},
-				{
-					"buffer": 8,
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 604,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								604,
-								604
+								0,
+								0
 							]
 						],
 						"settings":
@@ -1400,19 +1378,19 @@
 					"type": "text"
 				},
 				{
-					"buffer": 9,
+					"buffer": 8,
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 604,
+						"buffer_size": 1027,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								604,
-								604
+								1027,
+								1027
 							]
 						],
 						"settings":
@@ -1423,7 +1401,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 2,
+					"stack_index": 7,
 					"type": "text"
 				}
 			]
@@ -1431,7 +1409,7 @@
 	],
 	"incremental_find":
 	{
-		"height": 23.0
+		"height": 24.0
 	},
 	"input":
 	{
@@ -1466,7 +1444,7 @@
 			1.0
 		]
 	},
-	"menu_visible": true,
+	"menu_visible": false,
 	"output.doc":
 	{
 		"height": 0.0
@@ -1479,11 +1457,11 @@
 	{
 		"height": 0.0
 	},
-	"pinned_build_system": "Packages/User/JS.sublime-build",
+	"pinned_build_system": "Packages/User/Shell.sublime-build",
 	"project": "gb.sublime-project",
 	"replace":
 	{
-		"height": 62.0
+		"height": 44.0
 	},
 	"save_all_on_build": true,
 	"select_file":
@@ -1493,24 +1471,132 @@
 		"selected_items":
 		[
 			[
+				"css",
+				"build\\style.css"
+			],
+			[
+				"draw",
+				"src\\js\\gl\\draw.js"
+			],
+			[
+				"tex",
+				"src\\js\\gl\\texture.js"
+			],
+			[
 				"sce",
 				"src\\js\\gl\\scene.js"
 			],
 			[
-				"css",
-				"build\\style.css"
+				"mesh",
+				"src\\js\\gl\\mesh.js"
+			],
+			[
+				"debug",
+				"src\\glsl\\debug.glsl"
+			],
+			[
+				"scree",
+				"src\\glsl\\screen.glsl"
+			],
+			[
+				"deb",
+				"src\\js\\gl\\debug.js"
+			],
+			[
+				"pbr",
+				"src\\glsl\\pbr.glsl"
+			],
+			[
+				"camera",
+				"src\\js\\gl\\camera.js"
+			],
+			[
+				"mat",
+				"src\\js\\matrix.js"
+			],
+			[
+				"pb",
+				"src\\js\\demos\\pbr.js"
+			],
+			[
+				"shader",
+				"src\\js\\gl\\shader.js"
+			],
+			[
+				"gb",
+				"src\\js\\gb.js"
+			],
+			[
+				"web",
+				"src\\js\\gl\\webgl.js"
+			],
+			[
+				"ser",
+				"src\\js\\serialize.js"
+			],
+			[
+				"sh",
+				"src\\js\\gl\\shader.js"
+			],
+			[
+				"ass",
+				"src\\js\\gl\\asset_group.js"
+			],
+			[
+				"head",
+				"src\\js\\demos\\header.js"
+			],
+			[
+				"webl",
+				"src\\js\\gl\\webgl.js"
+			],
+			[
+				"shade",
+				"src\\js\\gl\\shader.js"
+			],
+			[
+				"as",
+				"src\\js\\gl\\asset_group.js"
+			],
+			[
+				"io",
+				"src\\py\\io_export_onyx_json.py"
+			],
+			[
+				"comp",
+				"src\\py\\resource_compiler.py"
+			],
+			[
+				"glsl",
+				"src\\glsl\\textured.glsl"
+			],
+			[
+				"ren",
+				"src\\js\\gl\\render_target.js"
+			],
+			[
+				"dd",
+				"src\\js\\gl\\dds.js"
+			],
+			[
+				"fa",
+				"src\\glsl\\flat.glsl"
+			],
+			[
+				"dds",
+				"src\\js\\gl\\dds.js"
 			],
 			[
 				"matr",
 				"src\\js\\matrix.js"
 			],
 			[
-				"sc",
-				"src\\js\\canvas\\scene.js"
+				"we",
+				"src\\js\\gl\\webgl.js"
 			],
 			[
-				"gb",
-				"src\\js\\gb.js"
+				"sc",
+				"src\\js\\canvas\\scene.js"
 			],
 			[
 				"demos",
@@ -1525,24 +1611,12 @@
 				"src\\js\\matrix.js"
 			],
 			[
-				"web",
-				"src\\js\\gl\\webgl.js"
-			],
-			[
 				"de",
 				"src\\js\\gl\\debug.js"
 			],
 			[
-				"pbr",
-				"src\\js\\demos\\pbr.js"
-			],
-			[
 				"canv",
 				"src\\js\\canvas\\canvas.js"
-			],
-			[
-				"deb",
-				"src\\js\\debug.js"
 			],
 			[
 				"seri",
@@ -1559,10 +1633,6 @@
 			[
 				"m",
 				"src\\js\\main.js"
-			],
-			[
-				"pb",
-				"src\\js\\demos\\pbr.js"
 			],
 			[
 				"st",
@@ -1593,36 +1663,12 @@
 				"src\\js\\demos\\wgl_dev.js"
 			],
 			[
-				"we",
-				"src\\js\\demos\\wgl_dev.js"
-			],
-			[
-				"mat",
-				"src\\js\\matrix.js"
-			],
-			[
 				"scen",
 				"src\\js\\scene.js"
 			],
 			[
-				"glsl",
-				"src\\glsl\\textured.glsl"
-			],
-			[
-				"camera",
-				"src\\js\\camera.js"
-			],
-			[
-				"ass",
-				"src\\js\\asset_group.js"
-			],
-			[
 				"shap",
 				"src\\js\\demos\\shapes.js"
-			],
-			[
-				"mesh",
-				"src\\js\\mesh_tools.js"
 			],
 			[
 				"rand",
@@ -1785,14 +1831,6 @@
 				"src\\js\\quaternion.js"
 			],
 			[
-				"tex",
-				"src\\js\\texture.js"
-			],
-			[
-				"draw",
-				"src\\js\\gl_draw.js"
-			],
-			[
 				"te",
 				"src\\glsl\\textured.glsl"
 			],
@@ -1805,16 +1843,8 @@
 				"src\\js\\webgl.js"
 			],
 			[
-				"ren",
-				"src\\js\\render_target.js"
-			],
-			[
 				"cam",
 				"src\\js\\camera.js"
-			],
-			[
-				"shader",
-				"src\\js\\shader.js"
 			],
 			[
 				"colo",
@@ -1873,10 +1903,6 @@
 				"src\\js\\sprite.js"
 			],
 			[
-				"ser",
-				"src\\js\\serialize.js"
-			],
-			[
 				"text",
 				"src\\js\\texture.js"
 			],
@@ -1887,10 +1913,6 @@
 			[
 				"an",
 				"src\\js\\animate.js"
-			],
-			[
-				"as",
-				"src\\js\\asset_group.js"
 			],
 			[
 				"r",
@@ -1937,10 +1959,6 @@
 				"src\\js\\color.js"
 			],
 			[
-				"io",
-				"src\\py\\io_export_onyx_json.py"
-			],
-			[
 				"sha",
 				"src\\js\\shader.js"
 			],
@@ -1961,48 +1979,8 @@
 				"src\\py\\io_export_onyx_json.py"
 			],
 			[
-				"sh",
-				"src\\js\\shader.js"
-			],
-			[
 				"bui",
 				"build.py"
-			],
-			[
-				"aui",
-				"src\\js\\audio.js"
-			],
-			[
-				"i",
-				"src\\js\\audio.js"
-			],
-			[
-				"aj",
-				"src\\js\\ajax.js"
-			],
-			[
-				"at",
-				"src\\js\\matrix.js"
-			],
-			[
-				"qua",
-				"src\\js\\quaternion.js"
-			],
-			[
-				"debug",
-				"src\\js\\debug.js"
-			],
-			[
-				"debu",
-				"src\\js\\debug.js"
-			],
-			[
-				"render",
-				"src\\js\\renderer.js"
-			],
-			[
-				"on",
-				"src\\js\\onyx.js"
 			]
 		],
 		"width": 0.0

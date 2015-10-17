@@ -19,7 +19,7 @@ def compile_texture_file(name, ftype, src_file, writer):
 	write_bytes(writer, b)
 	return True
 
-def compile_mesh_file(name, src_file, writer):	
+def compile_scene_file(name, src_file, writer):	
 	b = src_file.read()
 	write_str(writer, name)
 	write_bytes(writer, b)
@@ -126,11 +126,11 @@ def main(argv = None):
 	writer.offset = 0 
 
 	n_shaders = 0;
-	n_meshes = 0;
+	n_scenes = 0;
 	n_textures = 0;
 
 	shaders = []
-	meshes = []
+	scenes = []
 	textures = []
 	
 	#count files
@@ -143,15 +143,15 @@ def main(argv = None):
 			asset.path = os.path.join(root, f)
 			if asset.file_type == "glsl":
 				shaders.append(asset)
-			elif asset.file_type == "mesh":
-				meshes.append(asset)
+			elif asset.file_type == "scene":
+				scenes.append(asset)
 			elif asset.file_type == "dds":
 				textures.append(asset)
 			elif asset.file_type == "pvr":
 				textures.append(asset)
 
 	write_int(writer, len(shaders))
-	write_int(writer, len(meshes))
+	write_int(writer, len(scenes))
 	write_int(writer, len(textures))
 
 	for s in shaders:
@@ -163,13 +163,13 @@ def main(argv = None):
 		print "Compiled shader: " + s.name
 		src.close()
 
-	for m in meshes:
-		src = open(m.path, "rb")
-		if not compile_mesh_file(m.name, src, writer):
-			print "Error compiling mesh: " + m.name + " ... exiting"
+	for s in scenes:
+		src = open(s.path, "rb")
+		if not compile_scene_file(s.name, src, writer):
+			print "Error compiling scene: " + s.name + " ... exiting"
 			src.close()
 			break
-		print "Compiled mesh: " + m.name
+		print "Compiled scene: " + s.name
 		src.close()
 
 	for t in textures:

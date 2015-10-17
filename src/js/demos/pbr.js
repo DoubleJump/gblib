@@ -15,7 +15,6 @@ TODO:
 //INCLUDE time.js
 //INCLUDE math.js
 //INCLUDE serialize.js
-//INCLUDE audio.js
 //INCLUDE vector.js
 //INCLUDE quaternion.js
 //INCLUDE matrix.js
@@ -111,7 +110,7 @@ function load_complete(asset_group)
 function link_complete()
 {
 	//DEBUG
-	gb.gl_draw.init({buffer_size: 160000});
+	//gb.gl_draw.init({buffer_size: 160000});
 	//END
 
 	render_target = gb.render_target.new(gl.view, 1 | 2);
@@ -122,7 +121,7 @@ function link_complete()
 	gb.scene.add_camera(construct, camera);
 
 	sphere = gb.entity.new();
-	sphere.mesh = assets.meshes.text;
+	sphere.mesh = assets.meshes.Cuboid;
 	gb.scene.add_entity(construct, sphere);
 	gb.entity.set_scale(sphere, 0.5,0.5,0.5);
 
@@ -140,8 +139,8 @@ function link_complete()
 	draw_call.target = render_target;
 	draw_call.material = gb.material.new(assets.shaders.pbr);
 
-	gb.gl_draw.draw_call.camera = camera;
-	gb.gl_draw.draw_call.target = render_target;
+	//gb.gl_draw.draw_call.camera = camera;
+	//gb.gl_draw.draw_call.target = render_target;
 
 	post_call = new gb.PostCall();
 	post_call.mesh = gb.mesh.generate.quad(2,2);
@@ -156,12 +155,11 @@ function update(t)
 
 	var dt = gb.time.dt; 
 
-	gb.gl_draw.clear();
+	//gb.gl_draw.clear();
 
 	gb.scene.update(construct);
 
 	//MODIFY MESH FOR LULZ
-
 	if(gb.input.held(gb.Keys.left))
 	{
 		light_position[0] -= dt;
@@ -188,14 +186,13 @@ function update(t)
 	{
 		light_position[2] -= dt;
 	}
-
-	gb.gl_draw.line(v3.tmp(0,0,0), light_position);
+	//gb.gl_draw.line(v3.tmp(0,0,0), light_position);
 	//gb.gl_draw.wire_mesh(sphere.mesh, sphere.world_matrix);
 
 	draw_call.material.uniforms.light_position = light_position;
 	
 	gb.webgl.render_draw_call(draw_call);
-	gb.webgl.render_draw_call(gb.gl_draw.draw_call);
+	//gb.webgl.render_draw_call(gb.gl_draw.draw_call);
 
 	post_call.material.uniforms.tex = render_target.color;
 	gl.render_post_call(post_call);

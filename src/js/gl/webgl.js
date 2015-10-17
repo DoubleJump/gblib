@@ -158,6 +158,7 @@ gb.webgl =
 			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, m.index_buffer.data, m.index_buffer.update_mode);
 		}
 		m.dirty = false;
+		console.log(m.vertex_count);
 	},
 	delete_mesh: function(m)
 	{
@@ -583,7 +584,7 @@ gb.webgl =
     screen_to_view: function(r, point, view)
     {
         r[0] = point[0] / view.width;
-        r[0] = 1.0 - (point[1] / view.height);
+        r[1] = 1.0 - (point[1] / view.height);
         r[2] = point[2];
         return r;
     },

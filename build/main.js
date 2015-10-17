@@ -331,66 +331,6 @@ gb.serialize =
 		return r;
 	},
 }
-gb.Sound = function()
-{
-	this.data;
-	this.volume;
-	//this.src;??
-}
-
-gb.audio = 
-{
-	ctx: null,
-	decode_count: 0,
-	//oscillator: null,
-	//gain: null,
-
-	init: function()
-	{
-		try 
-		{
-		    window.AudioContext = window.AudioContext || window.webkitAudioContext;
-		    this.ctx = new AudioContext();
-		}
-		catch(e) 
-		{
-		    console.error('Web Audio API could not be initialised: ' + e);
-		}
-	},
-
-	/*
-	decode: function(sounds)
-	{
-		this.decode_count = sounds.length;
-		for(var i = 0; i < this.decode_count; ++i)
-		{
-			this.ctx.decodeAudio(sounds[i].buffer, on_decode);
-		}
-	},
-
-	on_decode: function(n, buffer)
-	{
-		this.decode_count--;
-		if(this.decode_count === 0)
-		{
-			gb.load_complete(1);
-		}
-	}
-
-	play: function(s)
-	{
-		var src = this.ctx.createBufferSource();
-		src.buffer = s.buffer;
-		src.connect(this.ctx.destination);
-		src.start(0);
-	},
-
-	cross_face: function(s)
-	{
-
-	},
-	*/
-}
 gb.Vec2 = function(x,y)
 {
 	return new Float32Array(2);
@@ -2764,6 +2704,7 @@ gb.Index_Buffer = function()
 }
 gb.Mesh = function()
 {
+	this.name;
 	this.layout;
 	this.vertex_buffer = null;
 	this.vertex_count = 0;
@@ -2841,6 +2782,7 @@ gb.serialize.r_mesh = function(br)
 	var h = s.r_i32_array(br, 4);
 	var vertices = s.r_f32_array(br, h[1]);
 	var indices = s.r_u32_array(br, h[2]);
+	console.log(h);
 	return gb.mesh.new(h[0], vertices, h[3], indices);
 }
 gb.mesh.generate = 
@@ -3294,6 +3236,7 @@ gb.webgl =
 			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, m.index_buffer.data, m.index_buffer.update_mode);
 		}
 		m.dirty = false;
+		console.log(m.vertex_count);
 	},
 	delete_mesh: function(m)
 	{
@@ -3719,7 +3662,7 @@ gb.webgl =
     screen_to_view: function(r, point, view)
     {
         r[0] = point[0] / view.width;
-        r[0] = 1.0 - (point[1] / view.height);
+        r[1] = 1.0 - (point[1] / view.height);
         r[2] = point[2];
         return r;
     },
@@ -3739,6 +3682,7 @@ gb.webgl =
 gb.Asset_Group = function()
 {
     this.shaders = {};
+    this.entities = {};
     this.meshes = {};
     this.textures = {};
     this.sounds = {};
@@ -3758,25 +3702,22 @@ gb.load_asset_group = function(url, asset_group, on_load, on_progress)
 gb.on_asset_load = function(e)
 {
 	// NOTE: asset data encoded in little endian (x86)
+    console.log(e.target);
     if(e.target.status === 200)
     {
         var s = gb.serialize;
         var br = new gb.Binary_Reader(e.target.response);
         var ag = e.target.upload.asset_group;
 
-        //console.log(ag);
-
         var header = s.r_i32_array(br, 3);
         var n_shaders = header[0];
-        var n_meshes = header[1];
+        var n_scenes = header[1];
         var n_textures = header[2];
-        //var n_sounds = header[3];
 
         //DEBUG
         console.log("Shaders: " + n_shaders);
-        console.log("Meshes: " + n_meshes);
+        console.log("Scenes: " + n_scenes);
         console.log("Textures: " + n_textures);
-        //console.log("Sounds: " + n_sounds);
         //END
 
         for(var i = 0; i < n_shaders; ++i)
@@ -3788,12 +3729,43 @@ gb.on_asset_load = function(e)
             //END
         }
 
-        for(var i = 0; i < n_meshes; ++i)
+        for(var i = 0; i < n_scenes; ++i)
         {
         	var name = s.r_string(br);
-            ag.meshes[name] = s.r_mesh(br);
+            var n_entities = s.r_i32(br);
+            var n_meshes = s.r_i32(br);
+
+            console.log("Entities: " + n_entities);
+            console.log("Meshes: " + n_meshes);
+
+            for(var j = 0; j < n_entities; ++j)
+            {
+                //s.r_entity(br);
+                console.log("Name: " + s.r_string(br));
+                console.log("Parent: " + s.r_string(br));
+                console.log("Material: " + s.r_string(br));
+                console.log("X: " + s.r_f32(br));
+                console.log("Y: " + s.r_f32(br));
+                console.log("Z: " + s.r_f32(br));
+                console.log("SX: " + s.r_f32(br));
+                console.log("SY: " + s.r_f32(br));
+                console.log("SZ: " + s.r_f32(br));
+                console.log("QX: " + s.r_f32(br));
+                console.log("QY: " + s.r_f32(br));
+                console.log("QZ: " + s.r_f32(br));
+                console.log("QW: " + s.r_f32(br));
+            }
+            for(var m = 0; m < n_meshes; ++m)
+            {
+                var mesh_name = s.r_string(br);
+                var mesh = s.r_mesh(br);
+                mesh.name = mesh_name;
+                ag.meshes[mesh_name] = mesh;
+                //console.log("Loaded Mesh: " + mesh_name);
+            }
+            //ag.scenes[name] = s.r_scene(br);
              //DEBUG
-            console.log("Loaded Mesh: " + name);
+            console.log("Loaded Scene: " + name);
             //END
         }
         
@@ -3819,14 +3791,6 @@ gb.on_asset_load = function(e)
                 //END
             }
         }
-
-
-        /*
-        //test wav / ogg
-        for(var i = 0; i < n_sounds; ++i)
-            s.r_wav(br);
-        */
-              
         e.target.upload.callback(ag);    
     }
     else
@@ -3848,7 +3812,6 @@ gb.link_asset_group = function(asset_group, callback)
     {
         gb.webgl.link_texture(asset_group.textures[t]);
     }
-    //audio
     callback();
 }
 gb.Sprite = function()
@@ -4380,7 +4343,7 @@ function load_complete(asset_group)
 function link_complete()
 {
 	//DEBUG
-	gb.gl_draw.init({buffer_size: 160000});
+	//gb.gl_draw.init({buffer_size: 160000});
 	//END
 
 	render_target = gb.render_target.new(gl.view, 1 | 2);
@@ -4391,7 +4354,7 @@ function link_complete()
 	gb.scene.add_camera(construct, camera);
 
 	sphere = gb.entity.new();
-	sphere.mesh = assets.meshes.text;
+	sphere.mesh = assets.meshes.Cuboid;
 	gb.scene.add_entity(construct, sphere);
 	gb.entity.set_scale(sphere, 0.5,0.5,0.5);
 
@@ -4409,8 +4372,8 @@ function link_complete()
 	draw_call.target = render_target;
 	draw_call.material = gb.material.new(assets.shaders.pbr);
 
-	gb.gl_draw.draw_call.camera = camera;
-	gb.gl_draw.draw_call.target = render_target;
+	//gb.gl_draw.draw_call.camera = camera;
+	//gb.gl_draw.draw_call.target = render_target;
 
 	post_call = new gb.PostCall();
 	post_call.mesh = gb.mesh.generate.quad(2,2);
@@ -4425,12 +4388,11 @@ function update(t)
 
 	var dt = gb.time.dt; 
 
-	gb.gl_draw.clear();
+	//gb.gl_draw.clear();
 
 	gb.scene.update(construct);
 
 	//MODIFY MESH FOR LULZ
-
 	if(gb.input.held(gb.Keys.left))
 	{
 		light_position[0] -= dt;
@@ -4457,14 +4419,13 @@ function update(t)
 	{
 		light_position[2] -= dt;
 	}
-
-	gb.gl_draw.line(v3.tmp(0,0,0), light_position);
+	//gb.gl_draw.line(v3.tmp(0,0,0), light_position);
 	//gb.gl_draw.wire_mesh(sphere.mesh, sphere.world_matrix);
 
 	draw_call.material.uniforms.light_position = light_position;
 	
 	gb.webgl.render_draw_call(draw_call);
-	gb.webgl.render_draw_call(gb.gl_draw.draw_call);
+	//gb.webgl.render_draw_call(gb.gl_draw.draw_call);
 
 	post_call.material.uniforms.tex = render_target.color;
 	gl.render_post_call(post_call);

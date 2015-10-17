@@ -27,6 +27,7 @@ gb.Index_Buffer = function()
 }
 gb.Mesh = function()
 {
+	this.name;
 	this.layout;
 	this.vertex_buffer = null;
 	this.vertex_count = 0;
@@ -104,5 +105,6 @@ gb.serialize.r_mesh = function(br)
 	var h = s.r_i32_array(br, 4);
 	var vertices = s.r_f32_array(br, h[1]);
 	var indices = s.r_u32_array(br, h[2]);
+	console.log(h);
 	return gb.mesh.new(h[0], vertices, h[3], indices);
 }

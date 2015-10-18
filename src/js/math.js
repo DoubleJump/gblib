@@ -79,4 +79,19 @@ gb.math =
 	{
 		return (1-t) * a + t * b;
 	},
+	/*
+    hash: function(str)
+    {
+        var seed = 5381;
+        var c;
+        var n = str.length;
+        var result;
+        for(var i = 0; i < n; ++i)
+        {
+        	c = str[i]; 
+            hash = ((hash << 5) + hash) + c;
+        }
+        return result;
+    }
+    */
 }

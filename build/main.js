@@ -280,6 +280,21 @@ gb.math =
 	{
 		return (1-t) * a + t * b;
 	},
+	/*
+    hash: function(str)
+    {
+        var seed = 5381;
+        var c;
+        var n = str.length;
+        var result;
+        for(var i = 0; i < n; ++i)
+        {
+        	c = str[i]; 
+            hash = ((hash << 5) + hash) + c;
+        }
+        return result;
+    }
+    */
 }
 gb.Binary_Reader = function(buffer)
 {
@@ -2427,6 +2442,150 @@ gb.animate =
 		}
 	}
 }
+gb.Entity = function()
+{
+	this.name;
+	this.id;
+	this.parent = null;
+	this.children = [];
+
+	this.active = true;
+	this.layer = 0;
+	this.dirty = true;
+
+	this.position = gb.vec3.new(0,0,0);
+	this.scale = gb.vec3.new(1,1,1);
+	this.rotation = gb.quat.new(0,0,0,1);
+
+	this.local_matrix = gb.mat4.new();
+	this.world_matrix = gb.mat4.new();
+	this.bounds = gb.aabb.new();
+
+	this.material = null;
+	this.mesh = null;
+}
+gb.entity = 
+{
+	new: function()
+	{
+		return new gb.Entity();
+	},
+	set_active: function(e, val)
+	{
+		e.active = val;
+		var n = e.children.length;
+		for(var i = 0; i < n; ++i)
+		{
+			gb.entity.set_active(e.children[i], val);
+		}
+	},
+	set_parent: function(e, parent)
+	{
+		if (e.parent === parent) return;
+
+		if (e.parent !== null && parent === null) // clearing parent
+		{
+			gb.entity.remove_child(e.parent, e);
+			e.parent = null;
+		}
+		else if (e.parent !== null && parent !== null) // swapping parent
+		{
+			gb.entity.remove_child(e.parent, e);
+			e.parent = parent;
+			gb.entity.add_child(e.parent, e);
+		}
+		else // setting new parent from null
+		{
+			e.parent = parent;
+			gb.entity.add_child(e.parent, e);
+		}
+	},
+	add_child: function(e, child)
+	{
+		e.children.push(child);
+	},
+	remove_child: function(e, child)
+	{
+		var index = e.children.indexOf(child, 0);
+		ASSERT(index == undefined, "Cannot remove child - not found!");
+		e.children.splice(index, 1);
+	},
+	set_position: function(e, x,y,z)
+	{
+		gb.vec3.set(e.position, x,y,z);
+		e.dirty = true;
+	},
+	set_scale: function(e, x,y,z)
+	{
+		gb.vec3.set(e.scale, x,y,z);
+		e.dirty = true;
+	},
+	set_rotation: function(e, x,y,z)
+	{
+		gb.quat.euler(e.rotation, x,y,z);
+		e.dirty = true;
+	},
+}
+gb.serialize.r_entity = function(br, ag)
+{
+    var s = gb.serialize;
+    var entity = new gb.Entity();
+    var parent_name = s.r_string(br);
+    
+    entity.position[0] = s.r_f32(br);
+    entity.position[1] = s.r_f32(br);
+    entity.position[2] = s.r_f32(br);
+    entity.scale[0] = s.r_f32(br);
+    entity.scale[1] = s.r_f32(br);
+    entity.scale[2] = s.r_f32(br);
+    entity.rotation[0] = s.r_f32(br);
+    entity.rotation[1] = s.r_f32(br);
+    entity.rotation[2] = s.r_f32(br);
+    entity.rotation[3] = s.r_f32(br);
+
+    if(parent_name !== 'none') 
+    {
+    	var parent = ag.entities[parent_name];
+    	gb.entity.set_parent(entity, parent);
+    }
+
+    return entity;
+}
+gb.Lamp = function()
+{
+	this.lamp_type = null;
+	this.energy = 1;
+	this.distance = 1;
+	this.entity;
+}
+
+gb.lamp = 
+{
+	new: function(energy, distance)
+	{
+	    var c = new gb.Lamp();
+	    c.energy = energy;
+	    c.distance = distance;
+	    c.entity = new gb.Entity();
+	    return c;
+	},
+}
+
+gb.LampType = 
+{
+    POINT: 0,
+    SUN: 1,
+}
+
+gb.serialize.r_lamp = function(br, ag)
+{
+    var s = gb.serialize;
+    var lamp = new gb.Lamp();
+    lamp.entity = s.r_entity(br, ag);
+    lamp.energy = s.r_f32(br);
+    lamp.distance = s.r_f32(br);
+    return lamp;
+}
 gb.Camera = function()
 {
 	this.projection_type = null;
@@ -2434,8 +2593,8 @@ gb.Camera = function()
 	this.view = gb.mat4.new();
 	this.view_projection = gb.mat4.new();
 	this.normal = gb.mat3.new();
-	this.mask;
-	this.dirty;
+	this.mask = 0;
+	this.dirty = true;
 	this.aspect;
 	this.near;
 	this.far;
@@ -2453,7 +2612,6 @@ gb.camera =
 	    c.far = far || 100;
 	    c.fov = fov || 60;
 	    c.mask = mask || 0;
-	    c.dirty = true;
 	    c.entity = new gb.Entity();
 	    return c;
 	},
@@ -2501,97 +2659,30 @@ gb.Projection =
     ORTHO: 0,
     PERSPECTIVE: 1,
 }
-gb.Entity = function()
+
+gb.serialize.r_camera = function(br, ag)
 {
-	this.parent = null;
-	this.children = [];
-
-	this.active = true;
-	this.layer = 0;
-	this.dirty = true;
-
-	this.position = gb.vec3.new(0,0,0);
-	this.scale = gb.vec3.new(1,1,1);
-	this.rotation = gb.quat.new(0,0,0,1);
-
-	this.local_matrix = gb.mat4.new();
-	this.world_matrix = gb.mat4.new();
-	this.bounds = gb.aabb.new();
-
-	//this.material = null;
-	this.mesh = null;
+    var s = gb.serialize;
+    var camera = new gb.Camera();
+    camera.entity = s.r_entity(br, ag);
+    var camera_type = s.r_i32(br);
+    camera.near = s.r_f32(br);
+    camera.far = s.r_f32(br);
+    camera.fov = s.r_f32(br);
+    if(camera_type === 0) camera.projection_type = gb.Projection.PERSPECTIVE;
+    else camera.projection_type = gb.Projection.ORTHO;
+    camera.dirty = true;
+    return camera;
 }
-gb.entity = 
-{
-	new: function()
-	{
-		return new gb.Entity();
-	},
-	set_active: function(e, val)
-	{
-		e.active = val;
-		var n = e.children.length;
-		for(var i = 0; i < n; ++i)
-		{
-			gb.entity.set_active(e.children[i], val);
-		}
-	},
-	set_parent: function(e, parent)
-	{
-		if (e.parent === parent) return;
-
-		if (e.parent !== null && parent === null) // clearing parent
-		{
-			e.parent.remove_child(e);
-			e.parent = null;
-		}
-		else if (e.parent !== null && parent !== null) // swapping parent
-		{
-			e.parent.remove_child(e);
-			e.parent = parent;
-			e.parent.add_child(e);
-		}
-		else // setting new parent from null
-		{
-			e.parent = parent;
-			e.parent.add_child(e);
-		}
-	},
-	add_child: function(e, child)
-	{
-		e.children.push(child);
-	},
-	remove_child: function(e, child)
-	{
-		var index = e.children.indexOf(child, 0);
-		ASSERT(index == undefined, "Cannot remove child - not found!");
-		e.children.splice(index, 1);
-	},
-	set_position: function(e, x,y,z)
-	{
-		gb.vec3.set(e.position, x,y,z);
-		e.dirty = true;
-	},
-	set_scale: function(e, x,y,z)
-	{
-		gb.vec3.set(e.scale, x,y,z);
-		e.dirty = true;
-	},
-	set_rotation: function(e, x,y,z)
-	{
-		gb.quat.euler(e.rotation, x,y,z);
-		e.dirty = true;
-	},
-}
-
-
 gb.Scene = function()
 {
 	this.num_entities = 0;
 	this.num_cameras = 0;
 	this.num_sprites = 0;
+	this.num_lamps = 0;
 	this.entities = [];
 	this.cameras = [];
+	this.lamps = [];
 	this.sprites = [];
 	//this.render_groups: [],
 }
@@ -2606,6 +2697,16 @@ gb.scene =
 		s.entities.push(e);
 		s.num_entities++;
 	},
+	get_entity: function(s, name)
+	{
+		var n = s.num_entities;
+		for(var i = 0; i < n; ++i) 
+		{
+			var e = s.entities[i];
+			if(e.name === name) return e;
+		}
+		return null;
+	},
 	
 	add_camera: function(s, c)
 	{
@@ -2614,6 +2715,14 @@ gb.scene =
 		s.num_entities++;
 		s.num_cameras++;
     	gb.camera.update_projection(c, gb.webgl.view);
+	},
+
+	add_lamp: function(s, l)
+	{
+		s.lamps.push(l);
+		s.entities.push(l.entity);
+		s.num_entities++;
+		s.num_lamps++;
 	},
 
 	add_sprite: function(s, spr)
@@ -2645,15 +2754,22 @@ gb.scene =
 		{
 			gb.webgl.update_mesh(e.mesh);
 		}
-		gb.mat4.compose(e.world_matrix, e.position, e.scale, e.rotation);
+		gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
 		if(e.parent !== null)
 		{
-			gb.mat4.mul(e.world_matrix, e.parent.world_matrix);
+			gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
+		}
+		else
+		{
+			gb.mat4.eq(e.world_matrix, e.local_matrix);
 		}
 		for(var i = 0; i < e.num_children; ++i)
 		{
-			gb.scene.update_entity(e.children[i]);
+			var child = e.children[i];
+			child.dirty = true;
+			gb.scene.update_entity(child);
 		}
+		e.dirty = false;
 	},
 
 	update: function(s)
@@ -2782,7 +2898,6 @@ gb.serialize.r_mesh = function(br)
 	var h = s.r_i32_array(br, 4);
 	var vertices = s.r_f32_array(br, h[1]);
 	var indices = s.r_u32_array(br, h[2]);
-	console.log(h);
 	return gb.mesh.new(h[0], vertices, h[3], indices);
 }
 gb.mesh.generate = 
@@ -3013,7 +3128,6 @@ gb.serialize.r_shader = function(br)
     shader.lights = gb.has_flag_set(uniform_mask, 4);
     return shader;
 }
-
 gb.Material = function()
 {
     this.shader;
@@ -3037,6 +3151,13 @@ gb.material =
         }
         return m;
     },
+}
+gb.serialize.r_material = function(br)
+{
+    var s = gb.serialize;
+    var mat = s.r_string(br);
+    console.log(mat);
+    return mat;
 }
 gb.Render_Target = function()
 {
@@ -3236,7 +3357,6 @@ gb.webgl =
 			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, m.index_buffer.data, m.index_buffer.update_mode);
 		}
 		m.dirty = false;
-		console.log(m.vertex_count);
 	},
 	delete_mesh: function(m)
 	{
@@ -3580,6 +3700,7 @@ gb.webgl =
 		var mat = dc.material;
 		var shader = mat.shader;
 		var cam = dc.camera;
+		//var lights = dc.lights;
 
 		//TODO: obvs do this before draw call list
 		gl.enable(gl.DEPTH_TEST);
@@ -3622,12 +3743,12 @@ gb.webgl =
 			{
 				mat.uniforms.model_matrix = e.world_matrix;
 			}
-		}
-		
-		_t.set_uniforms(shader, mat.uniforms);
 
-		if(mesh.index_buffer) _t.draw_mesh_elements(mesh);
-		else _t.draw_mesh_arrays(mesh);
+			_t.set_uniforms(shader, mat.uniforms);
+
+			if(mesh.index_buffer) _t.draw_mesh_elements(mesh);
+			else _t.draw_mesh_arrays(mesh);
+		}
 	},
 
 	render_post_call: function(pc)
@@ -3682,6 +3803,8 @@ gb.webgl =
 gb.Asset_Group = function()
 {
     this.shaders = {};
+    this.cameras = {};
+    this.lamps = {};
     this.entities = {};
     this.meshes = {};
     this.textures = {};
@@ -3694,15 +3817,13 @@ gb.load_asset_group = function(url, asset_group, on_load, on_progress)
     request.onload = gb.on_asset_load;
     request.onprogress = on_progress;
     request.responseType = 'arraybuffer';
-    request.upload.asset_group = asset_group; //hack
+    request.upload.asset_group = asset_group;
     request.upload.callback = on_load;
     request.send();
-    //console.log(request);
 }
 gb.on_asset_load = function(e)
 {
 	// NOTE: asset data encoded in little endian (x86)
-    console.log(e.target);
     if(e.target.status === 200)
     {
         var s = gb.serialize;
@@ -3732,38 +3853,57 @@ gb.on_asset_load = function(e)
         for(var i = 0; i < n_scenes; ++i)
         {
         	var name = s.r_string(br);
-            var n_entities = s.r_i32(br);
             var n_meshes = s.r_i32(br);
+            var n_cameras = s.r_i32(br);
+            var n_lamps = s.r_i32(br);
+            var n_empties = s.r_i32(br);
+            var n_entities = s.r_i32(br);
 
+            //DEBUG
+            console.log("Loading: " + name);
+            console.log("Cameras:" + n_cameras);
+            console.log("Lamps:" + n_lamps);
+            console.log("Empties: " + n_empties);
             console.log("Entities: " + n_entities);
             console.log("Meshes: " + n_meshes);
+            //END
 
-            for(var j = 0; j < n_entities; ++j)
-            {
-                //s.r_entity(br);
-                console.log("Name: " + s.r_string(br));
-                console.log("Parent: " + s.r_string(br));
-                console.log("Material: " + s.r_string(br));
-                console.log("X: " + s.r_f32(br));
-                console.log("Y: " + s.r_f32(br));
-                console.log("Z: " + s.r_f32(br));
-                console.log("SX: " + s.r_f32(br));
-                console.log("SY: " + s.r_f32(br));
-                console.log("SZ: " + s.r_f32(br));
-                console.log("QX: " + s.r_f32(br));
-                console.log("QY: " + s.r_f32(br));
-                console.log("QZ: " + s.r_f32(br));
-                console.log("QW: " + s.r_f32(br));
-            }
-            for(var m = 0; m < n_meshes; ++m)
+            for(var j = 0; j < n_meshes; ++j)
             {
                 var mesh_name = s.r_string(br);
                 var mesh = s.r_mesh(br);
                 mesh.name = mesh_name;
                 ag.meshes[mesh_name] = mesh;
-                //console.log("Loaded Mesh: " + mesh_name);
             }
-            //ag.scenes[name] = s.r_scene(br);
+            for(var j = 0; j < n_cameras; ++j)
+            {
+                var camera_name = s.r_string(br);
+                var camera = s.r_camera(br, ag);
+                ag.cameras[camera_name] = camera;
+            }
+            for(var j = 0; j < n_lamps; ++j)
+            {
+                var lamp_name = s.r_string(br);
+                var lamp = s.r_lamp(br, ag);
+                ag.lamps[lamp_name] = lamp;
+            }
+            for(var j = 0; j < n_empties; ++j)
+            {
+                var empty_name = s.r_string(br);
+                var empty = s.r_entity(br, ag);
+                empty.name = empty_name;
+                ag.entities[empty_name] = empty;
+            }
+            for(var j = 0; j < n_entities; ++j)
+            {
+                var entity_name = s.r_string(br);
+                var entity = s.r_entity(br, ag);
+                entity.name = entity_name;
+                entity.material = s.r_material(br);
+                entity.mesh = ag.meshes[s.r_string(br)];
+                ag.entities[entity_name] = entity;
+            }
+            
              //DEBUG
             console.log("Loaded Scene: " + name);
             //END
@@ -4349,14 +4489,12 @@ function link_complete()
 	render_target = gb.render_target.new(gl.view, 1 | 2);
 	construct = gb.scene.new();
 
-	camera = gb.camera.new();
-	gb.entity.set_position(camera.entity, 0,0,2);
+	camera = assets.cameras.camera;
 	gb.scene.add_camera(construct, camera);
 
-	sphere = gb.entity.new();
-	sphere.mesh = assets.meshes.Cuboid;
+	sphere = assets.entities.entity;
 	gb.scene.add_entity(construct, sphere);
-	gb.entity.set_scale(sphere, 0.5,0.5,0.5);
+	gb.scene.add_entity(construct, assets.entities.entity2);
 
 
 	light_position = v3.new(3,3,3);
@@ -4369,6 +4507,7 @@ function link_complete()
 	draw_call.clear = true;
 	draw_call.camera = camera;
 	draw_call.entities.push(sphere);
+	draw_call.entities.push(assets.entities.entity2);
 	draw_call.target = render_target;
 	draw_call.material = gb.material.new(assets.shaders.pbr);
 

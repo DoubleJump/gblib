@@ -46,28 +46,3 @@ gb.serialize.r_shader = function(br)
     shader.lights = gb.has_flag_set(uniform_mask, 4);
     return shader;
 }
-
-gb.Material = function()
-{
-    this.shader;
-    this.uniforms;
-    this.textures;
-}
-gb.material = 
-{
-    new: function(shader)
-    {
-        var m = new gb.Material();
-        m.shader = shader;
-        m.uniforms = {};
-        for(var key in shader.uniforms)
-        {
-            m.uniforms[key] = null;
-        }
-        if(shader.mvp === true)
-        {
-            m.uniforms.mvp = gb.mat4.new();
-        }
-        return m;
-    },
-}

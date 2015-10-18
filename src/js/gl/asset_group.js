@@ -1,6 +1,8 @@
 gb.Asset_Group = function()
 {
     this.shaders = {};
+    this.cameras = {};
+    this.lamps = {};
     this.entities = {};
     this.meshes = {};
     this.textures = {};
@@ -13,15 +15,13 @@ gb.load_asset_group = function(url, asset_group, on_load, on_progress)
     request.onload = gb.on_asset_load;
     request.onprogress = on_progress;
     request.responseType = 'arraybuffer';
-    request.upload.asset_group = asset_group; //hack
+    request.upload.asset_group = asset_group;
     request.upload.callback = on_load;
     request.send();
-    //console.log(request);
 }
 gb.on_asset_load = function(e)
 {
 	// NOTE: asset data encoded in little endian (x86)
-    console.log(e.target);
     if(e.target.status === 200)
     {
         var s = gb.serialize;
@@ -51,38 +51,57 @@ gb.on_asset_load = function(e)
         for(var i = 0; i < n_scenes; ++i)
         {
         	var name = s.r_string(br);
-            var n_entities = s.r_i32(br);
             var n_meshes = s.r_i32(br);
+            var n_cameras = s.r_i32(br);
+            var n_lamps = s.r_i32(br);
+            var n_empties = s.r_i32(br);
+            var n_entities = s.r_i32(br);
 
+            //DEBUG
+            console.log("Loading: " + name);
+            console.log("Cameras:" + n_cameras);
+            console.log("Lamps:" + n_lamps);
+            console.log("Empties: " + n_empties);
             console.log("Entities: " + n_entities);
             console.log("Meshes: " + n_meshes);
+            //END
 
-            for(var j = 0; j < n_entities; ++j)
-            {
-                //s.r_entity(br);
-                console.log("Name: " + s.r_string(br));
-                console.log("Parent: " + s.r_string(br));
-                console.log("Material: " + s.r_string(br));
-                console.log("X: " + s.r_f32(br));
-                console.log("Y: " + s.r_f32(br));
-                console.log("Z: " + s.r_f32(br));
-                console.log("SX: " + s.r_f32(br));
-                console.log("SY: " + s.r_f32(br));
-                console.log("SZ: " + s.r_f32(br));
-                console.log("QX: " + s.r_f32(br));
-                console.log("QY: " + s.r_f32(br));
-                console.log("QZ: " + s.r_f32(br));
-                console.log("QW: " + s.r_f32(br));
-            }
-            for(var m = 0; m < n_meshes; ++m)
+            for(var j = 0; j < n_meshes; ++j)
             {
                 var mesh_name = s.r_string(br);
                 var mesh = s.r_mesh(br);
                 mesh.name = mesh_name;
                 ag.meshes[mesh_name] = mesh;
-                //console.log("Loaded Mesh: " + mesh_name);
             }
-            //ag.scenes[name] = s.r_scene(br);
+            for(var j = 0; j < n_cameras; ++j)
+            {
+                var camera_name = s.r_string(br);
+                var camera = s.r_camera(br, ag);
+                ag.cameras[camera_name] = camera;
+            }
+            for(var j = 0; j < n_lamps; ++j)
+            {
+                var lamp_name = s.r_string(br);
+                var lamp = s.r_lamp(br, ag);
+                ag.lamps[lamp_name] = lamp;
+            }
+            for(var j = 0; j < n_empties; ++j)
+            {
+                var empty_name = s.r_string(br);
+                var empty = s.r_entity(br, ag);
+                empty.name = empty_name;
+                ag.entities[empty_name] = empty;
+            }
+            for(var j = 0; j < n_entities; ++j)
+            {
+                var entity_name = s.r_string(br);
+                var entity = s.r_entity(br, ag);
+                entity.name = entity_name;
+                entity.material = s.r_material(br);
+                entity.mesh = ag.meshes[s.r_string(br)];
+                ag.entities[entity_name] = entity;
+            }
+            
              //DEBUG
             console.log("Loaded Scene: " + name);
             //END

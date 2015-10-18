@@ -85,12 +85,10 @@ def write_int(writer, val):
 	writer.target.write(pack("i", val))
 	writer.offset += 4
 
-
 def write_str(writer, val):
 	strlen = len(val)
 	new_offset = writer.offset + strlen
-	next_boundary = ((new_offset / 4) + 1) * 4
-	padding = next_boundary - new_offset
+	padding = 4 - (new_offset % 4);
 	write_int(writer, padding)
 	write_int(writer, strlen)
 	writer.target.write(val)

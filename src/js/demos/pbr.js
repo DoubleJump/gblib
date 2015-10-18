@@ -27,6 +27,8 @@ TODO:
 //INCLUDE random.js
 //INCLUDE input.js
 //INCLUDE animate.js
+//INCLUDE gl/entity.js
+//INCLUDE gl/lamp.js
 //INCLUDE gl/camera.js
 //INCLUDE gl/scene.js
 //INCLUDE gl/mesh.js
@@ -34,6 +36,7 @@ TODO:
 //INCLUDE gl/texture.js
 //INCLUDE gl/dds.js
 //INCLUDE gl/shader.js
+//INCLUDE gl/material.js
 //INCLUDE gl/render_target.js
 //INCLUDE gl/webgl.js
 //INCLUDE gl/asset_group.js
@@ -116,14 +119,12 @@ function link_complete()
 	render_target = gb.render_target.new(gl.view, 1 | 2);
 	construct = gb.scene.new();
 
-	camera = gb.camera.new();
-	gb.entity.set_position(camera.entity, 0,0,2);
+	camera = assets.cameras.camera;
 	gb.scene.add_camera(construct, camera);
 
-	sphere = gb.entity.new();
-	sphere.mesh = assets.meshes.Cuboid;
+	sphere = assets.entities.entity;
 	gb.scene.add_entity(construct, sphere);
-	gb.entity.set_scale(sphere, 0.5,0.5,0.5);
+	gb.scene.add_entity(construct, assets.entities.entity2);
 
 
 	light_position = v3.new(3,3,3);
@@ -136,6 +137,7 @@ function link_complete()
 	draw_call.clear = true;
 	draw_call.camera = camera;
 	draw_call.entities.push(sphere);
+	draw_call.entities.push(assets.entities.entity2);
 	draw_call.target = render_target;
 	draw_call.material = gb.material.new(assets.shaders.pbr);
 

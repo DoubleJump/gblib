@@ -1,5 +1,3 @@
-
-
 gb.Entity = function()
 {
 	this.parent;

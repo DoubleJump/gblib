@@ -5,8 +5,8 @@ gb.Camera = function()
 	this.view = gb.mat4.new();
 	this.view_projection = gb.mat4.new();
 	this.normal = gb.mat3.new();
-	this.mask;
-	this.dirty;
+	this.mask = 0;
+	this.dirty = true;
 	this.aspect;
 	this.near;
 	this.far;
@@ -24,7 +24,6 @@ gb.camera =
 	    c.far = far || 100;
 	    c.fov = fov || 60;
 	    c.mask = mask || 0;
-	    c.dirty = true;
 	    c.entity = new gb.Entity();
 	    return c;
 	},
@@ -71,4 +70,19 @@ gb.Projection =
 {
     ORTHO: 0,
     PERSPECTIVE: 1,
+}
+
+gb.serialize.r_camera = function(br, ag)
+{
+    var s = gb.serialize;
+    var camera = new gb.Camera();
+    camera.entity = s.r_entity(br, ag);
+    var camera_type = s.r_i32(br);
+    camera.near = s.r_f32(br);
+    camera.far = s.r_f32(br);
+    camera.fov = s.r_f32(br);
+    if(camera_type === 0) camera.projection_type = gb.Projection.PERSPECTIVE;
+    else camera.projection_type = gb.Projection.ORTHO;
+    camera.dirty = true;
+    return camera;
 }

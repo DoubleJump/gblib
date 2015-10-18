@@ -51,9 +51,7 @@ def write_str(writer, val):
 	out_str = val.lower().encode('ascii')
 	strlen = len(out_str)
 	new_offset = writer.offset + strlen
-	next_boundary = ((new_offset / 4) + 1) * 4
-	padding = int(next_boundary - new_offset)
-
+	padding = 4 - (new_offset % 4);
 	write_int(writer, padding)
 	write_int(writer, strlen)
 	writer.target.write(out_str)
@@ -79,25 +77,35 @@ def write_transform(writer, ob):
 	if(ob.parent == None): 
 		write_str(writer, "none")
 	else:
-		write_str(writer, ob.parent) 
+		write_str(writer, ob.parent.name) 
+	#hash this string instead
+
 	write_float(writer, ob.location.x)
 	write_float(writer, ob.location.y)
 	write_float(writer, ob.location.z)
 	write_float(writer, ob.scale.x)
 	write_float(writer, ob.scale.y)
 	write_float(writer, ob.scale.z)
+
+	ob.rotation_mode = 'QUATERNION'
 	write_float(writer, ob.rotation_quaternion.x)
 	write_float(writer, ob.rotation_quaternion.y) 
 	write_float(writer, ob.rotation_quaternion.z) 
 	write_float(writer, ob.rotation_quaternion.w)
+	ob.rotation_mode = 'XYZ'
 
 def write_material(writer, ob):
 	write_str(writer, ob.material_slots[0].material.name)
+
+def write_empty(writer, ob):
+	write_str(writer, ob.name)
+	write_transform(writer, ob)
 
 def write_object(writer, ob):
 	write_str(writer, ob.name)
 	write_transform(writer, ob)
 	write_material(writer, ob)
+	write_str(writer, ob.data.name)
 
 def write_lamp(writer, ob):
 	write_str(writer, ob.name)
@@ -116,13 +124,16 @@ def write_camera(writer, ob):
 	write_float(writer, camera.clip_end)
 	write_float(writer, camera.lens)
 		
-def write_mesh(writer, name):
-	write_str(writer, name)
-	mesh = bpy.data.meshes[name]
+def write_mesh(writer, mesh):
+	#write_str(writer, name)
+	#mesh = bpy.data.meshes[name]
+	#write_str(writer, mesh.name)
 
 	vertex_buffer = []
 	index_buffer = []
 	vertex_count = 0
+
+	#need to create a dummy object to do triangulation
 
 	matrix = mathutils.Matrix.Rotation(radians(-90.0), 4, 'X')
 	mesh.transform(matrix)
@@ -221,40 +232,71 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 		writer.target = open(filepath, "wb")
 		writer.offset = 0 
 
-		exportable_objects = []
+		mesh_names = []
 		exportable_meshes = []
-		exportable_lamps = []
 		exportable_cameras = []
+		exportable_lamps = []
+		exportable_empties = []
+		exportable_objects = []
 
 		for ob in scene.objects:
 			if ob.type == 'CAMERA': 
 				exportable_cameras.append(ob)
 			elif ob.type == 'LAMP': 
 				exportable_lamps.append(ob)
-			else:
+			elif ob.type == 'MESH':
 				exportable_objects.append(ob)
-				if ob.type == 'MESH':
-					mesh = ob.data.name
-					if mesh in exportable_meshes:
-						continue
+
+				modifiers = ob.modifiers
+				has_triangulate = False
+				for mod in modifiers:
+					if(mod.type == 'TRIANGULATE'):
+						has_triangulate = True
+
+				if(not has_triangulate):
+					modifiers.new("TEMP", type = 'TRIANGULATE')
+				mesh = ob.to_mesh(scene = scene, apply_modifiers = True, settings = 'PREVIEW')
+
+				if not mesh in exportable_meshes:
+					mesh_names.append(ob.data.name) 
 					exportable_meshes.append(mesh)
 
+				if(not has_triangulate):
+					modifiers.remove(modifiers[len(modifiers)-1])
+
+			elif ob.type == 'EMPTY':
+				exportable_empties.append(ob)
+
+		write_int(writer, len(exportable_meshes))
 		write_int(writer, len(exportable_cameras))
 		write_int(writer, len(exportable_lamps))
+		write_int(writer, len(exportable_empties))
 		write_int(writer, len(exportable_objects))
-		write_int(writer, len(exportable_meshes))
 
-		for cam in exportable_cameras:
-			write_camera(writer, cam)
+		count = 0
+		for mesh in exportable_meshes:
+			name = mesh_names[count]
+			print("Exporting Mesh: " + name)
+			write_str(writer, name)
+			write_mesh(writer, mesh)
+			bpy.data.meshes.remove(mesh)
+			count += 1
+
+		for camera in exportable_cameras:
+			print("Exporting Camera: " + camera.name)
+			write_camera(writer, camera)
 
 		for lamp in exportable_lamps:
+			print("Exporting Lamp: " + lamp.name)
 			write_lamp(writer, lamp)
 
-		for ob in exportable_objects:
-			write_object(writer, ob)
+		for empty in exportable_empties:
+			print("Exporting Empty: " + empty.name)
+			write_empty(writer, empty)
 
-		for m in exportable_meshes:
-			write_mesh(writer, m)
+		for ob in exportable_objects:
+			print("Exporting Object: " + ob.name)
+			write_object(writer, ob)
 
 		writer.target.close()
 							

@@ -158,7 +158,6 @@ gb.webgl =
 			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, m.index_buffer.data, m.index_buffer.update_mode);
 		}
 		m.dirty = false;
-		console.log(m.vertex_count);
 	},
 	delete_mesh: function(m)
 	{
@@ -502,6 +501,7 @@ gb.webgl =
 		var mat = dc.material;
 		var shader = mat.shader;
 		var cam = dc.camera;
+		//var lights = dc.lights;
 
 		//TODO: obvs do this before draw call list
 		gl.enable(gl.DEPTH_TEST);
@@ -544,12 +544,12 @@ gb.webgl =
 			{
 				mat.uniforms.model_matrix = e.world_matrix;
 			}
-		}
-		
-		_t.set_uniforms(shader, mat.uniforms);
 
-		if(mesh.index_buffer) _t.draw_mesh_elements(mesh);
-		else _t.draw_mesh_arrays(mesh);
+			_t.set_uniforms(shader, mat.uniforms);
+
+			if(mesh.index_buffer) _t.draw_mesh_elements(mesh);
+			else _t.draw_mesh_arrays(mesh);
+		}
 	},
 
 	render_post_call: function(pc)

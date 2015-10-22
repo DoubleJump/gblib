@@ -161,6 +161,15 @@ def main(argv = None):
 		print "Compiled shader: " + s.name
 		src.close()
 
+	for t in textures:
+		src = open(t.path, "rb")
+		if not compile_texture_file(t.name, t.file_type, src, writer):
+			print "Error compiling texture: " + t.name + " ... exiting"
+			src.close()
+			break
+		print "Compiled texture: " + t.name
+		src.close()
+
 	for s in scenes:
 		src = open(s.path, "rb")
 		if not compile_scene_file(s.name, src, writer):
@@ -170,14 +179,7 @@ def main(argv = None):
 		print "Compiled scene: " + s.name
 		src.close()
 
-	for t in textures:
-		src = open(t.path, "rb")
-		if not compile_texture_file(t.name, t.file_type, src, writer):
-			print "Error compiling texture: " + t.name + " ... exiting"
-			src.close()
-			break
-		print "Compiled texture: " + t.name
-		src.close()
+	
 
 	writer.target.close()
 

@@ -1,6 +1,7 @@
 gb.Asset_Group = function()
 {
     this.shaders = {};
+    this.materials = {};
     this.cameras = {};
     this.lamps = {};
     this.entities = {};
@@ -10,7 +11,7 @@ gb.Asset_Group = function()
 }
 gb.load_asset_group = function(url, asset_group, on_load, on_progress)
 {
-	var request = new XMLHttpRequest();
+    var request = new XMLHttpRequest();
     request.open('GET', url, true);
     request.onload = gb.on_asset_load;
     request.onprogress = on_progress;
@@ -21,7 +22,7 @@ gb.load_asset_group = function(url, asset_group, on_load, on_progress)
 }
 gb.on_asset_load = function(e)
 {
-	// NOTE: asset data encoded in little endian (x86)
+    // NOTE: asset data encoded in little endian (x86)
     if(e.target.status === 200)
     {
         var s = gb.serialize;
@@ -30,28 +31,52 @@ gb.on_asset_load = function(e)
 
         var header = s.r_i32_array(br, 3);
         var n_shaders = header[0];
-        var n_scenes = header[1];
-        var n_textures = header[2];
+        var n_textures = header[1];
+        var n_scenes = header[2];
 
         //DEBUG
         console.log("Shaders: " + n_shaders);
-        console.log("Scenes: " + n_scenes);
         console.log("Textures: " + n_textures);
+        console.log("Scenes: " + n_scenes);
         //END
 
         for(var i = 0; i < n_shaders; ++i)
         {
-        	var name = s.r_string(br);
+            var name = s.r_string(br);
             ag.shaders[name] = s.r_shader(br);
             //DEBUG
             console.log("Loaded Shader: " + name);
             //END
         }
 
+        for(var i = 0; i < n_textures; ++i)
+        {
+            var name = s.r_string(br);
+            var id = s.r_i32(br);
+            if(id === 0 && gb.webgl.extensions.dxt !== null)
+            {
+                var t = s.r_dds(br);
+                ag.textures[name] = t;
+                //DEBUG
+                console.log("Width: " + t.width);
+                console.log("Height: " + t.height);
+                console.log("Loaded DDS: " + name);
+                //END
+            }
+            else if(id === 1 && gb.webgl.extensions.pvr !== null)
+            {
+                ag.textures[name] = s.r_pvr(br);
+                //DEBUG
+                console.log("Loaded PVR: " + name);
+                //END
+            }
+        }
+
         for(var i = 0; i < n_scenes; ++i)
         {
-        	var name = s.r_string(br);
+            var name = s.r_string(br);
             var n_meshes = s.r_i32(br);
+            var n_materials = s.r_i32(br);
             var n_cameras = s.r_i32(br);
             var n_lamps = s.r_i32(br);
             var n_empties = s.r_i32(br);
@@ -69,9 +94,16 @@ gb.on_asset_load = function(e)
             for(var j = 0; j < n_meshes; ++j)
             {
                 var mesh_name = s.r_string(br);
-                var mesh = s.r_mesh(br);
+                var mesh = s.r_mesh(br); // TODO: read the names from within the serializer
                 mesh.name = mesh_name;
                 ag.meshes[mesh_name] = mesh;
+            }
+            for(var j = 0; j < n_materials; ++j)
+            {
+                var mat_name = s.r_string(br);
+                var material = s.r_material(br);
+                material.name = mat_name;
+                ag.materials[mat_name] = material;
             }
             for(var j = 0; j < n_cameras; ++j)
             {
@@ -97,38 +129,16 @@ gb.on_asset_load = function(e)
                 var entity_name = s.r_string(br);
                 var entity = s.r_entity(br, ag);
                 entity.name = entity_name;
-                entity.material = s.r_material(br);
+                entity.material = ag.materials[s.r_material(br)];
                 entity.mesh = ag.meshes[s.r_string(br)];
                 ag.entities[entity_name] = entity;
             }
             
-             //DEBUG
+            //DEBUG
             console.log("Loaded Scene: " + name);
             //END
         }
         
-        for(var i = 0; i < n_textures; ++i)
-        {
-        	var name = s.r_string(br);
-            var id = s.r_i32(br);
-            if(id === 0 && gb.webgl.extensions.dxt !== null)
-            {
-                var t = s.r_dds(br);
-                ag.textures[name] = t;
-                //DEBUG
-                console.log("Width: " + t.width);
-                console.log("Height: " + t.height);
-                console.log("Loaded DDS: " + name);
-                //END
-            }
-            else if(id === 1 && gb.webgl.extensions.pvr !== null)
-            {
-                ag.textures[name] = s.r_pvr(br);
-                //DEBUG
-                console.log("Loaded PVR: " + name);
-                //END
-            }
-        }
         e.target.upload.callback(ag);    
     }
     else

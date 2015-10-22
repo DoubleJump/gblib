@@ -35,9 +35,18 @@ from math import radians
 from bpy_extras.io_utils import ExportHelper
 from struct import pack
 
+FP_PRECISION = 3
+
+def round_vec3(v):
+	return round(v[0], FP_PRECISION), round(v[1], FP_PRECISION), round(v[2], FP_PRECISION)
+
+def round_vec2(v):
+	return round(v[0], FP_PRECISION), round(v[1], FP_PRECISION)
+
 class FileWriter:
 	target = None
 	offset = 0
+	BYTE_PADDING = 4
 
 def write_int(writer, val):
 	writer.target.write(pack("i", val))
@@ -47,11 +56,22 @@ def write_float(writer, val):
 	writer.target.write(pack("f", val))
 	writer.offset += 4
 
+def write_vec3(writer, val):
+	write_float(writer, val.x)
+	write_float(writer, val.y)
+	write_float(writer, val.z)
+
+def write_quat(writer, val):
+	write_float(writer, val.x)
+	write_float(writer, val.y)
+	write_float(writer, val.z)
+	write_float(writer, val.w)
+
 def write_str(writer, val):
 	out_str = val.lower().encode('ascii')
 	strlen = len(out_str)
 	new_offset = writer.offset + strlen
-	padding = 4 - (new_offset % 4);
+	padding = writer.BYTE_PADDING - (new_offset % writer.BYTE_PADDING);
 	write_int(writer, padding)
 	write_int(writer, strlen)
 	writer.target.write(out_str)
@@ -64,38 +84,30 @@ def write_bytes(writer, val):
 	writer.target.write(val)
 	writer.offset += len(val)
 
-fp_precision = 3
-
-def round_vec3(v):
-	return round(v[0], fp_precision), round(v[1], fp_precision), round(v[2], fp_precision)
-
-def round_vec2(v):
-	return round(v[0], fp_precision), round(v[1], fp_precision)
-
-
 def write_transform(writer, ob):
 	if(ob.parent == None): 
 		write_str(writer, "none")
 	else:
 		write_str(writer, ob.parent.name) 
-	#hash this string instead
 
-	write_float(writer, ob.location.x)
-	write_float(writer, ob.location.y)
-	write_float(writer, ob.location.z)
-	write_float(writer, ob.scale.x)
-	write_float(writer, ob.scale.y)
-	write_float(writer, ob.scale.z)
+	write_vec3(writer, ob.location)
+	write_vec3(writer, ob.scale)
 
 	ob.rotation_mode = 'QUATERNION'
-	write_float(writer, ob.rotation_quaternion.x)
-	write_float(writer, ob.rotation_quaternion.y) 
-	write_float(writer, ob.rotation_quaternion.z) 
-	write_float(writer, ob.rotation_quaternion.w)
+	write_quat(writer, ob.rotation_quaternion)
 	ob.rotation_mode = 'XYZ'
 
 def write_material(writer, ob):
-	write_str(writer, ob.material_slots[0].material.name)
+	write_str(writer, ob.name)
+	write_srt(writer, ob['shader'])
+	write_int(writer, len(ob.texture_slots))
+
+	for i in ob.texture_slots:
+		if i == None: continue
+		texture = bpy.data.textures[i.name]
+		if texture.image == None: continue
+		write_str(writer, texture.image.name.split('.')[0])
+		write_str(writer, texture['sampler'])
 
 def write_empty(writer, ob):
 	write_str(writer, ob.name)
@@ -104,7 +116,7 @@ def write_empty(writer, ob):
 def write_object(writer, ob):
 	write_str(writer, ob.name)
 	write_transform(writer, ob)
-	write_material(writer, ob)
+	write_str(writer, ob.material_slots[0].material.name)
 	write_str(writer, ob.data.name)
 
 def write_lamp(writer, ob):
@@ -125,15 +137,9 @@ def write_camera(writer, ob):
 	write_float(writer, camera.lens)
 		
 def write_mesh(writer, mesh):
-	#write_str(writer, name)
-	#mesh = bpy.data.meshes[name]
-	#write_str(writer, mesh.name)
-
 	vertex_buffer = []
 	index_buffer = []
 	vertex_count = 0
-
-	#need to create a dummy object to do triangulation
 
 	matrix = mathutils.Matrix.Rotation(radians(-90.0), 4, 'X')
 	mesh.transform(matrix)
@@ -233,6 +239,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 		writer.offset = 0 
 
 		mesh_names = []
+		exportable_materials = []
 		exportable_meshes = []
 		exportable_cameras = []
 		exportable_lamps = []
@@ -245,6 +252,10 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 			elif ob.type == 'LAMP': 
 				exportable_lamps.append(ob)
 			elif ob.type == 'MESH':
+				material = ob.material_slots[0].material
+				if not material in exportable_materials:
+					exportable_materials.append(material)
+
 				exportable_objects.append(ob)
 
 				modifiers = ob.modifiers
@@ -253,7 +264,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 					if(mod.type == 'TRIANGULATE'):
 						has_triangulate = True
 
-				if(not has_triangulate):
+				if not has_triangulate:
 					modifiers.new("TEMP", type = 'TRIANGULATE')
 				mesh = ob.to_mesh(scene = scene, apply_modifiers = True, settings = 'PREVIEW')
 
@@ -267,11 +278,16 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 			elif ob.type == 'EMPTY':
 				exportable_empties.append(ob)
 
+		write_int(writer, len(exportable_materials))
 		write_int(writer, len(exportable_meshes))
 		write_int(writer, len(exportable_cameras))
 		write_int(writer, len(exportable_lamps))
 		write_int(writer, len(exportable_empties))
 		write_int(writer, len(exportable_objects))
+
+		for material in exportable_materials:
+			print("Exporting Material: " + material.name)
+			write_material(writer, material)
 
 		count = 0
 		for mesh in exportable_meshes:

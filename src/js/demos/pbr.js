@@ -66,6 +66,7 @@ var render_target;
 var sphere;
 var post;
 var light_position; //change to enitity
+var angle = 0;
 
 var draw_call;
 var post_call;
@@ -118,19 +119,20 @@ function link_complete()
 
 	render_target = gb.render_target.new(gl.view, 1 | 2);
 	construct = gb.scene.new();
+	gb.scene.load_asset_group(construct, assets);
 
-	camera = assets.cameras.camera;
-	gb.scene.add_camera(construct, camera);
+	//camera = assets.cameras.camera;
+	//gb.scene.add_camera(construct, camera);
 
-	sphere = assets.entities.entity;
-	gb.scene.add_entity(construct, sphere);
-	gb.scene.add_entity(construct, assets.entities.entity2);
+	//sphere = assets.entities.entity;
+	//gb.scene.add_entity(construct, sphere);
+	//gb.scene.add_entity(construct, assets.entities.entity2);
 
 
 	light_position = v3.new(3,3,3);
 
 	//90 33 148
-	gl.set_clear_color(0.35,0.13,0.58,1.0);
+	//gl.set_clear_color(0.35,0.13,0.58,1.0);
 
 	// TODO: create draw calls automatically
 	draw_call = new gb.DrawCall();
@@ -190,6 +192,8 @@ function update(t)
 	}
 	//gb.gl_draw.line(v3.tmp(0,0,0), light_position);
 	//gb.gl_draw.wire_mesh(sphere.mesh, sphere.world_matrix);
+	angle += 10 * dt;
+	gb.entity.set_rotation(sphere, angle, 0,0);
 
 	draw_call.material.uniforms.light_position = light_position;
 	

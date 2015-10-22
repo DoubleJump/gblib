@@ -16,12 +16,26 @@ gb.scene =
 	{
 		return new gb.Scene();
 	},
-	add_entity: function(s, e)
+	load_asset_group: function(s, ag)
 	{
-		s.entities.push(e);
-		s.num_entities++;
-	},
-	get_entity: function(s, name)
+		for(var camera in ag.cameras)
+	    {
+	        s.add_camera(ag.cameras[camera]);
+	    }
+	    for(var lamp in ag.lamps)
+	    {
+	        s.add_lamp(ag.lamps[lamp]);
+	    }
+	    for(var empty in ag.empties)
+	    {
+	        s.add_entity(ag.empties[empty]);
+	    }
+	    for(var entity in ag.entities)
+	    {
+	        s.add_entity(ag.entities[entity]);
+	    }
+	},	
+	find: function(s, name, root)
 	{
 		var n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
@@ -31,7 +45,11 @@ gb.scene =
 		}
 		return null;
 	},
-	
+	add_entity: function(s, e)
+	{
+		s.entities.push(e);
+		s.num_entities++;
+	},
 	add_camera: function(s, c)
 	{
 		s.cameras.push(c);
@@ -40,7 +58,6 @@ gb.scene =
 		s.num_cameras++;
     	gb.camera.update_projection(c, gb.webgl.view);
 	},
-
 	add_lamp: function(s, l)
 	{
 		s.lamps.push(l);
@@ -48,7 +65,6 @@ gb.scene =
 		s.num_entities++;
 		s.num_lamps++;
 	},
-
 	add_sprite: function(s, spr)
 	{
 		s.sprites.push(spr);
@@ -87,7 +103,8 @@ gb.scene =
 		{
 			gb.mat4.eq(e.world_matrix, e.local_matrix);
 		}
-		for(var i = 0; i < e.num_children; ++i)
+		var n = e.children.length;
+		for(var i = 0; i < n; ++i)
 		{
 			var child = e.children[i];
 			child.dirty = true;

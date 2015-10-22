@@ -2692,12 +2692,26 @@ gb.scene =
 	{
 		return new gb.Scene();
 	},
-	add_entity: function(s, e)
+	load_asset_group: function(s, ag)
 	{
-		s.entities.push(e);
-		s.num_entities++;
-	},
-	get_entity: function(s, name)
+		for(var camera in ag.cameras)
+	    {
+	        s.add_camera(ag.cameras[camera]);
+	    }
+	    for(var lamp in ag.lamps)
+	    {
+	        s.add_lamp(ag.lamps[lamp]);
+	    }
+	    for(var empty in ag.empties)
+	    {
+	        s.add_entity(ag.empties[empty]);
+	    }
+	    for(var entity in ag.entities)
+	    {
+	        s.add_entity(ag.entities[entity]);
+	    }
+	},	
+	find: function(s, name, root)
 	{
 		var n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
@@ -2707,7 +2721,11 @@ gb.scene =
 		}
 		return null;
 	},
-	
+	add_entity: function(s, e)
+	{
+		s.entities.push(e);
+		s.num_entities++;
+	},
 	add_camera: function(s, c)
 	{
 		s.cameras.push(c);
@@ -2716,7 +2734,6 @@ gb.scene =
 		s.num_cameras++;
     	gb.camera.update_projection(c, gb.webgl.view);
 	},
-
 	add_lamp: function(s, l)
 	{
 		s.lamps.push(l);
@@ -2724,7 +2741,6 @@ gb.scene =
 		s.num_entities++;
 		s.num_lamps++;
 	},
-
 	add_sprite: function(s, spr)
 	{
 		s.sprites.push(spr);
@@ -2763,7 +2779,8 @@ gb.scene =
 		{
 			gb.mat4.eq(e.world_matrix, e.local_matrix);
 		}
-		for(var i = 0; i < e.num_children; ++i)
+		var n = e.children.length;
+		for(var i = 0; i < n; ++i)
 		{
 			var child = e.children[i];
 			child.dirty = true;
@@ -3143,6 +3160,7 @@ gb.material =
         m.uniforms = {};
         for(var key in shader.uniforms)
         {
+            var uniform = shader.uniform[key];
             m.uniforms[key] = null;
         }
         if(shader.mvp === true)
@@ -3152,12 +3170,23 @@ gb.material =
         return m;
     },
 }
-gb.serialize.r_material = function(br)
+gb.serialize.r_material = function(br, ag)
 {
     var s = gb.serialize;
-    var mat = s.r_string(br);
-    console.log(mat);
-    return mat;
+    var shader_name = s.r_string(br);
+    var shader = ag.shaders[shader_name];
+    ASSERT(shader !== null, 'Cannot find shader ' + shader_name);
+
+    var material = gb.material.new(shader);
+    var num_textures = s.r_i32(br);
+    for(var i = 0; i < num_textures; ++i)
+    {
+        var tex_name = s.r_string(br);
+        var sampler_name = s.r_string(br);
+        ASSERT(material.uniforms[sampler_name] !== null, 'Cannot find sampler ' + sampler_name + ' in shader ' + shader_name);
+        material.uniforms[sampler_name] = ag.textures[tex_name];
+    }
+    return material;
 }
 gb.Render_Target = function()
 {
@@ -3803,6 +3832,7 @@ gb.webgl =
 gb.Asset_Group = function()
 {
     this.shaders = {};
+    this.materials = {};
     this.cameras = {};
     this.lamps = {};
     this.entities = {};
@@ -3812,7 +3842,7 @@ gb.Asset_Group = function()
 }
 gb.load_asset_group = function(url, asset_group, on_load, on_progress)
 {
-	var request = new XMLHttpRequest();
+    var request = new XMLHttpRequest();
     request.open('GET', url, true);
     request.onload = gb.on_asset_load;
     request.onprogress = on_progress;
@@ -3823,7 +3853,7 @@ gb.load_asset_group = function(url, asset_group, on_load, on_progress)
 }
 gb.on_asset_load = function(e)
 {
-	// NOTE: asset data encoded in little endian (x86)
+    // NOTE: asset data encoded in little endian (x86)
     if(e.target.status === 200)
     {
         var s = gb.serialize;
@@ -3832,28 +3862,52 @@ gb.on_asset_load = function(e)
 
         var header = s.r_i32_array(br, 3);
         var n_shaders = header[0];
-        var n_scenes = header[1];
-        var n_textures = header[2];
+        var n_textures = header[1];
+        var n_scenes = header[2];
 
         //DEBUG
         console.log("Shaders: " + n_shaders);
-        console.log("Scenes: " + n_scenes);
         console.log("Textures: " + n_textures);
+        console.log("Scenes: " + n_scenes);
         //END
 
         for(var i = 0; i < n_shaders; ++i)
         {
-        	var name = s.r_string(br);
+            var name = s.r_string(br);
             ag.shaders[name] = s.r_shader(br);
             //DEBUG
             console.log("Loaded Shader: " + name);
             //END
         }
 
+        for(var i = 0; i < n_textures; ++i)
+        {
+            var name = s.r_string(br);
+            var id = s.r_i32(br);
+            if(id === 0 && gb.webgl.extensions.dxt !== null)
+            {
+                var t = s.r_dds(br);
+                ag.textures[name] = t;
+                //DEBUG
+                console.log("Width: " + t.width);
+                console.log("Height: " + t.height);
+                console.log("Loaded DDS: " + name);
+                //END
+            }
+            else if(id === 1 && gb.webgl.extensions.pvr !== null)
+            {
+                ag.textures[name] = s.r_pvr(br);
+                //DEBUG
+                console.log("Loaded PVR: " + name);
+                //END
+            }
+        }
+
         for(var i = 0; i < n_scenes; ++i)
         {
-        	var name = s.r_string(br);
+            var name = s.r_string(br);
             var n_meshes = s.r_i32(br);
+            var n_materials = s.r_i32(br);
             var n_cameras = s.r_i32(br);
             var n_lamps = s.r_i32(br);
             var n_empties = s.r_i32(br);
@@ -3874,6 +3928,13 @@ gb.on_asset_load = function(e)
                 var mesh = s.r_mesh(br);
                 mesh.name = mesh_name;
                 ag.meshes[mesh_name] = mesh;
+            }
+            for(var j = 0; j < n_materials; ++j)
+            {
+                var mat_name = s.r_string(br);
+                var material = s.r_material(br);
+                material.name = mat_name;
+                ag.materials[mat_name] = material;
             }
             for(var j = 0; j < n_cameras; ++j)
             {
@@ -3899,38 +3960,16 @@ gb.on_asset_load = function(e)
                 var entity_name = s.r_string(br);
                 var entity = s.r_entity(br, ag);
                 entity.name = entity_name;
-                entity.material = s.r_material(br);
+                entity.material = ag.materials[s.r_material(br)];
                 entity.mesh = ag.meshes[s.r_string(br)];
                 ag.entities[entity_name] = entity;
             }
             
-             //DEBUG
+            //DEBUG
             console.log("Loaded Scene: " + name);
             //END
         }
         
-        for(var i = 0; i < n_textures; ++i)
-        {
-        	var name = s.r_string(br);
-            var id = s.r_i32(br);
-            if(id === 0 && gb.webgl.extensions.dxt !== null)
-            {
-                var t = s.r_dds(br);
-                ag.textures[name] = t;
-                //DEBUG
-                console.log("Width: " + t.width);
-                console.log("Height: " + t.height);
-                console.log("Loaded DDS: " + name);
-                //END
-            }
-            else if(id === 1 && gb.webgl.extensions.pvr !== null)
-            {
-                ag.textures[name] = s.r_pvr(br);
-                //DEBUG
-                console.log("Loaded PVR: " + name);
-                //END
-            }
-        }
         e.target.upload.callback(ag);    
     }
     else
@@ -4436,6 +4475,7 @@ var render_target;
 var sphere;
 var post;
 var light_position; //change to enitity
+var angle = 0;
 
 var draw_call;
 var post_call;
@@ -4488,19 +4528,20 @@ function link_complete()
 
 	render_target = gb.render_target.new(gl.view, 1 | 2);
 	construct = gb.scene.new();
+	gb.scene.load_asset_group(construct, assets);
 
-	camera = assets.cameras.camera;
-	gb.scene.add_camera(construct, camera);
+	//camera = assets.cameras.camera;
+	//gb.scene.add_camera(construct, camera);
 
-	sphere = assets.entities.entity;
-	gb.scene.add_entity(construct, sphere);
-	gb.scene.add_entity(construct, assets.entities.entity2);
+	//sphere = assets.entities.entity;
+	//gb.scene.add_entity(construct, sphere);
+	//gb.scene.add_entity(construct, assets.entities.entity2);
 
 
 	light_position = v3.new(3,3,3);
 
 	//90 33 148
-	gl.set_clear_color(0.35,0.13,0.58,1.0);
+	//gl.set_clear_color(0.35,0.13,0.58,1.0);
 
 	// TODO: create draw calls automatically
 	draw_call = new gb.DrawCall();
@@ -4560,6 +4601,8 @@ function update(t)
 	}
 	//gb.gl_draw.line(v3.tmp(0,0,0), light_position);
 	//gb.gl_draw.wire_mesh(sphere.mesh, sphere.world_matrix);
+	angle += 10 * dt;
+	gb.entity.set_rotation(sphere, angle, 0,0);
 
 	draw_call.material.uniforms.light_position = light_position;
 	

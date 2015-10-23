@@ -2,6 +2,7 @@ gb.Asset_Group = function()
 {
     this.shaders = {};
     this.materials = {};
+    this.actions = {};
     this.cameras = {};
     this.lamps = {};
     this.entities = {};
@@ -76,7 +77,7 @@ gb.on_asset_load = function(e)
         {
             var name = s.r_string(br);
             var n_meshes = s.r_i32(br);
-            //var n_actions = s.r_i32(br);
+            var n_actions = s.r_i32(br);
             var n_materials = s.r_i32(br);
             var n_cameras = s.r_i32(br);
             var n_lamps = s.r_i32(br);
@@ -86,7 +87,7 @@ gb.on_asset_load = function(e)
             //DEBUG
             console.log("Loading: " + name);
             console.log("Meshes: " + n_meshes);
-            //console.log("Actions: " + n_actions);
+            console.log("Actions: " + n_actions);
             console.log("Materials: " + n_materials);
             console.log("Cameras:" + n_cameras);
             console.log("Lamps:" + n_lamps);
@@ -98,36 +99,40 @@ gb.on_asset_load = function(e)
             {
                 var mesh = s.r_mesh(br);
                 ag.meshes[mesh.name] = mesh;
+                console.log("Loaded Mesh: " + mesh.name);
             }
-            /*
             for(var j = 0; j < n_actions; ++j)
             {
-                var actions = s.r_action(br);
+                var action = s.r_action(br);
                 ag.actions[action.name] = action;
+                console.log("Loaded Action: " + action.name);
             }
-            */
             for(var j = 0; j < n_materials; ++j)
             {
                 var material = s.r_material(br, ag);
                 ag.materials[material.name] = material;
+                console.log("Loaded Material: " + material.name);
             }
             for(var j = 0; j < n_cameras; ++j)
             {
-                var camera = new gb.Camera();
-                s.r_camera(camera, br, ag);
-                ag.cameras[camera.entity.name] = camera;
+                var entity = new gb.Entity();
+                s.r_camera(entity, br, ag);
+                ag.cameras[entity.name] = entity;
+                console.log("Loaded Camera: " + entity.name);
             }
             for(var j = 0; j < n_lamps; ++j)
             {
-                var lamp = new gb.Lamp();
-                s.r_lamp(lamp, br, ag);
-                ag.lamps[lamp.entity.name] = lamp;
+                var entity = new gb.Entity();
+                s.r_lamp(entity, br, ag);
+                ag.lamps[entity.name] = entity;
+                console.log("Loaded Lamp: " + entity.name);
             }
             for(var j = 0; j < n_empties; ++j)
             {
                 var empty = new gb.Entity();
                 s.r_entity(empty, br, ag);
                 ag.entities[empty.name] = empty;
+                console.log("Loaded Entity: " + empty.name);
             }
             for(var j = 0; j < n_entities; ++j)
             {
@@ -136,6 +141,7 @@ gb.on_asset_load = function(e)
                 entity.material = ag.materials[s.r_string(br)];
                 entity.mesh = ag.meshes[s.r_string(br)];
                 ag.entities[entity.name] = entity;
+                console.log("Loaded Entity: " + entity.name);
             }
             
             //DEBUG

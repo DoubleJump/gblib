@@ -240,15 +240,15 @@ def write_action(writer, action, owner):
 		write_str(writer, channel)
 		if type(data_type) is float:
 			write_int(writer, -1)
-		else write_int(writer, curve.array_index)
+		else: write_int(writer, curve.array_index)
 		#print(channel + ": " + str(curve.array_index))
 		#print("Keyframes: " + str(len(curve.keyframe_points)))
 		write_int(writer, len(curve.keyframe_points))
 		for keyframe in curve.keyframe_points:
 			write_float(writer, keyframe.co[0])
 			write_float(writer, keyframe.co[1])
-			print("T: " + str(keyframe.co[0]))
-			print("V: " + str(keyframe.co[1]))
+			#print("T: " + str(keyframe.co[0]))
+			#print("V: " + str(keyframe.co[1]))
 			#print(keyframe.left_handle)
 			#print(keygrame.right_handle)
 
@@ -339,7 +339,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 		print("")
 
 		write_int(writer, len(exportable_meshes))
-		#write_int(writer, len(exportable_actions))
+		write_int(writer, len(exportable_actions))
 		write_int(writer, len(exportable_materials))
 		write_int(writer, len(exportable_cameras))
 		write_int(writer, len(exportable_lamps))

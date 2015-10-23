@@ -1,3 +1,4 @@
+/*
 plx.Animation = function(tweens)
 {
 	this.tweens = tweens || [];
@@ -11,24 +12,30 @@ plx.Animation = function(tweens)
 	this.time_scale = 1;
 	return this;
 }
+*/
 
-Tween = function()
+gb.Tween = function()
 {
+	this.name;
 	this.t = 0;
 	this.targets = []; 
-	this.channels = [];
+	this.timelines = [];
+	return this;
 }
-Channel = function()
+gb.Timeline = function()
 {
 	this.property;
 	this.index = -1;
 	this.keyframes = [];
+	return this;
 }
-Keyframe = function()
+gb.Keyframe = function()
 {
-	this.value = value;
-	this.t = t;
+	this.value;
+	this.t;
+	return this;
 }
+
 
 //advance the animation
 //for each channel in a tween
@@ -36,7 +43,7 @@ Keyframe = function()
 //tween.target[channel.property][channel.index] = evaluate(channel.keyframes, t)
 
 
-
+/*
 gb.Keyframe = function()
 {
 	this.value;
@@ -196,4 +203,37 @@ gb.animate =
 			} 
 		}
 	}
+}
+*/
+
+gb.serialize.r_action = function(br)
+{
+    var s = gb.serialize;
+    var tween = new gb.Tween();
+    tween.name = s.r_string(br);
+    //console.log(tween.name);
+    var num_curves = s.r_i32(br);
+    for(var i = 0; i < num_curves; ++i)
+    {
+    	var timeline = new gb.Timeline();
+    	timeline.property = s.r_string(br);
+    	//console.log(timeline.property);
+
+    	timeline.index = s.r_i32(br);
+    	//console.log("Index: " + timeline.index);
+
+    	var num_frames = s.r_i32(br);
+    	//console.log("Frames: " + num_frames);
+    	for(var j = 0; j < num_frames; ++j)
+    	{
+    		var kf = new gb.Keyframe();
+    		kf.time = s.r_f32(br);
+    		//console.log("Time: " + kf.time);
+    		kf.value = s.r_f32(br);
+    		//console.log("Value: " + kf.value);
+    		timeline.keyframes.push(kf);
+    	}
+    	tween.timelines.push(timeline);
+    }
+    return tween;	
 }

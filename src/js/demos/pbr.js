@@ -121,7 +121,7 @@ function link_complete()
 	construct = gb.scene.new();
 	gb.scene.load_asset_group(construct, assets);
 
-	camera = gb.scene.find(construct, 'camera');
+	camera = gb.scene.find(construct, 'camera').camera;
 	sphere = gb.scene.find(construct, 'cube');
 
 	light_position = v3.new(3,3,3);
@@ -129,7 +129,7 @@ function link_complete()
 	// TODO: create draw calls automatically
 	draw_call = new gb.DrawCall();
 	draw_call.clear = true;
-	draw_call.camera = camera.camera; //lol fix this
+	draw_call.camera = camera;
 	draw_call.entities = construct.entities;
 	draw_call.target = render_target;
 	draw_call.material = gb.material.new(assets.shaders.pbr);

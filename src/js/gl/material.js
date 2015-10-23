@@ -30,6 +30,7 @@ gb.serialize.r_material = function(br, ag)
     ASSERT(shader, 'Cannot find shader ' + shader_name);
 
     var material = gb.material.new(shader);
+    material.name = name;
     var num_textures = s.r_i32(br);
 
     for(var i = 0; i < num_textures; ++i)

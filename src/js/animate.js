@@ -1,3 +1,42 @@
+plx.Animation = function(tweens)
+{
+	this.tweens = tweens || [];
+	this.curve = plx.ease;
+	this.loops = 1;
+	this.loops_count = 0;
+	this.is_playing = false;
+	this.manual_play = false;
+	this.callback = callback;
+	this.t = 0;
+	this.time_scale = 1;
+	return this;
+}
+
+Tween = function()
+{
+	this.t = 0;
+	this.targets = []; 
+	this.channels = [];
+}
+Channel = function()
+{
+	this.property;
+	this.index = -1;
+	this.keyframes = [];
+}
+Keyframe = function()
+{
+	this.value = value;
+	this.t = t;
+}
+
+//advance the animation
+//for each channel in a tween
+//evaluate the value for each channel
+//tween.target[channel.property][channel.index] = evaluate(channel.keyframes, t)
+
+
+
 gb.Keyframe = function()
 {
 	this.value;
@@ -6,10 +45,11 @@ gb.Keyframe = function()
 }
 gb.Tween = function()
 {
+	this.t = 0;
+	this.frame = 1;
+	this.target;
+
 	this.frames;
-	this.frame;
-	this.current; 
-	this.t;
 	this.playing;
 	this.modifier;
 	this.loops;

@@ -121,25 +121,16 @@ function link_complete()
 	construct = gb.scene.new();
 	gb.scene.load_asset_group(construct, assets);
 
-	//camera = assets.cameras.camera;
-	//gb.scene.add_camera(construct, camera);
-
-	//sphere = assets.entities.entity;
-	//gb.scene.add_entity(construct, sphere);
-	//gb.scene.add_entity(construct, assets.entities.entity2);
-
+	camera = gb.scene.find(construct, 'camera');
+	sphere = gb.scene.find(construct, 'cube');
 
 	light_position = v3.new(3,3,3);
-
-	//90 33 148
-	//gl.set_clear_color(0.35,0.13,0.58,1.0);
 
 	// TODO: create draw calls automatically
 	draw_call = new gb.DrawCall();
 	draw_call.clear = true;
-	draw_call.camera = camera;
-	draw_call.entities.push(sphere);
-	draw_call.entities.push(assets.entities.entity2);
+	draw_call.camera = camera.camera; //lol fix this
+	draw_call.entities = construct.entities;
 	draw_call.target = render_target;
 	draw_call.material = gb.material.new(assets.shaders.pbr);
 
@@ -158,8 +149,6 @@ function update(t)
 	if(assets_loaded === false) return;
 
 	var dt = gb.time.dt; 
-
-	//gb.gl_draw.clear();
 
 	gb.scene.update(construct);
 

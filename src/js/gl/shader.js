@@ -12,6 +12,7 @@ gb.ShaderUniform = function()
 }
 gb.Shader = function()
 {
+    this.name = null;
     this.id = 0;
     this.vertex_src;
     this.fragment_src;
@@ -37,10 +38,12 @@ gb.shader =
 gb.serialize.r_shader = function(br)
 {
 	var s = gb.serialize;
+    var name = s.r_string(br);
     var uniform_mask = s.r_i32(br);
    	var vs = s.r_string(br);
    	var fs = s.r_string(br);
     var shader = gb.shader.new(vs, fs);
+    shader.name = name;
     shader.mvp = gb.has_flag_set(uniform_mask, 1);
     shader.camera = gb.has_flag_set(uniform_mask, 2);
     shader.lights = gb.has_flag_set(uniform_mask, 4);

@@ -99,9 +99,17 @@ def write_transform(writer, ob):
 
 def write_material(writer, ob):
 	write_str(writer, ob.name)
-	write_srt(writer, ob['shader'])
-	write_int(writer, len(ob.texture_slots))
+	write_str(writer, ob['shader'])
 
+	num_textures = 0
+	for i in ob.texture_slots:
+		if i == None: continue
+		texture = bpy.data.textures[i.name]
+		if texture.image == None: continue
+		num_textures += 1
+
+	write_int(writer, num_textures)
+	
 	for i in ob.texture_slots:
 		if i == None: continue
 		texture = bpy.data.textures[i.name]
@@ -219,6 +227,30 @@ def write_mesh(writer, mesh):
 	for i in range(0, index_data_ln):
 		write_int(writer, index_buffer[i])
 
+def write_action(writer, action, owner):
+	write_str(writer, action.name)
+	write_int(writer, len(action.fcurves))
+	for curve in action.fcurves:
+		channel = curve.data_path
+		data_type = owner.path_resolve(channel)
+		
+		if channel == 'location': channel = 'position'
+		elif channel == 'rotation_euler': channel = 'rotation'
+		
+		write_str(writer, channel)
+		if type(data_type) is float:
+			write_int(writer, -1)
+		else write_int(writer, curve.array_index)
+		#print(channel + ": " + str(curve.array_index))
+		#print("Keyframes: " + str(len(curve.keyframe_points)))
+		write_int(writer, len(curve.keyframe_points))
+		for keyframe in curve.keyframe_points:
+			write_float(writer, keyframe.co[0])
+			write_float(writer, keyframe.co[1])
+			print("T: " + str(keyframe.co[0]))
+			print("V: " + str(keyframe.co[1]))
+			#print(keyframe.left_handle)
+			#print(keygrame.right_handle)
 
 class ExportTest(bpy.types.Operator, ExportHelper):
 	bl_idname = "export_gblib.test"
@@ -239,22 +271,46 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 		writer.offset = 0 
 
 		mesh_names = []
-		exportable_materials = []
 		exportable_meshes = []
+		exportable_actions = []
+		exportable_materials = []
 		exportable_cameras = []
 		exportable_lamps = []
 		exportable_empties = []
 		exportable_objects = []
 
 		for ob in scene.objects:
+			
+			if not ob.animation_data is None:
+				action = ob.animation_data.action
+				if not action in exportable_actions:
+					exportable_actions.append((action, ob))
+
 			if ob.type == 'CAMERA': 
 				exportable_cameras.append(ob)
+				camera = ob.data
+				if not camera.animation_data is None:
+					action = camera.animation_data.action
+					if not action in exportable_actions:
+						exportable_actions.append((action, camera))
+
 			elif ob.type == 'LAMP': 
 				exportable_lamps.append(ob)
+				lamp = ob.data
+				if not lamp.animation_data is None:
+					action = lamp.animation_data.action
+					if not action in exportable_actions:
+						exportable_actions.append((action, lamp))
+
 			elif ob.type == 'MESH':
 				material = ob.material_slots[0].material
 				if not material in exportable_materials:
 					exportable_materials.append(material)
+					
+					if not material.animation_data is None:
+						action = material.animation_data.action
+						if not action in exportable_actions:
+							exportable_actions.append((action, material))
 
 				exportable_objects.append(ob)
 
@@ -278,16 +334,17 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 			elif ob.type == 'EMPTY':
 				exportable_empties.append(ob)
 
-		write_int(writer, len(exportable_materials))
+		print("")
+		print("######### EXPORTING SCENE: " + scene.name + " ###########")
+		print("")
+
 		write_int(writer, len(exportable_meshes))
+		#write_int(writer, len(exportable_actions))
+		write_int(writer, len(exportable_materials))
 		write_int(writer, len(exportable_cameras))
 		write_int(writer, len(exportable_lamps))
 		write_int(writer, len(exportable_empties))
 		write_int(writer, len(exportable_objects))
-
-		for material in exportable_materials:
-			print("Exporting Material: " + material.name)
-			write_material(writer, material)
 
 		count = 0
 		for mesh in exportable_meshes:
@@ -297,6 +354,14 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 			write_mesh(writer, mesh)
 			bpy.data.meshes.remove(mesh)
 			count += 1
+
+		for action, owner in exportable_actions:
+			print("Exporting Action: " + action.name)
+			write_action(writer, action, owner)
+			
+		for material in exportable_materials:
+			print("Exporting Material: " + material.name)
+			write_material(writer, material)
 
 		for camera in exportable_cameras:
 			print("Exporting Camera: " + camera.name)

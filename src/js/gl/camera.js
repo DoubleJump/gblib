@@ -18,14 +18,15 @@ gb.camera =
 {
 	new: function(projection, near, far, fov, mask)
 	{
+		var e = gb.entity.new();
 	    var c = new gb.Camera();
 	    c.projection_type = projection || gb.Projection.PERSPECTIVE;
 	    c.near = near || 0.1;
 	    c.far = far || 100;
 	    c.fov = fov || 60;
 	    c.mask = mask || 0;
-	    c.entity = new gb.Entity();
-	    return c;
+	    e.camera = c;
+	    return e;
 	},
 	update_projection: function(c, view)
 	{
@@ -63,7 +64,6 @@ gb.camera =
 		c.far = far;
 		c.dirty = true;
 	},
-
 }
 
 gb.Projection = 
@@ -72,11 +72,11 @@ gb.Projection =
     PERSPECTIVE: 1,
 }
 
-gb.serialize.r_camera = function(br, ag)
+gb.serialize.r_camera = function(entity, br, ag)
 {
     var s = gb.serialize;
+    s.r_entity(entity, br, ag);
     var camera = new gb.Camera();
-    camera.entity = s.r_entity(br, ag);
     var camera_type = s.r_i32(br);
     camera.near = s.r_f32(br);
     camera.far = s.r_f32(br);
@@ -84,5 +84,5 @@ gb.serialize.r_camera = function(br, ag)
     if(camera_type === 0) camera.projection_type = gb.Projection.PERSPECTIVE;
     else camera.projection_type = gb.Projection.ORTHO;
     camera.dirty = true;
-    return camera;
+    entity.camera = camera;
 }

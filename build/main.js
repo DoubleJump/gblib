@@ -2283,6 +2283,45 @@ gb.input =
 	},
 	
 }
+plx.Animation = function(tweens)
+{
+	this.tweens = tweens || [];
+	this.curve = plx.ease;
+	this.loops = 1;
+	this.loops_count = 0;
+	this.is_playing = false;
+	this.manual_play = false;
+	this.callback = callback;
+	this.t = 0;
+	this.time_scale = 1;
+	return this;
+}
+
+Tween = function()
+{
+	this.t = 0;
+	this.targets = []; 
+	this.channels = [];
+}
+Channel = function()
+{
+	this.property;
+	this.index = -1;
+	this.keyframes = [];
+}
+Keyframe = function()
+{
+	this.value = value;
+	this.t = t;
+}
+
+//advance the animation
+//for each channel in a tween
+//evaluate the value for each channel
+//tween.target[channel.property][channel.index] = evaluate(channel.keyframes, t)
+
+
+
 gb.Keyframe = function()
 {
 	this.value;
@@ -2291,10 +2330,11 @@ gb.Keyframe = function()
 }
 gb.Tween = function()
 {
+	this.t = 0;
+	this.frame = 1;
+	this.target;
+
 	this.frames;
-	this.frame;
-	this.current; 
-	this.t;
 	this.playing;
 	this.modifier;
 	this.loops;
@@ -2442,10 +2482,18 @@ gb.animate =
 		}
 	}
 }
+gb.EntityType = 
+{
+	ENTITY: 0,
+	CAMERA: 1,
+	LAMP: 2,
+	SPRITE: 3,
+}
 gb.Entity = function()
 {
 	this.name;
 	this.id;
+	this.entity_type = gb.EntityType.ENTITY;
 	this.parent = null;
 	this.children = [];
 
@@ -2461,8 +2509,8 @@ gb.Entity = function()
 	this.world_matrix = gb.mat4.new();
 	this.bounds = gb.aabb.new();
 
-	this.material = null;
-	this.mesh = null;
+	//this.material = null;
+	//this.mesh = null;
 }
 gb.entity = 
 {
@@ -2526,12 +2574,20 @@ gb.entity =
 		e.dirty = true;
 	},
 }
-gb.serialize.r_entity = function(br, ag)
+gb.serialize.r_entity = function(entity, br, ag)
 {
     var s = gb.serialize;
-    var entity = new gb.Entity();
+
+    entity.name = s.r_string(br);
+
     var parent_name = s.r_string(br);
-    
+    if(parent_name !== 'none') 
+    {
+    	var parent = ag.entities[parent_name];
+    	ASSERT(parent, 'Cannot find entity ' + parent_name + ' in asset group');
+    	gb.entity.set_parent(entity, parent);
+    }
+
     entity.position[0] = s.r_f32(br);
     entity.position[1] = s.r_f32(br);
     entity.position[2] = s.r_f32(br);
@@ -2542,32 +2598,24 @@ gb.serialize.r_entity = function(br, ag)
     entity.rotation[1] = s.r_f32(br);
     entity.rotation[2] = s.r_f32(br);
     entity.rotation[3] = s.r_f32(br);
-
-    if(parent_name !== 'none') 
-    {
-    	var parent = ag.entities[parent_name];
-    	gb.entity.set_parent(entity, parent);
-    }
-
-    return entity;
 }
 gb.Lamp = function()
 {
-	this.lamp_type = null;
+	this.lamp_type = gb.LampType.POINT;
 	this.energy = 1;
 	this.distance = 1;
-	this.entity;
 }
 
 gb.lamp = 
 {
 	new: function(energy, distance)
 	{
-	    var c = new gb.Lamp();
-	    c.energy = energy;
-	    c.distance = distance;
-	    c.entity = new gb.Entity();
-	    return c;
+		var e = gb.entity.new();
+	    var l = new gb.Lamp();
+	    l.energy = energy;
+	    l.distance = distance;
+	    e.lamp = l;
+	    return e;
 	},
 }
 
@@ -2577,14 +2625,15 @@ gb.LampType =
     SUN: 1,
 }
 
-gb.serialize.r_lamp = function(br, ag)
+gb.serialize.r_lamp = function(entity, br, ag)
 {
     var s = gb.serialize;
+    s.r_entity(entity, br, ag);
+    entity.type = gb.EntityType.LAMP;
     var lamp = new gb.Lamp();
-    lamp.entity = s.r_entity(br, ag);
     lamp.energy = s.r_f32(br);
     lamp.distance = s.r_f32(br);
-    return lamp;
+    entity.lamp = lamp;
 }
 gb.Camera = function()
 {
@@ -2606,14 +2655,15 @@ gb.camera =
 {
 	new: function(projection, near, far, fov, mask)
 	{
+		var e = gb.entity.new();
 	    var c = new gb.Camera();
 	    c.projection_type = projection || gb.Projection.PERSPECTIVE;
 	    c.near = near || 0.1;
 	    c.far = far || 100;
 	    c.fov = fov || 60;
 	    c.mask = mask || 0;
-	    c.entity = new gb.Entity();
-	    return c;
+	    e.camera = c;
+	    return e;
 	},
 	update_projection: function(c, view)
 	{
@@ -2651,7 +2701,6 @@ gb.camera =
 		c.far = far;
 		c.dirty = true;
 	},
-
 }
 
 gb.Projection = 
@@ -2660,11 +2709,11 @@ gb.Projection =
     PERSPECTIVE: 1,
 }
 
-gb.serialize.r_camera = function(br, ag)
+gb.serialize.r_camera = function(entity, br, ag)
 {
     var s = gb.serialize;
+    s.r_entity(entity, br, ag);
     var camera = new gb.Camera();
-    camera.entity = s.r_entity(br, ag);
     var camera_type = s.r_i32(br);
     camera.near = s.r_f32(br);
     camera.far = s.r_f32(br);
@@ -2672,7 +2721,7 @@ gb.serialize.r_camera = function(br, ag)
     if(camera_type === 0) camera.projection_type = gb.Projection.PERSPECTIVE;
     else camera.projection_type = gb.Projection.ORTHO;
     camera.dirty = true;
-    return camera;
+    entity.camera = camera;
 }
 gb.Scene = function()
 {
@@ -2696,22 +2745,22 @@ gb.scene =
 	{
 		for(var camera in ag.cameras)
 	    {
-	        s.add_camera(ag.cameras[camera]);
+	        gb.scene.add(s, ag.cameras[camera]);
 	    }
 	    for(var lamp in ag.lamps)
 	    {
-	        s.add_lamp(ag.lamps[lamp]);
+	        gb.scene.add(s, ag.lamps[lamp]);
 	    }
 	    for(var empty in ag.empties)
 	    {
-	        s.add_entity(ag.empties[empty]);
+	        gb.scene.add(s, ag.empties[empty]);
 	    }
 	    for(var entity in ag.entities)
 	    {
-	        s.add_entity(ag.entities[entity]);
+	        gb.scene.add(s, ag.entities[entity]);
 	    }
 	},	
-	find: function(s, name, root)
+	find: function(s, name)
 	{
 		var n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
@@ -2721,32 +2770,10 @@ gb.scene =
 		}
 		return null;
 	},
-	add_entity: function(s, e)
+	add: function(s, e)
 	{
 		s.entities.push(e);
 		s.num_entities++;
-	},
-	add_camera: function(s, c)
-	{
-		s.cameras.push(c);
-		s.entities.push(c.entity);
-		s.num_entities++;
-		s.num_cameras++;
-    	gb.camera.update_projection(c, gb.webgl.view);
-	},
-	add_lamp: function(s, l)
-	{
-		s.lamps.push(l);
-		s.entities.push(l.entity);
-		s.num_entities++;
-		s.num_lamps++;
-	},
-	add_sprite: function(s, spr)
-	{
-		s.sprites.push(spr);
-		s.entities.push(spr.entity);
-		s.num_entities++;
-		s.num_sprites++;
 	},
 
 	update_camera: function(c)
@@ -2754,7 +2781,7 @@ gb.scene =
 		ASSERT(c.entity != null, "Camera has no transform!");
 		if(c.dirty === true)
 		{
-			gb.camera.update_projection(c);
+			gb.camera.update_projection(c, gb.webgl.view);
 		}
 		gb.mat4.inverse(c.view, c.entity.world_matrix);
 		gb.mat4.mul(c.view_projection, c.view, c.projection);
@@ -2789,22 +2816,32 @@ gb.scene =
 		e.dirty = false;
 	},
 
+
 	update: function(s)
 	{
 		var n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
 		{
-			gb.scene.update_entity(s.entities[i]);
-		}
-		n = s.num_cameras;
-		for(var i = 0; i < n; ++i)
-		{
-			gb.scene.update_camera(s.cameras[i]);
-		}
-		n = s.num_sprites;
-		for(var i = 0; i < n; ++i)
-		{
-			gb.sprite.update(s.sprites[i]);
+			var e = s.entities[i];
+			switch(e.entity_type)
+			{
+				case gb.EntityType.ENTITY:
+				{
+					gb.scene.update_entity(e);
+					break;
+				}
+				case gb.EntityType.CAMERA:
+				{
+					gb.scene.update_entity(e);
+					gb.scene.update_camera(e.camera);
+					break;
+				}
+				case gb.EntityType.LAMP:
+				{
+					gb.scene.update_entity(e.entity);
+					break;
+				}
+			}
 		}
 	},
 }
@@ -2912,10 +2949,13 @@ gb.mesh =
 gb.serialize.r_mesh = function(br)
 {
 	var s = gb.serialize;
+	var name = s.r_string(br);
 	var h = s.r_i32_array(br, 4);
 	var vertices = s.r_f32_array(br, h[1]);
 	var indices = s.r_u32_array(br, h[2]);
-	return gb.mesh.new(h[0], vertices, h[3], indices);
+	var mesh = gb.mesh.new(h[0], vertices, h[3], indices);
+	mesh.name = name;
+	return mesh;
 }
 gb.mesh.generate = 
 {
@@ -3111,6 +3151,7 @@ gb.ShaderUniform = function()
 }
 gb.Shader = function()
 {
+    this.name = null;
     this.id = 0;
     this.vertex_src;
     this.fragment_src;
@@ -3136,10 +3177,12 @@ gb.shader =
 gb.serialize.r_shader = function(br)
 {
 	var s = gb.serialize;
+    var name = s.r_string(br);
     var uniform_mask = s.r_i32(br);
    	var vs = s.r_string(br);
    	var fs = s.r_string(br);
     var shader = gb.shader.new(vs, fs);
+    shader.name = name;
     shader.mvp = gb.has_flag_set(uniform_mask, 1);
     shader.camera = gb.has_flag_set(uniform_mask, 2);
     shader.lights = gb.has_flag_set(uniform_mask, 4);
@@ -3149,7 +3192,6 @@ gb.Material = function()
 {
     this.shader;
     this.uniforms;
-    this.textures;
 }
 gb.material = 
 {
@@ -3160,7 +3202,6 @@ gb.material =
         m.uniforms = {};
         for(var key in shader.uniforms)
         {
-            var uniform = shader.uniform[key];
             m.uniforms[key] = null;
         }
         if(shader.mvp === true)
@@ -3173,17 +3214,19 @@ gb.material =
 gb.serialize.r_material = function(br, ag)
 {
     var s = gb.serialize;
+    var name = s.r_string(br);
     var shader_name = s.r_string(br);
     var shader = ag.shaders[shader_name];
-    ASSERT(shader !== null, 'Cannot find shader ' + shader_name);
+    ASSERT(shader, 'Cannot find shader ' + shader_name);
 
     var material = gb.material.new(shader);
     var num_textures = s.r_i32(br);
+
     for(var i = 0; i < num_textures; ++i)
     {
         var tex_name = s.r_string(br);
         var sampler_name = s.r_string(br);
-        ASSERT(material.uniforms[sampler_name] !== null, 'Cannot find sampler ' + sampler_name + ' in shader ' + shader_name);
+        ASSERT(material.uniforms[sampler_name], 'Cannot find sampler ' + sampler_name + ' in shader ' + shader_name);
         material.uniforms[sampler_name] = ag.textures[tex_name];
     }
     return material;
@@ -3759,7 +3802,9 @@ gb.webgl =
 		for(var i = 0; i < n; ++i)
 		{
 			var e = dc.entities[i];
+			if(e.entity_type !== gb.EntityType.ENTITY) continue;
 			var mesh = e.mesh;
+			if(mesh === null) continue;
 			if(mesh.linked === false) _t.link_mesh(mesh);
 			if(mesh.dirty === true) _t.update_mesh(mesh);
 			_t.link_attributes(shader, mesh);
@@ -3873,10 +3918,10 @@ gb.on_asset_load = function(e)
 
         for(var i = 0; i < n_shaders; ++i)
         {
-            var name = s.r_string(br);
-            ag.shaders[name] = s.r_shader(br);
+            var shader = s.r_shader(br);
+            ag.shaders[shader.name] = shader;
             //DEBUG
-            console.log("Loaded Shader: " + name);
+            console.log("Loaded Shader: " + shader.name);
             //END
         }
 
@@ -3907,6 +3952,7 @@ gb.on_asset_load = function(e)
         {
             var name = s.r_string(br);
             var n_meshes = s.r_i32(br);
+            //var n_actions = s.r_i32(br);
             var n_materials = s.r_i32(br);
             var n_cameras = s.r_i32(br);
             var n_lamps = s.r_i32(br);
@@ -3915,54 +3961,57 @@ gb.on_asset_load = function(e)
 
             //DEBUG
             console.log("Loading: " + name);
+            console.log("Meshes: " + n_meshes);
+            //console.log("Actions: " + n_actions);
+            console.log("Materials: " + n_materials);
             console.log("Cameras:" + n_cameras);
             console.log("Lamps:" + n_lamps);
             console.log("Empties: " + n_empties);
             console.log("Entities: " + n_entities);
-            console.log("Meshes: " + n_meshes);
             //END
 
             for(var j = 0; j < n_meshes; ++j)
             {
-                var mesh_name = s.r_string(br);
                 var mesh = s.r_mesh(br);
-                mesh.name = mesh_name;
-                ag.meshes[mesh_name] = mesh;
+                ag.meshes[mesh.name] = mesh;
             }
+            /*
+            for(var j = 0; j < n_actions; ++j)
+            {
+                var actions = s.r_action(br);
+                ag.actions[action.name] = action;
+            }
+            */
             for(var j = 0; j < n_materials; ++j)
             {
-                var mat_name = s.r_string(br);
-                var material = s.r_material(br);
-                material.name = mat_name;
-                ag.materials[mat_name] = material;
+                var material = s.r_material(br, ag);
+                ag.materials[material.name] = material;
             }
             for(var j = 0; j < n_cameras; ++j)
             {
-                var camera_name = s.r_string(br);
-                var camera = s.r_camera(br, ag);
-                ag.cameras[camera_name] = camera;
+                var camera = new gb.Camera();
+                s.r_camera(camera, br, ag);
+                ag.cameras[camera.entity.name] = camera;
             }
             for(var j = 0; j < n_lamps; ++j)
             {
-                var lamp_name = s.r_string(br);
-                var lamp = s.r_lamp(br, ag);
-                ag.lamps[lamp_name] = lamp;
+                var lamp = new gb.Lamp();
+                s.r_lamp(lamp, br, ag);
+                ag.lamps[lamp.entity.name] = lamp;
             }
             for(var j = 0; j < n_empties; ++j)
             {
-                var empty_name = s.r_string(br);
-                var empty = s.r_entity(br, ag);
-                empty.name = empty_name;
-                ag.entities[empty_name] = empty;
+                var empty = new gb.Entity();
+                s.r_entity(empty, br, ag);
+                ag.entities[empty.name] = empty;
             }
             for(var j = 0; j < n_entities; ++j)
             {
-                var entity_name = s.r_string(br);
-                var entity = s.r_entity(br, ag);
-                entity.name = entity_name;
-                entity.material = ag.materials[s.r_material(br)];
+                var entity = new gb.Entity();
+                s.r_entity(entity, br, ag);
+                entity.material = ag.materials[s.r_string(br)];
                 entity.mesh = ag.meshes[s.r_string(br)];
-                ag.entities[entity_name] = entity;
+                ag.entities[entity.name] = entity;
             }
             
             //DEBUG
@@ -4530,25 +4579,16 @@ function link_complete()
 	construct = gb.scene.new();
 	gb.scene.load_asset_group(construct, assets);
 
-	//camera = assets.cameras.camera;
-	//gb.scene.add_camera(construct, camera);
-
-	//sphere = assets.entities.entity;
-	//gb.scene.add_entity(construct, sphere);
-	//gb.scene.add_entity(construct, assets.entities.entity2);
-
+	camera = gb.scene.find(construct, 'camera');
+	sphere = gb.scene.find(construct, 'cube');
 
 	light_position = v3.new(3,3,3);
-
-	//90 33 148
-	//gl.set_clear_color(0.35,0.13,0.58,1.0);
 
 	// TODO: create draw calls automatically
 	draw_call = new gb.DrawCall();
 	draw_call.clear = true;
-	draw_call.camera = camera;
-	draw_call.entities.push(sphere);
-	draw_call.entities.push(assets.entities.entity2);
+	draw_call.camera = camera.camera; //lol fix this
+	draw_call.entities = construct.entities;
 	draw_call.target = render_target;
 	draw_call.material = gb.material.new(assets.shaders.pbr);
 
@@ -4567,8 +4607,6 @@ function update(t)
 	if(assets_loaded === false) return;
 
 	var dt = gb.time.dt; 
-
-	//gb.gl_draw.clear();
 
 	gb.scene.update(construct);
 

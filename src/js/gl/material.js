@@ -2,7 +2,6 @@ gb.Material = function()
 {
     this.shader;
     this.uniforms;
-    this.textures;
 }
 gb.material = 
 {
@@ -13,7 +12,6 @@ gb.material =
         m.uniforms = {};
         for(var key in shader.uniforms)
         {
-            var uniform = shader.uniform[key];
             m.uniforms[key] = null;
         }
         if(shader.mvp === true)
@@ -26,12 +24,14 @@ gb.material =
 gb.serialize.r_material = function(br, ag)
 {
     var s = gb.serialize;
+    var name = s.r_string(br);
     var shader_name = s.r_string(br);
     var shader = ag.shaders[shader_name];
     ASSERT(shader, 'Cannot find shader ' + shader_name);
 
     var material = gb.material.new(shader);
     var num_textures = s.r_i32(br);
+
     for(var i = 0; i < num_textures; ++i)
     {
         var tex_name = s.r_string(br);

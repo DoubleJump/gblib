@@ -531,7 +531,9 @@ gb.webgl =
 		for(var i = 0; i < n; ++i)
 		{
 			var e = dc.entities[i];
+			if(e.entity_type !== gb.EntityType.ENTITY) continue;
 			var mesh = e.mesh;
+			if(mesh === null) continue;
 			if(mesh.linked === false) _t.link_mesh(mesh);
 			if(mesh.dirty === true) _t.update_mesh(mesh);
 			_t.link_attributes(shader, mesh);

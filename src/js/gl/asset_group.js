@@ -42,10 +42,10 @@ gb.on_asset_load = function(e)
 
         for(var i = 0; i < n_shaders; ++i)
         {
-            var name = s.r_string(br);
-            ag.shaders[name] = s.r_shader(br);
+            var shader = s.r_shader(br);
+            ag.shaders[shader.name] = shader;
             //DEBUG
-            console.log("Loaded Shader: " + name);
+            console.log("Loaded Shader: " + shader.name);
             //END
         }
 
@@ -76,6 +76,7 @@ gb.on_asset_load = function(e)
         {
             var name = s.r_string(br);
             var n_meshes = s.r_i32(br);
+            //var n_actions = s.r_i32(br);
             var n_materials = s.r_i32(br);
             var n_cameras = s.r_i32(br);
             var n_lamps = s.r_i32(br);
@@ -84,54 +85,57 @@ gb.on_asset_load = function(e)
 
             //DEBUG
             console.log("Loading: " + name);
+            console.log("Meshes: " + n_meshes);
+            //console.log("Actions: " + n_actions);
+            console.log("Materials: " + n_materials);
             console.log("Cameras:" + n_cameras);
             console.log("Lamps:" + n_lamps);
             console.log("Empties: " + n_empties);
             console.log("Entities: " + n_entities);
-            console.log("Meshes: " + n_meshes);
             //END
 
             for(var j = 0; j < n_meshes; ++j)
             {
-                var mesh_name = s.r_string(br);
-                var mesh = s.r_mesh(br); // TODO: read the names from within the serializer
-                mesh.name = mesh_name;
-                ag.meshes[mesh_name] = mesh;
+                var mesh = s.r_mesh(br);
+                ag.meshes[mesh.name] = mesh;
             }
+            /*
+            for(var j = 0; j < n_actions; ++j)
+            {
+                var actions = s.r_action(br);
+                ag.actions[action.name] = action;
+            }
+            */
             for(var j = 0; j < n_materials; ++j)
             {
-                var mat_name = s.r_string(br);
-                var material = s.r_material(br);
-                material.name = mat_name;
-                ag.materials[mat_name] = material;
+                var material = s.r_material(br, ag);
+                ag.materials[material.name] = material;
             }
             for(var j = 0; j < n_cameras; ++j)
             {
-                var camera_name = s.r_string(br);
-                var camera = s.r_camera(br, ag);
-                ag.cameras[camera_name] = camera;
+                var camera = new gb.Camera();
+                s.r_camera(camera, br, ag);
+                ag.cameras[camera.entity.name] = camera;
             }
             for(var j = 0; j < n_lamps; ++j)
             {
-                var lamp_name = s.r_string(br);
-                var lamp = s.r_lamp(br, ag);
-                ag.lamps[lamp_name] = lamp;
+                var lamp = new gb.Lamp();
+                s.r_lamp(lamp, br, ag);
+                ag.lamps[lamp.entity.name] = lamp;
             }
             for(var j = 0; j < n_empties; ++j)
             {
-                var empty_name = s.r_string(br);
-                var empty = s.r_entity(br, ag);
-                empty.name = empty_name;
-                ag.entities[empty_name] = empty;
+                var empty = new gb.Entity();
+                s.r_entity(empty, br, ag);
+                ag.entities[empty.name] = empty;
             }
             for(var j = 0; j < n_entities; ++j)
             {
-                var entity_name = s.r_string(br);
-                var entity = s.r_entity(br, ag);
-                entity.name = entity_name;
-                entity.material = ag.materials[s.r_material(br)];
+                var entity = new gb.Entity();
+                s.r_entity(entity, br, ag);
+                entity.material = ag.materials[s.r_string(br)];
                 entity.mesh = ag.meshes[s.r_string(br)];
-                ag.entities[entity_name] = entity;
+                ag.entities[entity.name] = entity;
             }
             
             //DEBUG

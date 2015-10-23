@@ -20,22 +20,22 @@ gb.scene =
 	{
 		for(var camera in ag.cameras)
 	    {
-	        s.add_camera(ag.cameras[camera]);
+	        gb.scene.add(s, ag.cameras[camera]);
 	    }
 	    for(var lamp in ag.lamps)
 	    {
-	        s.add_lamp(ag.lamps[lamp]);
+	        gb.scene.add(s, ag.lamps[lamp]);
 	    }
 	    for(var empty in ag.empties)
 	    {
-	        s.add_entity(ag.empties[empty]);
+	        gb.scene.add(s, ag.empties[empty]);
 	    }
 	    for(var entity in ag.entities)
 	    {
-	        s.add_entity(ag.entities[entity]);
+	        gb.scene.add(s, ag.entities[entity]);
 	    }
 	},	
-	find: function(s, name, root)
+	find: function(s, name)
 	{
 		var n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
@@ -45,32 +45,10 @@ gb.scene =
 		}
 		return null;
 	},
-	add_entity: function(s, e)
+	add: function(s, e)
 	{
 		s.entities.push(e);
 		s.num_entities++;
-	},
-	add_camera: function(s, c)
-	{
-		s.cameras.push(c);
-		s.entities.push(c.entity);
-		s.num_entities++;
-		s.num_cameras++;
-    	gb.camera.update_projection(c, gb.webgl.view);
-	},
-	add_lamp: function(s, l)
-	{
-		s.lamps.push(l);
-		s.entities.push(l.entity);
-		s.num_entities++;
-		s.num_lamps++;
-	},
-	add_sprite: function(s, spr)
-	{
-		s.sprites.push(spr);
-		s.entities.push(spr.entity);
-		s.num_entities++;
-		s.num_sprites++;
 	},
 
 	update_camera: function(c)
@@ -78,7 +56,7 @@ gb.scene =
 		ASSERT(c.entity != null, "Camera has no transform!");
 		if(c.dirty === true)
 		{
-			gb.camera.update_projection(c);
+			gb.camera.update_projection(c, gb.webgl.view);
 		}
 		gb.mat4.inverse(c.view, c.entity.world_matrix);
 		gb.mat4.mul(c.view_projection, c.view, c.projection);
@@ -113,22 +91,32 @@ gb.scene =
 		e.dirty = false;
 	},
 
+
 	update: function(s)
 	{
 		var n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
 		{
-			gb.scene.update_entity(s.entities[i]);
-		}
-		n = s.num_cameras;
-		for(var i = 0; i < n; ++i)
-		{
-			gb.scene.update_camera(s.cameras[i]);
-		}
-		n = s.num_sprites;
-		for(var i = 0; i < n; ++i)
-		{
-			gb.sprite.update(s.sprites[i]);
+			var e = s.entities[i];
+			switch(e.entity_type)
+			{
+				case gb.EntityType.ENTITY:
+				{
+					gb.scene.update_entity(e);
+					break;
+				}
+				case gb.EntityType.CAMERA:
+				{
+					gb.scene.update_entity(e);
+					gb.scene.update_camera(e.camera);
+					break;
+				}
+				case gb.EntityType.LAMP:
+				{
+					gb.scene.update_entity(e.entity);
+					break;
+				}
+			}
 		}
 	},
 }

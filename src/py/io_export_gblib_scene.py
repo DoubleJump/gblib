@@ -145,7 +145,6 @@ def write_lamp(writer, ob, lamp):
 	write_int(writer, OB_TYPE_LAMP)
 	write_str(writer, ob.name)
 	write_transform(writer, ob)
-	#lamp = bpy.data.lamps[ob.name]
 	write_float(writer, lamp.energy)
 	write_float(writer, lamp.distance)
 
@@ -154,7 +153,6 @@ def write_camera(writer, ob, camera):
 	write_int(writer, OB_TYPE_CAMERA)
 	write_str(writer, ob.name)
 	write_transform(writer, ob)
-	#camera = bpy.data.cameras[ob.name]
 	if camera.type == 'PERSP': write_int(writer, 0)
 	else: write_int(writer, 1)
 	write_float(writer, camera.clip_start)
@@ -353,24 +351,23 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 						write_material(writer, material)
 						exported_materials.append(material)
 
-				modifiers = ob.modifiers
-				has_triangulate = False
-				for mod in modifiers:
-					if(mod.type == 'TRIANGULATE'):
-						has_triangulate = True
-
-				if not has_triangulate:
-					modifiers.new("TEMP", type = 'TRIANGULATE')
-
-				mesh = ob.to_mesh(scene = scene, apply_modifiers = True, settings = 'PREVIEW')
-
 				if not ob.data.name in exported_meshes:
+					modifiers = ob.modifiers
+					has_triangulate = False
+					for mod in modifiers:
+						if(mod.type == 'TRIANGULATE'):
+							has_triangulate = True
+
+					if not has_triangulate:
+						modifiers.new("TEMP", type = 'TRIANGULATE')
+
+					mesh = ob.to_mesh(scene = scene, apply_modifiers = True, settings = 'PREVIEW')
 					write_mesh(writer, ob, mesh)
 					exported_meshes.append(ob.data.name)
 					bpy.data.meshes.remove(mesh)
 
-				if(not has_triangulate):
-					modifiers.remove(modifiers[len(modifiers)-1])
+					if not has_triangulate:
+						modifiers.remove(modifiers[len(modifiers)-1])
 
 				write_object(writer, ob)
 

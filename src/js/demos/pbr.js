@@ -137,7 +137,7 @@ function link_complete()
 	draw_call.camera = camera;
 	draw_call.entities = construct.entities;
 	draw_call.target = render_target;
-	draw_call.material = gb.material.new(assets.shaders.pbr);
+	draw_call.material = assets.materials.material;
 
 	//gb.gl_draw.draw_call.camera = camera;
 	//gb.gl_draw.draw_call.target = render_target;

@@ -26,6 +26,17 @@ gb.Keyframe = function()
 
 gb.animation = 
 {
+	new_frame: function(value, t, curve)
+	{
+		var kf = new gb.Keyframe();
+		kf.value = value;
+		kf.t = t;
+		//....
+	}
+	add_tween: function(animation, property, index, keyframes)
+	{
+		animation.tweens.push(new gb.Tween(property, index, keyframes));
+	},
 	update: function(animation, dt)
 	{
 		if(animation.is_playing === false) return;

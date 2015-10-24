@@ -38,6 +38,7 @@ gb.serialize.r_material = function(br, ag)
         var tex_name = s.r_string(br);
         var sampler_name = s.r_string(br);
         ASSERT(material.uniforms[sampler_name], 'Cannot find sampler ' + sampler_name + ' in shader ' + shader_name);
+        ASSERT(ag.textures[tex_name], 'Cannot find texture ' + tex_name + ' in asset group');
         material.uniforms[sampler_name] = ag.textures[tex_name];
     }
     return material;

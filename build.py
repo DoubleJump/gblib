@@ -22,6 +22,8 @@ def read_file(name, directory, out_buffer, debug):
 					read_state = 1
 				elif not debug and line.find('ASSERT') is not -1:
 					continue
+				elif not debug and line.find('LOG') is not -1:
+					continue
 				else:
 					out_buffer.append(line)
 			elif read_state is 1:

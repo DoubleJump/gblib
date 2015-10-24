@@ -27,6 +27,10 @@ function ASSERT(expr, message)
 {
     if(expr === false) console.error(message);
 }
+function LOG(message)
+{
+	console.log(message);
+}
 //END
 
 var gb = 
@@ -2299,15 +2303,18 @@ plx.Animation = function(tweens)
 }
 */
 
-gb.Tween = function()
+gb.Animation = function()
 {
 	this.name;
+	this.is_playing = false;
+	this.auto_play = true;
 	this.t = 0;
-	this.targets = []; 
-	this.timelines = [];
+	this.time_scale = 1;
+	this.target; 
+	this.tweens = [];
 	return this;
 }
-gb.Timeline = function()
+gb.Tween = function()
 {
 	this.property;
 	this.index = -1;
@@ -2318,9 +2325,89 @@ gb.Keyframe = function()
 {
 	this.value;
 	this.t;
+	this.handles = new Float32Array(4);
 	return this;
 }
 
+gb.animation = 
+{
+	update: function(animation, dt)
+	{
+		if(animation.is_playing === false) return;
+
+		if(animation.auto_play === true)
+			animation.t += dt; 
+
+		var num_tweens = animation.tweens.length;
+		for(var i = 0; i < num_tweens; ++i)
+		{
+			var tween = animation.tweens[i];
+			var key_start;
+			var key_end;
+			//get keys we are between
+			var num_keys = tween.keyframes.length;
+			for(var j = 1; j < num_keys; ++j)
+			{
+				key_start = tween.keyframes[j-1];
+				key_end = tween.keyframes[j];
+				if(animation.t < key_end.t && animation.t >= key_start.t)
+				{
+					//console.log(j);
+					break;
+				}
+			}			
+
+			var time_range = key_end.t - key_start.t;
+			var value_range = key_end.value - key_start.value;
+
+			//normalize time by our range
+			var nt = (animation.t - key_start.t) / time_range;
+
+			//if(nt < 0.0) nt = 0.0;
+			if(nt > 1.0) nt = 1.0;
+			/*
+			var ax = key_start.handles[0];
+			var ay = key_start.handles[1];
+			var bx = key_start.handles[2];
+			var by = key_start.handles[3];
+			var cx = key_end.handles[0];
+			var cy = key_end.handles[1];
+			var dx = key_end.handles[2];
+			var dy = key_end.handles[3];
+			*/
+			var ax = key_start.t;
+			var ay = key_start.value;
+			var bx = key_start.handles[2];
+			var by = key_start.handles[3];
+			var cx = key_end.handles[0];
+			var cy = key_end.handles[1];
+			var dx = key_end.t;
+			var dy = key_end.value;
+
+
+			var t = nt;
+			var u = 1.0 - t;
+			var tt = t * t;
+			var uu = u * u;
+			var uuu = uu * u;
+			var ttt = tt * t;
+
+			var value = (uuu * ay) + 
+				   (3 * uu * t * by) + 
+				   (3 * u * tt * cy) + 
+				   (ttt * dy);
+
+			if(tween.index === -1)
+			{
+				animation.target[tween.property] = value;
+			}
+			else
+			{
+				animation.target[tween.property][tween.index] = value;
+			}
+		}
+	},
+}
 
 //advance the animation
 //for each channel in a tween
@@ -2494,33 +2581,31 @@ gb.animate =
 gb.serialize.r_action = function(br)
 {
     var s = gb.serialize;
-    var tween = new gb.Tween();
-    tween.name = s.r_string(br);
-    //console.log(tween.name);
+    var animation = new gb.Animation();
+    animation.name = s.r_string(br);
+   
     var num_curves = s.r_i32(br);
     for(var i = 0; i < num_curves; ++i)
     {
-    	var timeline = new gb.Timeline();
-    	timeline.property = s.r_string(br);
-    	//console.log(timeline.property);
-
-    	timeline.index = s.r_i32(br);
-    	//console.log("Index: " + timeline.index);
+    	var tween = new gb.Tween();
+    	tween.property = s.r_string(br);
+    	tween.index = s.r_i32(br);
 
     	var num_frames = s.r_i32(br);
-    	//console.log("Frames: " + num_frames);
     	for(var j = 0; j < num_frames; ++j)
     	{
     		var kf = new gb.Keyframe();
-    		kf.time = s.r_f32(br);
-    		//console.log("Time: " + kf.time);
+    		kf.t = s.r_f32(br);
     		kf.value = s.r_f32(br);
-    		//console.log("Value: " + kf.value);
-    		timeline.keyframes.push(kf);
+    		kf.handles[0] = s.r_f32(br);
+    		kf.handles[1] = s.r_f32(br);
+    		kf.handles[2] = s.r_f32(br);
+    		kf.handles[3] = s.r_f32(br);
+    		tween.keyframes.push(kf);
     	}
-    	tween.timelines.push(timeline);
+    	animation.tweens.push(tween);
     }
-    return tween;	
+    return animation;	
 }
 gb.EntityType = 
 {
@@ -2641,6 +2726,7 @@ gb.serialize.r_entity = function(entity, br, ag)
 }
 gb.Lamp = function()
 {
+	this.entity;
 	this.lamp_type = gb.LampType.POINT;
 	this.energy = 1;
 	this.distance = 1;
@@ -2655,6 +2741,7 @@ gb.lamp =
 	    l.energy = energy;
 	    l.distance = distance;
 	    e.lamp = l;
+	    l.entity = e;
 	    return e;
 	},
 }
@@ -2674,6 +2761,7 @@ gb.serialize.r_lamp = function(entity, br, ag)
     lamp.energy = s.r_f32(br);
     lamp.distance = s.r_f32(br);
     entity.lamp = lamp;
+    lamp.entity = entity;
 }
 gb.Camera = function()
 {
@@ -3922,7 +4010,7 @@ gb.Asset_Group = function()
 {
     this.shaders = {};
     this.materials = {};
-    this.actions = {};
+    this.animations = {};
     this.cameras = {};
     this.lamps = {};
     this.entities = {};
@@ -3956,9 +4044,9 @@ gb.on_asset_load = function(e)
         var n_scenes = header[2];
 
         //DEBUG
-        console.log("Shaders: " + n_shaders);
-        console.log("Textures: " + n_textures);
-        console.log("Scenes: " + n_scenes);
+        LOG("Shaders: " + n_shaders);
+        LOG("Textures: " + n_textures);
+        LOG("Scenes: " + n_scenes);
         //END
 
         for(var i = 0; i < n_shaders; ++i)
@@ -3966,7 +4054,7 @@ gb.on_asset_load = function(e)
             var shader = s.r_shader(br);
             ag.shaders[shader.name] = shader;
             //DEBUG
-            console.log("Loaded Shader: " + shader.name);
+            LOG("Loaded Shader: " + shader.name);
             //END
         }
 
@@ -3996,77 +4084,77 @@ gb.on_asset_load = function(e)
         for(var i = 0; i < n_scenes; ++i)
         {
             var name = s.r_string(br);
-            var n_meshes = s.r_i32(br);
-            var n_actions = s.r_i32(br);
-            var n_materials = s.r_i32(br);
-            var n_cameras = s.r_i32(br);
-            var n_lamps = s.r_i32(br);
-            var n_empties = s.r_i32(br);
-            var n_entities = s.r_i32(br);
+            LOG("Loading: " + name);
 
-            //DEBUG
-            console.log("Loading: " + name);
-            console.log("Meshes: " + n_meshes);
-            console.log("Actions: " + n_actions);
-            console.log("Materials: " + n_materials);
-            console.log("Cameras:" + n_cameras);
-            console.log("Lamps:" + n_lamps);
-            console.log("Empties: " + n_empties);
-            console.log("Entities: " + n_entities);
-            //END
-
-            for(var j = 0; j < n_meshes; ++j)
+            var scene_complete = false;
+            while(scene_complete === false)
             {
-                var mesh = s.r_mesh(br);
-                ag.meshes[mesh.name] = mesh;
-                console.log("Loaded Mesh: " + mesh.name);
+                var import_type = s.r_i32(br);
+                switch(import_type)
+                {
+                    case 0:
+                    {
+                        var entity = new gb.Entity();
+                        s.r_camera(entity, br, ag);
+                        ag.cameras[entity.name] = entity;
+                        LOG("Loaded Camera: " + entity.name);
+                        break;                        
+                    }
+                    case 1:
+                    {
+                        var entity = new gb.Entity();
+                        s.r_lamp(entity, br, ag);
+                        ag.lamps[entity.name] = entity;
+                        LOG("Loaded Lamp: " + entity.name);
+                        break;
+                    }
+                    case 2:
+                    {
+                        var mesh = s.r_mesh(br);
+                        ag.meshes[mesh.name] = mesh;
+                        LOG("Loaded Mesh: " + mesh.name);
+                        break;
+                    }
+                    case 3:
+                    {
+                        var material = s.r_material(br, ag);
+                        ag.materials[material.name] = material;
+                        LOG("Loaded Material: " + material.name);
+                        break;
+                    }
+                    case 4:
+                    {
+                        var action = s.r_action(br);
+                        ag.animations[action.name] = action;
+                        LOG("Loaded Action: " + action.name);
+                        break;
+                    }
+                    case 5:
+                    {
+                        var entity = new gb.Entity();
+                        s.r_entity(entity, br, ag);
+                        entity.material = ag.materials[s.r_string(br)];
+                        entity.mesh = ag.meshes[s.r_string(br)];
+                        ag.entities[entity.name] = entity;
+                        LOG("Loaded Entity: " + entity.name);
+                        break;
+                    }
+                    case 6:
+                    {
+                        var empty = new gb.Entity();
+                        s.r_entity(empty, br, ag);
+                        ag.entities[empty.name] = empty;
+                        LOG("Loaded Entity: " + empty.name);
+                        break;
+                    }
+                    case -101: //FINISH
+                    {
+                        scene_complete = true;
+                        LOG("Loaded Scene: " + name)
+                        break;
+                    }
+                }
             }
-            for(var j = 0; j < n_actions; ++j)
-            {
-                var action = s.r_action(br);
-                ag.actions[action.name] = action;
-                console.log("Loaded Action: " + action.name);
-            }
-            for(var j = 0; j < n_materials; ++j)
-            {
-                var material = s.r_material(br, ag);
-                ag.materials[material.name] = material;
-                console.log("Loaded Material: " + material.name);
-            }
-            for(var j = 0; j < n_cameras; ++j)
-            {
-                var entity = new gb.Entity();
-                s.r_camera(entity, br, ag);
-                ag.cameras[entity.name] = entity;
-                console.log("Loaded Camera: " + entity.name);
-            }
-            for(var j = 0; j < n_lamps; ++j)
-            {
-                var entity = new gb.Entity();
-                s.r_lamp(entity, br, ag);
-                ag.lamps[entity.name] = entity;
-                console.log("Loaded Lamp: " + entity.name);
-            }
-            for(var j = 0; j < n_empties; ++j)
-            {
-                var empty = new gb.Entity();
-                s.r_entity(empty, br, ag);
-                ag.entities[empty.name] = empty;
-                console.log("Loaded Entity: " + empty.name);
-            }
-            for(var j = 0; j < n_entities; ++j)
-            {
-                var entity = new gb.Entity();
-                s.r_entity(entity, br, ag);
-                entity.material = ag.materials[s.r_string(br)];
-                entity.mesh = ag.meshes[s.r_string(br)];
-                ag.entities[entity.name] = entity;
-                console.log("Loaded Entity: " + entity.name);
-            }
-            
-            //DEBUG
-            console.log("Loaded Scene: " + name);
-            //END
         }
         
         e.target.upload.callback(ag);    
@@ -4572,6 +4660,7 @@ var camera;
 var texture;
 var render_target;
 var sphere;
+var anim;
 var post;
 var light_position; //change to enitity
 var angle = 0;
@@ -4632,6 +4721,10 @@ function link_complete()
 	camera = gb.scene.find(construct, 'camera').camera;
 	sphere = gb.scene.find(construct, 'cube');
 
+	anim = assets.animations.move;
+	anim.target = sphere;
+	anim.is_playing = true;
+
 	light_position = v3.new(3,3,3);
 
 	// TODO: create draw calls automatically
@@ -4659,6 +4752,8 @@ function update(t)
 	var dt = gb.time.dt; 
 
 	gb.scene.update(construct);
+
+	gb.animation.update(anim, dt);
 
 	//MODIFY MESH FOR LULZ
 	if(gb.input.held(gb.Keys.left))
@@ -4689,8 +4784,9 @@ function update(t)
 	}
 	//gb.gl_draw.line(v3.tmp(0,0,0), light_position);
 	//gb.gl_draw.wire_mesh(sphere.mesh, sphere.world_matrix);
-	angle += 10 * dt;
-	gb.entity.set_rotation(sphere, angle, 0,0);
+	//angle += 10 * dt;
+	//gb.entity.set_rotation(sphere, angle, 0,0);
+	sphere.dirty = true;
 
 	draw_call.material.uniforms.light_position = light_position;
 	

@@ -1,28 +1,15 @@
-/*
-plx.Animation = function(tweens)
-{
-	this.tweens = tweens || [];
-	this.curve = plx.ease;
-	this.loops = 1;
-	this.loops_count = 0;
-	this.is_playing = false;
-	this.manual_play = false;
-	this.callback = callback;
-	this.t = 0;
-	this.time_scale = 1;
-	return this;
-}
-*/
-
-gb.Tween = function()
+gb.Animation = function()
 {
 	this.name;
+	this.is_playing = false;
+	this.auto_play = true;
 	this.t = 0;
-	this.targets = []; 
-	this.timelines = [];
+	this.time_scale = 1;
+	this.target; 
+	this.tweens = [];
 	return this;
 }
-gb.Timeline = function()
+gb.Tween = function()
 {
 	this.property;
 	this.index = -1;
@@ -33,207 +20,105 @@ gb.Keyframe = function()
 {
 	this.value;
 	this.t;
+	this.handles = new Float32Array(4);
 	return this;
 }
 
-
-//advance the animation
-//for each channel in a tween
-//evaluate the value for each channel
-//tween.target[channel.property][channel.index] = evaluate(channel.keyframes, t)
-
-
-/*
-gb.Keyframe = function()
+gb.animation = 
 {
-	this.value;
-	this.curve;
-	this.t;
-}
-gb.Tween = function()
-{
-	this.t = 0;
-	this.frame = 1;
-	this.target;
+	update: function(animation, dt)
+	{
+		if(animation.is_playing === false) return;
 
-	this.frames;
-	this.playing;
-	this.modifier;
-	this.loops;
-	this.loops_remaining;
-	this.next;
-	this.callback;
-}
+		if(animation.auto_play === true)
+			animation.t += dt; 
 
-gb.animate = 
-{
-	tweens: [],
-
-	new: function(target, modifier, callback)
-	{
-		var t = new gb.Tween();
-		t.frames = [];
-		t.current = target;
-		t.playing = false;
-		t.frame = 0;
-		t.loop_count = 0;
-		t.next = null;
-		t.t = 0;
-		t.modifier = modifier;
-		t.callback = callback;
-		gb.animate.tweens.push(t);
-		return t;
-	},
-
-	add_frame: function(tween, value, t, curve)
-	{
-		var f = new gb.Keyframe();
-		f.value = value;
-		f.t = t;
-		f.curve = curve;
-		tween.frames.push(f);
-	},
-	from_to: function(from, to, current, duration, curve, modifier)
-	{
-		var t = gb.animate.new(current, modifier, null);
-		gb.animate.add_frame(t, from, 0, curve);
-		gb.animate.add_frame(t, to, duration, null);
-		return t;
-	},
-	play: function(t)
-	{
-		t.playing = true;
-		t.t = 0;
-		t.frame = 1;
-	},
-	set_frame: function(t, frame)
-	{
-		t.playing = true;
-		t.frame = frame+1;
-		t.t = t.frames[frame].t;
-	},
-	set_time: function(t, time)
-	{
-		var n = t.frames.length;
-		for(var i = 0; i < n; ++i)
+		var num_tweens = animation.tweens.length;
+		for(var i = 0; i < num_tweens; ++i)
 		{
-			var f = t.frames[i];
-			if(f.t > time)
-				t.frame = i;
-		}
-		t.t = time;
-	},
-	pause: function(t)
-	{
-		t.playing = false;
-	},
-	resume: function(t)
-	{
-		t.playing = true;
-	},
-	loop: function(t, count)
-	{
-		t.loop_count = count || -1;
-		gb.animate.play(t);	
-	},
+			var tween = animation.tweens[i];
+			var key_start;
+			var key_end;
 
-	update: function(dt)
-	{
-		var _t = gb.animate;
-		var n = _t.tweens.length;
-		var cr = gb.vec3.tmp();
-
-		for(var i = 0; i < n; ++i)
-		{
-			var t = _t.tweens[i];
-			if(t.playing === false) continue;
-
-			var kfA = t.frames[t.frame-1];
-			var kfB = t.frames[t.frame];
-
-			t.t += dt;
-			var alpha = (t.t - kfA.t) / (kfB.t - kfA.t);
-
-			if(alpha > 1.0)
+			var num_keys = tween.keyframes.length;
+			for(var j = 1; j < num_keys; ++j)
 			{
-				t.frame += 1;
-				var n_frames = t.frames.length;
-				if(t.frame === n_frames)
+				key_start = tween.keyframes[j-1];
+				key_end = tween.keyframes[j];
+				if(animation.t < key_end.t && animation.t >= key_start.t)
 				{
-					if(t.loop_count === -1)
-					{
-						t.t = 0;
-						t.frame = 1;
-					}
-					else 
-					{
-						t.loop_count -= 1;
-						if(t.loop_count === 0)
-						{
-							alpha = 1.0;
-							t.playing = false;
-						}
-						else
-						{
-							t.t = 0;
-							t.frame = 1;
-						}
-					}
+					break;
 				}
-				else
-				{
-					kfA = t.frames[t.frame-1];
-					kfB = t.frames[t.frame];
-					alpha = (t - kfA.t) / (kfB.t - kfA.t);
-				}
-			}
+			}			
 
-			var ct = alpha;
-			if(kfA.curve)
+			var time_range = key_end.t - key_start.t;
+			var value_range = key_end.value - key_start.value;
+
+			//normalize time by our range
+			var nt = (animation.t - key_start.t) / time_range;
+
+			if(nt < 0.0) nt = 0.0;
+			else if(nt > 1.0) nt = 1.0;
+
+			var ax = key_start.t;
+			var ay = key_start.value;
+			var bx = key_start.handles[2];
+			var by = key_start.handles[3];
+			var cx = key_end.handles[0];
+			var cy = key_end.handles[1];
+			var dx = key_end.t;
+			var dy = key_end.value;
+
+			var t = nt;
+			var u = 1.0 - t;
+			var tt = t * t;
+			var uu = u * u;
+			var uuu = uu * u;
+			var ttt = tt * t;
+
+			var value = (uuu * ay) + 
+				   (3 * uu * t * by) + 
+				   (3 * u * tt * cy) + 
+				   (ttt * dy);
+
+			if(tween.index === -1)
 			{
-				gb.bezier.eval(cr, kfA.curve, alpha);
-				ct = cr[1];
+				animation.target[tween.property] = value;
 			}
-			t.modifier(t.current, kfA.value, kfB.value, ct);
-			
-			if(t.playing === false)
+			else
 			{
-				if(t.next !== null) _t.play(t.next);
-				if(t.callback !== null) t.callback();
-			} 
+				animation.target[tween.property][tween.index] = value;
+			}
 		}
-	}
+	},
 }
-*/
 
 gb.serialize.r_action = function(br)
 {
     var s = gb.serialize;
-    var tween = new gb.Tween();
-    tween.name = s.r_string(br);
-    //console.log(tween.name);
+    var animation = new gb.Animation();
+    animation.name = s.r_string(br);
+   
     var num_curves = s.r_i32(br);
     for(var i = 0; i < num_curves; ++i)
     {
-    	var timeline = new gb.Timeline();
-    	timeline.property = s.r_string(br);
-    	//console.log(timeline.property);
-
-    	timeline.index = s.r_i32(br);
-    	//console.log("Index: " + timeline.index);
+    	var tween = new gb.Tween();
+    	tween.property = s.r_string(br);
+    	tween.index = s.r_i32(br);
 
     	var num_frames = s.r_i32(br);
-    	//console.log("Frames: " + num_frames);
     	for(var j = 0; j < num_frames; ++j)
     	{
     		var kf = new gb.Keyframe();
-    		kf.time = s.r_f32(br);
-    		//console.log("Time: " + kf.time);
+    		kf.t = s.r_f32(br);
     		kf.value = s.r_f32(br);
-    		//console.log("Value: " + kf.value);
-    		timeline.keyframes.push(kf);
+    		kf.handles[0] = s.r_f32(br);
+    		kf.handles[1] = s.r_f32(br);
+    		kf.handles[2] = s.r_f32(br);
+    		kf.handles[3] = s.r_f32(br);
+    		tween.keyframes.push(kf);
     	}
-    	tween.timelines.push(timeline);
+    	animation.tweens.push(tween);
     }
-    return tween;	
+    return animation;	
 }

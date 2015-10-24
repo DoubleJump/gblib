@@ -3,6 +3,10 @@ function ASSERT(expr, message)
 {
     if(expr === false) console.error(message);
 }
+function LOG(message)
+{
+	console.log(message);
+}
 //END
 
 var gb = 

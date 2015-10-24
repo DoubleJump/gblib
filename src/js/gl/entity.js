@@ -1,7 +1,15 @@
+gb.EntityType = 
+{
+	ENTITY: 0,
+	CAMERA: 1,
+	LAMP: 2,
+	SPRITE: 3,
+}
 gb.Entity = function()
 {
 	this.name;
 	this.id;
+	this.entity_type = gb.EntityType.ENTITY;
 	this.parent = null;
 	this.children = [];
 
@@ -17,8 +25,8 @@ gb.Entity = function()
 	this.world_matrix = gb.mat4.new();
 	this.bounds = gb.aabb.new();
 
-	this.material = null;
-	this.mesh = null;
+	//this.material = null;
+	//this.mesh = null;
 }
 gb.entity = 
 {
@@ -82,12 +90,20 @@ gb.entity =
 		e.dirty = true;
 	},
 }
-gb.serialize.r_entity = function(br, ag)
+gb.serialize.r_entity = function(entity, br, ag)
 {
     var s = gb.serialize;
-    var entity = new gb.Entity();
+
+    entity.name = s.r_string(br);
+
     var parent_name = s.r_string(br);
-    
+    if(parent_name !== 'none') 
+    {
+    	var parent = ag.entities[parent_name];
+    	ASSERT(parent, 'Cannot find entity ' + parent_name + ' in asset group');
+    	gb.entity.set_parent(entity, parent);
+    }
+
     entity.position[0] = s.r_f32(br);
     entity.position[1] = s.r_f32(br);
     entity.position[2] = s.r_f32(br);
@@ -98,12 +114,4 @@ gb.serialize.r_entity = function(br, ag)
     entity.rotation[1] = s.r_f32(br);
     entity.rotation[2] = s.r_f32(br);
     entity.rotation[3] = s.r_f32(br);
-
-    if(parent_name !== 'none') 
-    {
-    	var parent = ag.entities[parent_name];
-    	gb.entity.set_parent(entity, parent);
-    }
-
-    return entity;
 }

@@ -124,12 +124,12 @@ def main(argv = None):
 	writer.offset = 0 
 
 	n_shaders = 0;
-	n_scenes = 0;
 	n_textures = 0;
+	n_scenes = 0;
 
 	shaders = []
-	scenes = []
 	textures = []
+	scenes = []
 	
 	#count files
 	for root, dirs, files in os.walk(src_dir):
@@ -149,8 +149,8 @@ def main(argv = None):
 				textures.append(asset)
 
 	write_int(writer, len(shaders))
-	write_int(writer, len(scenes))
 	write_int(writer, len(textures))
+	write_int(writer, len(scenes))
 
 	for s in shaders:
 		src = open(s.path, "r")
@@ -179,10 +179,7 @@ def main(argv = None):
 		print "Compiled scene: " + s.name
 		src.close()
 
-	
-
 	writer.target.close()
-
 
 if __name__ == "__main__":
     main()

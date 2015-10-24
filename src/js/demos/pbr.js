@@ -64,6 +64,7 @@ var camera;
 var texture;
 var render_target;
 var sphere;
+var anim;
 var post;
 var light_position; //change to enitity
 var angle = 0;
@@ -121,25 +122,20 @@ function link_complete()
 	construct = gb.scene.new();
 	gb.scene.load_asset_group(construct, assets);
 
-	//camera = assets.cameras.camera;
-	//gb.scene.add_camera(construct, camera);
+	camera = gb.scene.find(construct, 'camera').camera;
+	sphere = gb.scene.find(construct, 'cube');
 
-	//sphere = assets.entities.entity;
-	//gb.scene.add_entity(construct, sphere);
-	//gb.scene.add_entity(construct, assets.entities.entity2);
-
+	anim = assets.animations.move;
+	anim.target = sphere;
+	anim.is_playing = true;
 
 	light_position = v3.new(3,3,3);
-
-	//90 33 148
-	//gl.set_clear_color(0.35,0.13,0.58,1.0);
 
 	// TODO: create draw calls automatically
 	draw_call = new gb.DrawCall();
 	draw_call.clear = true;
 	draw_call.camera = camera;
-	draw_call.entities.push(sphere);
-	draw_call.entities.push(assets.entities.entity2);
+	draw_call.entities = construct.entities;
 	draw_call.target = render_target;
 	draw_call.material = gb.material.new(assets.shaders.pbr);
 
@@ -159,9 +155,9 @@ function update(t)
 
 	var dt = gb.time.dt; 
 
-	//gb.gl_draw.clear();
-
 	gb.scene.update(construct);
+
+	gb.animation.update(anim, dt);
 
 	//MODIFY MESH FOR LULZ
 	if(gb.input.held(gb.Keys.left))
@@ -192,8 +188,9 @@ function update(t)
 	}
 	//gb.gl_draw.line(v3.tmp(0,0,0), light_position);
 	//gb.gl_draw.wire_mesh(sphere.mesh, sphere.world_matrix);
-	angle += 10 * dt;
-	gb.entity.set_rotation(sphere, angle, 0,0);
+	//angle += 10 * dt;
+	//gb.entity.set_rotation(sphere, angle, 0,0);
+	sphere.dirty = true;
 
 	draw_call.material.uniforms.light_position = light_position;
 	

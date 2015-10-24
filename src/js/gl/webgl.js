@@ -531,10 +531,11 @@ gb.webgl =
 		for(var i = 0; i < n; ++i)
 		{
 			var e = dc.entities[i];
-			var mesh = e.mesh;
-			if(mesh.linked === false) _t.link_mesh(mesh);
-			if(mesh.dirty === true) _t.update_mesh(mesh);
-			_t.link_attributes(shader, mesh);
+			if(e.entity_type !== gb.EntityType.ENTITY) continue;
+			if(!e.mesh) continue;
+			if(e.mesh.linked === false) _t.link_mesh(e.mesh);
+			if(e.mesh.dirty === true) _t.update_mesh(e.mesh);
+			_t.link_attributes(shader, e.mesh);
 
 			if(shader.mvp === true)
 			{
@@ -547,8 +548,8 @@ gb.webgl =
 
 			_t.set_uniforms(shader, mat.uniforms);
 
-			if(mesh.index_buffer) _t.draw_mesh_elements(mesh);
-			else _t.draw_mesh_arrays(mesh);
+			if(e.mesh.index_buffer) _t.draw_mesh_elements(e.mesh);
+			else _t.draw_mesh_arrays(e.mesh);
 		}
 	},
 

@@ -26,13 +26,29 @@ gb.Keyframe = function()
 
 gb.animation = 
 {
+	/*
 	new_frame: function(value, t, curve)
 	{
 		var kf = new gb.Keyframe();
 		kf.value = value;
 		kf.t = t;
 		//....
-	}
+	},
+	*/
+	get_animation_duration: function(animation)
+	{
+		var result = 0;
+		var num_tweens = animation.tweens.length;
+		for(var i = 0; i < num_tweens; ++i)
+		{
+			var tween = animation.tweens[i];
+			var num_keys = tween.keyframes.length;
+			var t = tween.keyframes[num_keys-1].t
+			if(t > result)
+				result = t;
+		}
+		return result;
+	},
 	add_tween: function(animation, property, index, keyframes)
 	{
 		animation.tweens.push(new gb.Tween(property, index, keyframes));
@@ -42,7 +58,7 @@ gb.animation =
 		if(animation.is_playing === false) return;
 
 		if(animation.auto_play === true)
-			animation.t += dt; 
+			animation.t += dt * animation.time_scale; 
 
 		var num_tweens = animation.tweens.length;
 		for(var i = 0; i < num_tweens; ++i)
@@ -52,14 +68,22 @@ gb.animation =
 			var key_end;
 
 			var num_keys = tween.keyframes.length;
+			var in_range = false;
 			for(var j = 1; j < num_keys; ++j)
 			{
 				key_start = tween.keyframes[j-1];
 				key_end = tween.keyframes[j];
 				if(animation.t < key_end.t && animation.t >= key_start.t)
 				{
+					in_range = true;
 					break;
 				}
+			}
+
+			if(in_range === false)
+			{
+				//callback
+				
 			}			
 
 			var time_range = key_end.t - key_start.t;

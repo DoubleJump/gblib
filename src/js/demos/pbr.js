@@ -127,6 +127,8 @@ function link_complete()
 
 	anim = assets.animations.move;
 	anim.target = sphere;
+	anim.time_scale = -1;
+	anim.t = gb.animation.get_animation_duration(anim);
 	anim.is_playing = true;
 
 	light_position = v3.new(3,3,3);

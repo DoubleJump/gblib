@@ -102,7 +102,7 @@ def write_transform(writer, ob):
 
 	ob.rotation_mode = 'QUATERNION'
 	write_quat(writer, ob.rotation_quaternion)
-	ob.rotation_mode = 'XYZ'
+	#ob.rotation_mode = 'XYZ'
 
 def write_material(writer, material):
 	print("Exporting Material: " + material.name)
@@ -168,7 +168,7 @@ def write_mesh(writer, ob, mesh):
 	index_buffer = []
 	vertex_count = 0
 
-	matrix = mathutils.Matrix.Rotation(radians(-90.0), 4, 'X')
+	matrix = mathutils.Matrix.Rotation(radians(-90.0), 4, 'Z')
 	mesh.transform(matrix)
 	mesh.calc_normals()
 	mesh.calc_tessface() 
@@ -255,14 +255,27 @@ def write_action(writer, action, owner, scene):
 		prop = curve.data_path
 		data_type = owner.path_resolve(prop)
 		
+		value_mode = 0
 		if prop == 'location': prop = 'position'
-		elif prop == 'rotation_euler': prop = 'rotation'
+		elif prop == 'rotation_euler': 
+			prop = 'rotation'
+			value_mode = 1
+		elif prop == 'rotation_quaternion':
+			prop = 'rotation'
+			value_mode = 2
 		
 		print(prop)
 		write_str(writer, prop)
 		if type(data_type) is float:
 			write_int(writer, -1)
-		else: write_int(writer, curve.array_index)
+		else: #reorder quaternion
+			index = curve.array_index
+			if value_mode == 2:
+				if index == 0: index = 3 #W
+				elif index == 1: index = 0
+				elif index == 2: index = 1
+				elif index == 3: index = 2
+			write_int(writer, index)
 		
 		write_int(writer, len(curve.keyframe_points))
 		for keyframe in curve.keyframe_points:

@@ -2296,6 +2296,12 @@ gb.Animation = function()
 	this.time_scale = 1;
 	this.target; 
 	this.tweens = [];
+	this.loops = 1;
+	this.loop_count = 0;
+	this.start_time;
+	this.duration;
+	this.callback;
+	this.next;
 	return this;
 }
 gb.Tween = function()
@@ -2315,27 +2321,36 @@ gb.Keyframe = function()
 
 gb.animation = 
 {
-	/*
-	new_frame: function(value, t, curve)
+	get_animation_start: function(animation)
 	{
-		var kf = new gb.Keyframe();
-		kf.value = value;
-		kf.t = t;
-		//....
+		if(animation.start_time) return animation.start_time;
+		var result = gb.animation.get_animation_duration(animation);
+		var num_tweens = animation.tweens.length;
+		for(var i = 0; i < num_tweens; ++i)
+		{
+			var tween = animation.tweens[i];
+			var num_keys = tween.keyframes.length;
+			var t = tween.keyframes[0].t;
+			if(t < result)
+				result = t;
+		}
+		animation.start_time = result;
+		return result;
 	},
-	*/
 	get_animation_duration: function(animation)
 	{
+		if(animation.duration) return animation.duration;
 		var result = 0;
 		var num_tweens = animation.tweens.length;
 		for(var i = 0; i < num_tweens; ++i)
 		{
 			var tween = animation.tweens[i];
 			var num_keys = tween.keyframes.length;
-			var t = tween.keyframes[num_keys-1].t
+			var t = tween.keyframes[num_keys-1].t;
 			if(t > result)
 				result = t;
 		}
+		animation.duration = result;
 		return result;
 	},
 	add_tween: function(animation, property, index, keyframes)
@@ -2347,8 +2362,11 @@ gb.animation =
 		if(animation.is_playing === false) return;
 
 		if(animation.auto_play === true)
-			animation.t += dt * animation.time_scale; 
+			animation.t += dt * animation.time_scale;
 
+		//if(animation.t < animation.start_time) return;
+
+		var in_range = false;
 		var num_tweens = animation.tweens.length;
 		for(var i = 0; i < num_tweens; ++i)
 		{
@@ -2361,18 +2379,17 @@ gb.animation =
 			{
 				key_start = tween.keyframes[j-1];
 				key_end = tween.keyframes[j];
-				if(animation.t < key_end.t && animation.t >= key_start.t)
+				if(animation.t <= key_end.t && animation.t >= key_start.t)
 				{
+					in_range = true;
 					break;
 				}
-			}			
+			}
 
 			var time_range = key_end.t - key_start.t;
 			var value_range = key_end.value - key_start.value;
 
-			//normalize time by our range
 			var nt = (animation.t - key_start.t) / time_range;
-
 			if(nt < 0.0) nt = 0.0;
 			else if(nt > 1.0) nt = 1.0;
 
@@ -2404,6 +2421,27 @@ gb.animation =
 			else
 			{
 				animation.target[tween.property][tween.index] = value;
+			}
+		}
+		if(in_range === false)
+		{
+			if(animation.loops === -1)
+			{
+				animation.t = gb.animation.get_animation_start(animation);
+			}
+			else
+			{
+				animation.loop_count++;
+				if(animation.loop_count === animation.loops)
+				{
+					if(animation.callback) animation.callback(animation);
+					if(animation.next) animation.next.is_playing = true;
+					animation.is_playing = false;
+				}
+				else
+				{
+					animation.t = gb.animation.get_animation_start(animation);
+				}
 			}
 		}
 	},
@@ -4555,8 +4593,8 @@ function link_complete()
 
 	anim = assets.animations.move;
 	anim.target = sphere;
-	anim.time_scale = -1;
-	anim.t = gb.animation.get_animation_duration(anim);
+	anim.time_scale = 1;
+	//anim.t = gb.animation.get_animation_duration(anim);
 	anim.is_playing = true;
 
 	light_position = v3.new(3,3,3);

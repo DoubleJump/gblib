@@ -2859,13 +2859,19 @@ gb.vertex_attributes =
 	new gb.Vertex_Attribute_Info("uv", 2, false),
 	new gb.Vertex_Attribute_Info("uv2", 2, false),
 	new gb.Vertex_Attribute_Info("color", 4, true),
+	new gb.Vertex_Attribute_Info("color2", 4, true),
+	new gb.Vertex_Attribute_Info("weight", 4, false),
 ];
+gb.NUM_VERTEX_ATTRIBUTES = gb.vertex_attributes.length;
+
 gb.Vertex_Buffer = function()
 {
 	this.id = 0;
 	this.data;
-	this.mask;
+	this.mask = 0;
 	this.update_mode;
+	this.stride = 0;
+	this.offsets = new Uint32Array(gb.NUM_VERTEX_ATTRIBUTES);
 }
 gb.Index_Buffer = function()
 {
@@ -2897,6 +2903,7 @@ gb.mesh =
 	    vb.mask = mask;
 	    vb.update_mode = gb.webgl.ctx.STATIC_DRAW;
 	    m.vertex_buffer = vb;
+	    gb.mesh.update_vertex_buffer(vb);
 	    m.vertex_count = vertex_count;
 
 	    var ib = new gb.Index_Buffer();
@@ -2907,18 +2914,18 @@ gb.mesh =
 	    m.index_count = indices.length;
 	    return m;
 	},
-	get_stride: function(m, n)
+	update_vertex_buffer: function(vb)
 	{
-		var stride = 0;
 		var index = 1;
-		n = n || 5;
+		var n = gb.NUM_VERTEX_ATTRIBUTES;
 		for(var i = 0; i < n; ++i)
 		{
-			var mr = (index & m.vertex_buffer.mask) === index;
-			stride += mr * (gb.vertex_attributes[i].size);
+			var mr = (index & vb.mask) === index;
+			var size = gb.vertex_attributes[i].size;
+			vb.offsets[i] = vb.stride * 4; 
+			vb.stride += mr * size;
 			index *= 2;
 		}
-		return stride;
 	},
 	get_bounds: function(b, m)
 	{
@@ -2927,7 +2934,7 @@ gb.mesh =
 		v3.set(b.min, d[0], d[1], d[2]);
 		v3.set(b.max, d[0], d[1], d[2]);
 
-		var stride = gb.mesh.get_stride(m);
+		var stride = m.vertex_buffer.stride;
 		var n = m.vertex_count;
 		var p = v3.tmp(0,0,0);
 		var c = stride;
@@ -3324,7 +3331,7 @@ gb.webgl =
 		uint: null,
 	},
 	ctx: null,
-	m_offsets: null,
+	//m_offsets: null,
 	view: null,
 	default_sampler: null,
     screen_mesh: null,
@@ -3403,7 +3410,7 @@ gb.webgl =
 		ex.fp_texture = gl.getExtension("OES_texture_float");
 		ex.uint = gl.getExtension("OES_element_index_uint");
 
-		_t.m_offsets = new Uint32Array(5);
+		//_t.m_offsets = new Uint32Array(gb.NUM_VERTEX_ATTRIBUTES);
 	},
 
 	set_clear_color: function(r,g,b,a)
@@ -3664,23 +3671,25 @@ gb.webgl =
 		var vb = mesh.vertex_buffer;
 		gl.bindBuffer(gl.ARRAY_BUFFER, vb.id);
 
+		// store this per mesh?
+		/*
 		var stride = 0;
 		var index = 1;
-		for(var i = 0; i < 5; ++i)
+		for(var i = 0; i < gb.NUM_VERTEX_ATTRIBUTES; ++i)
 		{
 			var mr = (index & vb.mask) === index;
 			_t.m_offsets[i] = stride;
 			stride += mr * (gb.vertex_attributes[i].size * 4);
 			index *= 2;
 		}
+		*/
 
-		var offset = 0;
 		for(var i = 0; i < shader.num_attributes; ++i)
 		{
 			var sa = shader.attributes[i];
 			var attr = gb.vertex_attributes[sa.index]; 
 			gl.enableVertexAttribArray(sa.location);
-			gl.vertexAttribPointer(sa.location, attr.size, gl.FLOAT, attr.normalized, stride, _t.m_offsets[sa.index]);
+			gl.vertexAttribPointer(sa.location, attr.size, gl.FLOAT, attr.normalized, vb.stride * 4, vb.offsets[sa.index]);
 		}
 	},
 

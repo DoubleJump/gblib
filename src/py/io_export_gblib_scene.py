@@ -217,10 +217,17 @@ def write_mesh(writer, ob, mesh):
 				vertex_buffer.append(1.0)
 																					  
 			index_buffer.append(vertex_count)
+
+			groups = mesh.vertices[v].groups
+			for g in groups:
+				vertex_buffer.append(g.group)
+				vertex_buffer.append(g.weight)
+
 			vertex_count += 1
 
 	uv_ln = len(uv_layers)
 	color_ln = len(color_layers)
+	weight_ln = len(ob.vertex_groups)
 
 	offset_mask = 1 | 2 #positon and normal
 	if(uv_ln == 1): offset_mask |= 4
@@ -231,7 +238,9 @@ def write_mesh(writer, ob, mesh):
 	elif(color_ln == 2): 
 		offset_mask |= 16
 		offset_mask |= 32 
-	
+	if(weight_ln > 0):
+		offset_mask |= 64
+
 	vertex_data_ln = len(vertex_buffer)
 	index_data_ln = len(index_buffer)
 	

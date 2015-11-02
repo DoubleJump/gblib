@@ -21,7 +21,6 @@ TODO:
 //INCLUDE rect.js
 //INCLUDE aabb.js
 //INCLUDE ray.js
-//INCLUDE bezier.js
 //INCLUDE intersect.js
 //INCLUDE color.js
 //INCLUDE random.js
@@ -37,10 +36,10 @@ TODO:
 //INCLUDE gl/dds.js
 //INCLUDE gl/shader.js
 //INCLUDE gl/material.js
+//INCLUDE gl/rig.js
 //INCLUDE gl/render_target.js
 //INCLUDE gl/webgl.js
 //INCLUDE gl/asset_group.js
-//INCLUDE gl/sprite.js
 //DEBUG
 //INCLUDE gl/draw.js
 //INCLUDE gl/debug.js
@@ -124,13 +123,25 @@ function link_complete()
 
 	camera = gb.scene.find(construct, 'camera').camera;
 	sphere = gb.scene.find(construct, 'cube');
-
+	sphere.entity_type = gb.EntityType.RIG;
+	sphere.rig = assets.rigs['armature'];
+	
+	/*	
+	sphere.rig = new gb.Rig();
+	sphere.rig.joints.push(new gb.Joint());
+	sphere.rig.joints.push(new gb.Joint());
+	sphere.rig.joints[0].position[0] = -0.3;
+	sphere.rig.joints[1].scale[0] = 0.9;
+	sphere.rig.joints[1].scale[1] = 0.9;
+	sphere.rig.joints[1].scale[2] = 0.9;
+	*/
+	/*
 	anim = assets.animations.move;
 	anim.target = sphere;
 	anim.time_scale = 1;
-	//anim.t = gb.animation.get_animation_duration(anim);
+	anim.t = gb.animation.get_animation_duration(anim);
 	anim.is_playing = true;
-
+	*/
 	light_position = v3.new(3,3,3);
 
 	// TODO: create draw calls automatically
@@ -159,7 +170,7 @@ function update(t)
 
 	gb.scene.update(construct);
 
-	gb.animation.update(anim, dt);
+	//gb.animation.update(anim, dt);
 
 	//MODIFY MESH FOR LULZ
 	if(gb.input.held(gb.Keys.left))
@@ -194,8 +205,9 @@ function update(t)
 	//gb.entity.set_rotation(sphere, angle, 0,0);
 	sphere.dirty = true;
 
-	draw_call.material.uniforms.light_position = light_position;
-	
+	//draw_call.material.uniforms.light_position = light_position;
+	//draw_call.material.uniforms['joints[0]'] = joints;
+
 	gb.webgl.render_draw_call(draw_call);
 	//gb.webgl.render_draw_call(gb.gl_draw.draw_call);
 

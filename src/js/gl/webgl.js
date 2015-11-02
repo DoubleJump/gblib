@@ -390,19 +390,6 @@ gb.webgl =
 		var vb = mesh.vertex_buffer;
 		gl.bindBuffer(gl.ARRAY_BUFFER, vb.id);
 
-		// store this per mesh?
-		/*
-		var stride = 0;
-		var index = 1;
-		for(var i = 0; i < gb.NUM_VERTEX_ATTRIBUTES; ++i)
-		{
-			var mr = (index & vb.mask) === index;
-			_t.m_offsets[i] = stride;
-			stride += mr * (gb.vertex_attributes[i].size * 4);
-			index *= 2;
-		}
-		*/
-
 		for(var i = 0; i < shader.num_attributes; ++i)
 		{
 			var sa = shader.attributes[i];
@@ -528,13 +515,15 @@ gb.webgl =
 		}
 
 		//if(shader.lights)
+
+
 		
 		var n = dc.entities.length;
 		for(var i = 0; i < n; ++i)
 		{
 			var e = dc.entities[i];
-			if(e.entity_type !== gb.EntityType.ENTITY) continue;
-			if(!e.mesh) continue;
+			if(e.entity_type !== gb.EntityType.ENTITY && e.entity_type !== gb.EntityType.RIG) continue;
+			ASSERT(e.mesh, "Cannot draw an entity with no mesh now can I?");
 			if(e.mesh.linked === false) _t.link_mesh(e.mesh);
 			if(e.mesh.dirty === true) _t.update_mesh(e.mesh);
 			_t.link_attributes(shader, e.mesh);
@@ -546,6 +535,21 @@ gb.webgl =
 			else
 			{
 				mat.uniforms.model_matrix = e.world_matrix;
+			}
+
+			if(shader.rig)
+			{
+				var rig = mat.uniforms['rig[0]'];
+				var n = e.rig.joints.length;
+				var t = 0;
+				for(var i = 0; i < n; i++)
+				{
+					for(var j = 0; j < 16; ++j)
+					{
+						rig[t+j] = e.rig.joints[i].world_matrix[j];
+					}
+					t += 16;
+				}
 			}
 
 			_t.set_uniforms(shader, mat.uniforms);

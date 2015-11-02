@@ -3,11 +3,10 @@ gb.Asset_Group = function()
     this.shaders = {};
     this.materials = {};
     this.animations = {};
-    this.cameras = {};
-    this.lamps = {};
     this.entities = {};
     this.meshes = {};
     this.textures = {};
+    this.rigs = {};
     this.sounds = {};
 }
 gb.load_asset_group = function(url, asset_group, on_load, on_progress)
@@ -86,17 +85,15 @@ gb.on_asset_load = function(e)
                 {
                     case 0:
                     {
-                        var entity = new gb.Entity();
-                        s.r_camera(entity, br, ag);
-                        ag.cameras[entity.name] = entity;
+                        var entity = s.r_camera(br, ag);
+                        ag.entities[entity.name] = entity;
                         LOG("Loaded Camera: " + entity.name);
                         break;                        
                     }
                     case 1:
                     {
-                        var entity = new gb.Entity();
-                        s.r_lamp(entity, br, ag);
-                        ag.lamps[entity.name] = entity;
+                        var entity = s.r_lamp(br, ag);
+                        ag.entities[entity.name] = entity;
                         LOG("Loaded Lamp: " + entity.name);
                         break;
                     }
@@ -123,8 +120,7 @@ gb.on_asset_load = function(e)
                     }
                     case 5:
                     {
-                        var entity = new gb.Entity();
-                        s.r_entity(entity, br, ag);
+                        var entity = s.r_entity(br, ag);
                         entity.material = ag.materials[s.r_string(br)];
                         entity.mesh = ag.meshes[s.r_string(br)];
                         ag.entities[entity.name] = entity;
@@ -133,16 +129,22 @@ gb.on_asset_load = function(e)
                     }
                     case 6:
                     {
-                        var empty = new gb.Entity();
-                        s.r_entity(empty, br, ag);
+                        var entity = s.r_entity(br, ag);
                         ag.entities[empty.name] = empty;
                         LOG("Loaded Entity: " + empty.name);
+                        break;
+                    }
+                    case 7:
+                    {
+                        var rig = s.r_rig(br, ag);
+                        ag.rigs[rig.name] = rig;
+                        LOG("Loaded Rig: " + rig.name);
                         break;
                     }
                     case -101: //FINISH
                     {
                         scene_complete = true;
-                        LOG("Loaded Scene: " + name)
+                        LOG("Loaded Scene: " + name);
                         break;
                     }
                 }

@@ -1568,79 +1568,6 @@ gb.ray =
 		gb.ray.set(a, b.point, b.dir);
 	},
 }
-gb.Bezier = function()
-{
-	this.a = gb.vec3.new(0,0,0);
-	this.b = gb.vec3.new(0,0,0);
-	this.c = gb.vec3.new(0,0,0);
-	this.d = gb.vec3.new(0,0,0);
-}
-gb.bezier = 
-{
-	stack: new gb.Stack(gb.Bezier, 5),
-
-	new: function()
-	{
-		return new gb.Bezier();
-	},
-	free: function(ax,ay, bx,by, cx,cy, dx,dy)
-	{
-		var curve = new gb.Bezier();
-		curve.a[0] = ax;
-		curve.a[1] = ay;
-		curve.b[0] = bx;
-		curve.b[1] = by;
-		curve.c[0] = cx;
-		curve.c[1] = cy;
-		curve.d[0] = dx;
-		curve.d[1] = dy;
-		return curve;
-	},
-	clamped: function(a,b,c,d)
-	{
-		var curve = new gb.Bezier();
-		curve.b[0] = a;
-		curve.b[1] = b;
-		curve.c[0] = c;
-		curve.c[1] = d;
-		curve.d[0] = 1;
-		curve.d[1] = 1;
-		return curve;
-	},
-	tmp: function()
-	{
-		var _t = gb.bezier;
-		var r = gb.stack.get(_t.stack);
-		return r;
-	},
-	eval: function(r, b, t)
-	{
-		var u = 1.0 - t;
-		var tt = t * t;
-		var uu = u * u;
-		var uuu = uu * u;
-		var ttt = tt * t;
-
-		for(var i = 0; i < 3; ++i)
-			r[i] = (uuu * b.a[i]) + 
-				   (3 * uu * t * b.b[i]) + 
-				   (3 * u * tt * b.c[i]) + 
-				   (ttt * b.d[i]);
-	},
-	eval_f: function(b, t)
-	{
-		var u = 1.0 - t;
-		var tt = t * t;
-		var uu = u * u;
-		var uuu = uu * u;
-		var ttt = tt * t;
-
-		return (uuu * b.a[1]) + 
-			   (3 * uu * t * b.b[1]) + 
-			   (3 * u * tt * b.c[1]) + 
-			   (ttt * b.d[1]);
-	}
-}
 gb.Hit = function()
 {
 	this.hit = false;
@@ -2482,12 +2409,15 @@ gb.EntityType =
 	CAMERA: 1,
 	LAMP: 2,
 	SPRITE: 3,
+	EMPTY: 4,
+	RIG: 5,
 }
+// TODO each data type needs a constructor and a blank for serialization
 gb.Entity = function()
 {
 	this.name;
 	this.id;
-	this.entity_type = gb.EntityType.ENTITY;
+	this.entity_type = gb.EntityType.EMPTY;
 	this.parent = null;
 	this.children = [];
 
@@ -2502,9 +2432,6 @@ gb.Entity = function()
 	this.local_matrix = gb.mat4.new();
 	this.world_matrix = gb.mat4.new();
 	this.bounds = gb.aabb.new();
-
-	//this.material = null;
-	//this.mesh = null;
 }
 gb.entity = 
 {
@@ -2567,11 +2494,43 @@ gb.entity =
 		gb.quat.euler(e.rotation, x,y,z);
 		e.dirty = true;
 	},
+
+	// TODO: needs updating to ensure components get updated on recursive calls
+	update: function(e)
+	{
+		if(e.active === false || e.dirty === false) return;
+		if(e.mesh && e.mesh.dirty === true)
+		{
+			gb.webgl.update_mesh(e.mesh);
+		}
+		if(e.rig)
+		{
+			gb.rig.update(e.rig);
+		}
+		gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
+		if(e.parent !== null)
+		{
+			gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
+		}
+		else
+		{
+			gb.mat4.eq(e.world_matrix, e.local_matrix);
+		}
+		var n = e.children.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var child = e.children[i];
+			child.dirty = true;
+			gb.scene.update_entity(child);
+		}
+		e.dirty = false;
+	},
 }
-gb.serialize.r_entity = function(entity, br, ag)
+gb.serialize.r_entity = function(br, ag)
 {
     var s = gb.serialize;
 
+    var entity = new gb.Entity();
     entity.name = s.r_string(br);
 
     var parent_name = s.r_string(br);
@@ -2592,6 +2551,8 @@ gb.serialize.r_entity = function(entity, br, ag)
     entity.rotation[1] = s.r_f32(br);
     entity.rotation[2] = s.r_f32(br);
     entity.rotation[3] = s.r_f32(br);
+
+    return entity;
 }
 gb.Lamp = function()
 {
@@ -2621,16 +2582,17 @@ gb.LampType =
     SUN: 1,
 }
 
-gb.serialize.r_lamp = function(entity, br, ag)
+gb.serialize.r_lamp = function(br, ag)
 {
     var s = gb.serialize;
-    s.r_entity(entity, br, ag);
+    var entity = s.r_entity(br, ag);
     entity.type = gb.EntityType.LAMP;
     var lamp = new gb.Lamp();
     lamp.energy = s.r_f32(br);
     lamp.distance = s.r_f32(br);
     entity.lamp = lamp;
     lamp.entity = entity;
+    return entity;
 }
 gb.Camera = function()
 {
@@ -2700,6 +2662,20 @@ gb.camera =
 		c.far = far;
 		c.dirty = true;
 	},
+
+	update: function(c)
+	{
+		ASSERT(c.entity != null, "Camera has no transform!");
+		if(c.dirty === true)
+		{
+			gb.camera.update_projection(c, gb.webgl.view);
+		}
+		gb.mat4.inverse(c.view, c.entity.world_matrix);
+		gb.mat4.mul(c.view_projection, c.view, c.projection);
+		gb.mat3.from_mat4(c.normal, c.view);
+		gb.mat3.inverse(c.normal, c.normal);
+		gb.mat3.transposed(c.normal, c.normal);
+	},
 }
 
 gb.Projection = 
@@ -2708,10 +2684,10 @@ gb.Projection =
     PERSPECTIVE: 1,
 }
 
-gb.serialize.r_camera = function(entity, br, ag)
+gb.serialize.r_camera = function(br, ag)
 {
     var s = gb.serialize;
-    s.r_entity(entity, br, ag);
+    var entity = s.r_entity(br, ag);
     entity.entity_type = gb.EntityType.CAMERA;
     var c = new gb.Camera();
     var camera_type = s.r_i32(br);
@@ -2723,18 +2699,12 @@ gb.serialize.r_camera = function(entity, br, ag)
     c.dirty = true;
     entity.camera = c;
     c.entity = entity;
+    return entity;
 }
 gb.Scene = function()
 {
 	this.num_entities = 0;
-	this.num_cameras = 0;
-	this.num_sprites = 0;
-	this.num_lamps = 0;
 	this.entities = [];
-	this.cameras = [];
-	this.lamps = [];
-	this.sprites = [];
-	//this.render_groups: [],
 }
 gb.scene = 
 {
@@ -2744,18 +2714,6 @@ gb.scene =
 	},
 	load_asset_group: function(s, ag)
 	{
-		for(var camera in ag.cameras)
-	    {
-	        gb.scene.add(s, ag.cameras[camera]);
-	    }
-	    for(var lamp in ag.lamps)
-	    {
-	        gb.scene.add(s, ag.lamps[lamp]);
-	    }
-	    for(var empty in ag.empties)
-	    {
-	        gb.scene.add(s, ag.empties[empty]);
-	    }
 	    for(var entity in ag.entities)
 	    {
 	        gb.scene.add(s, ag.entities[entity]);
@@ -2776,75 +2734,70 @@ gb.scene =
 		s.entities.push(e);
 		s.num_entities++;
 	},
-
-	update_camera: function(c)
-	{
-		ASSERT(c.entity != null, "Camera has no transform!");
-		if(c.dirty === true)
-		{
-			gb.camera.update_projection(c, gb.webgl.view);
-		}
-		gb.mat4.inverse(c.view, c.entity.world_matrix);
-		gb.mat4.mul(c.view_projection, c.view, c.projection);
-		gb.mat3.from_mat4(c.normal, c.view);
-		gb.mat3.inverse(c.normal, c.normal);
-		gb.mat3.transposed(c.normal, c.normal);
-	},
-
-	update_entity: function(e)
-	{
-		if(e.active === false || e.dirty === false) return;
-		if(e.mesh && e.mesh.dirty === true)
-		{
-			gb.webgl.update_mesh(e.mesh);
-		}
-		gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
-		if(e.parent !== null)
-		{
-			gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
-		}
-		else
-		{
-			gb.mat4.eq(e.world_matrix, e.local_matrix);
-		}
-		var n = e.children.length;
-		for(var i = 0; i < n; ++i)
-		{
-			var child = e.children[i];
-			child.dirty = true;
-			gb.scene.update_entity(child);
-		}
-		e.dirty = false;
-	},
-
-
 	update: function(s)
 	{
 		var n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
 		{
 			var e = s.entities[i];
+			gb.entity.update(e);
 			switch(e.entity_type)
 			{
-				case gb.EntityType.ENTITY:
-				{
-					gb.scene.update_entity(e);
-					break;
-				}
 				case gb.EntityType.CAMERA:
 				{
-					gb.scene.update_entity(e);
-					gb.scene.update_camera(e.camera);
+					gb.camera.update(e.camera);
 					break;
 				}
 				case gb.EntityType.LAMP:
 				{
-					gb.scene.update_entity(e.entity);
+					//gb.lamp.update(e.lamp);
+					break;
+				}
+				case gb.EntityType.RIG:
+				{
+					//gb.scene.update_rig(e.rig);
 					break;
 				}
 			}
 		}
 	},
+	update_rig: function(rig)
+	{
+		var n = rig.joints.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var j = rig.joints[i];
+			gb.mat4.compose(j.local_matrix, j.position, j.scale, j.rotation);
+			if(j.parent !== -1)
+			{
+				var parent = rig.joints[j.parent];
+				gb.mat4.mul(j.world_matrix, j.local_matrix, j.parent.world_matrix);
+			}
+			else
+			{
+				gb.mat4.eq(j.world_matrix, j.local_matrix);
+			}
+			
+			gb.mat4.mul(j.world_matrix, j.world_matrix, j.inverse_bind_pose);
+		}
+	},
+
+	/*
+	gb.Rig = function()
+	{
+		this.joints = [];	
+	}
+	gb.Joint = function()
+	{
+		this.parent = -1;
+		this.position = gb.vec3.new();
+		this.scale = gb.vec3.new();
+		this.rotation = gb.quat.new();
+		this.local_matrix = gb.mat4.new();
+		this.world_matrix = gb.mat4.new(); 
+		this.inverse_bind_pose = gb.mat4.new();
+	}
+	*/
 }
 gb.Vertex_Attribute_Info = function(name, size, normalized)
 {
@@ -3194,8 +3147,11 @@ gb.serialize.r_shader = function(br)
     shader.mvp = gb.has_flag_set(uniform_mask, 1);
     shader.camera = gb.has_flag_set(uniform_mask, 2);
     shader.lights = gb.has_flag_set(uniform_mask, 4);
+    shader.rig = gb.has_flag_set(uniform_mask, 8);
     return shader;
 }
+gb.MAX_RIG_BONES = 8;
+
 gb.Material = function()
 {
     this.shader;
@@ -3215,6 +3171,10 @@ gb.material =
         if(shader.mvp === true)
         {
             m.uniforms.mvp = gb.mat4.new();
+        }
+        if(shader.rig === true)
+        {
+            m.uniforms['rig[0]'] = new Float32Array(gb.MAX_RIG_BONES * 16)
         }
         return m;
     },
@@ -3240,6 +3200,78 @@ gb.serialize.r_material = function(br, ag)
         material.uniforms[sampler_name] = ag.textures[tex_name];
     }
     return material;
+}
+gb.Rig = function()
+{
+	this.joints = [];	
+}
+gb.Joint = function()
+{
+	this.parent = -1;
+	this.position = gb.vec3.new();
+	this.scale = gb.vec3.new(1,1,1);
+	this.rotation = gb.quat.new();
+	this.local_matrix = gb.mat4.new();
+	this.world_matrix = gb.mat4.new(); 
+	this.inverse_bind_pose = gb.mat4.new();
+}
+
+gb.rig = 
+{
+	update: function(rig)
+	{
+		var n = rig.joints.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var j = rig.joints[i];
+			gb.mat4.compose(j.local_matrix, j.position, j.scale, j.rotation);
+			if(j.parent !== -1)
+			{
+				var parent = rig.joints[j.parent];
+				gb.mat4.mul(j.world_matrix, j.local_matrix, j.parent.world_matrix);
+			}
+			else
+			{
+				gb.mat4.eq(j.world_matrix, j.local_matrix);
+			}
+			
+			gb.mat4.mul(j.world_matrix, j.world_matrix, j.inverse_bind_pose);
+		}
+	},
+}
+
+gb.serialize.r_rig = function(br, ag)
+{
+    var s = gb.serialize;
+
+    var rig = new gb.Rig();
+    rig.name = s.r_string(br);
+    console.log("Name: " + rig.name);
+    var num_joints = s.r_i32(br);
+    console.log("Num Joints: " + num_joints);
+    for(var i = 0; i < num_joints; ++i)
+    {
+    	var joint = new gb.Joint();
+    	var parent_index = s.r_i32(br);
+    	console.log("Parent Index: " + parent_index);
+    	joint.position[0] = s.r_f32(br);
+    	joint.position[1] = s.r_f32(br);
+    	joint.position[2] = s.r_f32(br);
+    	joint.scale[0] = s.r_f32(br);
+    	joint.scale[1] = s.r_f32(br);
+    	joint.scale[2] = s.r_f32(br);
+    	joint.rotation[0] = s.r_f32(br);
+    	joint.rotation[1] = s.r_f32(br);
+    	joint.rotation[2] = s.r_f32(br);
+    	joint.rotation[3] = s.r_f32(br);
+    	for(var j = 0; j < 16; ++j)
+    	{
+    		joint.inverse_bind_pose[i] = s.r_f32(br);
+    	}
+    	rig.joints.push(joint);
+    } 
+
+    return rig;
 }
 gb.Render_Target = function()
 {
@@ -3671,19 +3703,6 @@ gb.webgl =
 		var vb = mesh.vertex_buffer;
 		gl.bindBuffer(gl.ARRAY_BUFFER, vb.id);
 
-		// store this per mesh?
-		/*
-		var stride = 0;
-		var index = 1;
-		for(var i = 0; i < gb.NUM_VERTEX_ATTRIBUTES; ++i)
-		{
-			var mr = (index & vb.mask) === index;
-			_t.m_offsets[i] = stride;
-			stride += mr * (gb.vertex_attributes[i].size * 4);
-			index *= 2;
-		}
-		*/
-
 		for(var i = 0; i < shader.num_attributes; ++i)
 		{
 			var sa = shader.attributes[i];
@@ -3809,13 +3828,15 @@ gb.webgl =
 		}
 
 		//if(shader.lights)
+
+
 		
 		var n = dc.entities.length;
 		for(var i = 0; i < n; ++i)
 		{
 			var e = dc.entities[i];
-			if(e.entity_type !== gb.EntityType.ENTITY) continue;
-			if(!e.mesh) continue;
+			if(e.entity_type !== gb.EntityType.ENTITY && e.entity_type !== gb.EntityType.RIG) continue;
+			ASSERT(e.mesh, "Cannot draw an entity with no mesh now can I?");
 			if(e.mesh.linked === false) _t.link_mesh(e.mesh);
 			if(e.mesh.dirty === true) _t.update_mesh(e.mesh);
 			_t.link_attributes(shader, e.mesh);
@@ -3827,6 +3848,21 @@ gb.webgl =
 			else
 			{
 				mat.uniforms.model_matrix = e.world_matrix;
+			}
+
+			if(shader.rig)
+			{
+				var rig = mat.uniforms['rig[0]'];
+				var n = e.rig.joints.length;
+				var t = 0;
+				for(var i = 0; i < n; i++)
+				{
+					for(var j = 0; j < 16; ++j)
+					{
+						rig[t+j] = e.rig.joints[i].world_matrix[j];
+					}
+					t += 16;
+				}
 			}
 
 			_t.set_uniforms(shader, mat.uniforms);
@@ -3890,11 +3926,10 @@ gb.Asset_Group = function()
     this.shaders = {};
     this.materials = {};
     this.animations = {};
-    this.cameras = {};
-    this.lamps = {};
     this.entities = {};
     this.meshes = {};
     this.textures = {};
+    this.rigs = {};
     this.sounds = {};
 }
 gb.load_asset_group = function(url, asset_group, on_load, on_progress)
@@ -3973,17 +4008,15 @@ gb.on_asset_load = function(e)
                 {
                     case 0:
                     {
-                        var entity = new gb.Entity();
-                        s.r_camera(entity, br, ag);
-                        ag.cameras[entity.name] = entity;
+                        var entity = s.r_camera(br, ag);
+                        ag.entities[entity.name] = entity;
                         LOG("Loaded Camera: " + entity.name);
                         break;                        
                     }
                     case 1:
                     {
-                        var entity = new gb.Entity();
-                        s.r_lamp(entity, br, ag);
-                        ag.lamps[entity.name] = entity;
+                        var entity = s.r_lamp(br, ag);
+                        ag.entities[entity.name] = entity;
                         LOG("Loaded Lamp: " + entity.name);
                         break;
                     }
@@ -4010,8 +4043,7 @@ gb.on_asset_load = function(e)
                     }
                     case 5:
                     {
-                        var entity = new gb.Entity();
-                        s.r_entity(entity, br, ag);
+                        var entity = s.r_entity(br, ag);
                         entity.material = ag.materials[s.r_string(br)];
                         entity.mesh = ag.meshes[s.r_string(br)];
                         ag.entities[entity.name] = entity;
@@ -4020,16 +4052,22 @@ gb.on_asset_load = function(e)
                     }
                     case 6:
                     {
-                        var empty = new gb.Entity();
-                        s.r_entity(empty, br, ag);
+                        var entity = s.r_entity(br, ag);
                         ag.entities[empty.name] = empty;
                         LOG("Loaded Entity: " + empty.name);
+                        break;
+                    }
+                    case 7:
+                    {
+                        var rig = s.r_rig(br, ag);
+                        ag.rigs[rig.name] = rig;
+                        LOG("Loaded Rig: " + rig.name);
                         break;
                     }
                     case -101: //FINISH
                     {
                         scene_complete = true;
-                        LOG("Loaded Scene: " + name)
+                        LOG("Loaded Scene: " + name);
                         break;
                     }
                 }
@@ -4058,107 +4096,6 @@ gb.link_asset_group = function(asset_group, callback)
         gb.webgl.link_texture(asset_group.textures[t]);
     }
     callback();
-}
-gb.Sprite = function()
-{
-	this.start;
-	this.end;
-	this.playing;
-	this.speed;
-	this.frame;
-	this.loop_count;
-	this.rows;
-	this.cols;
-	this.entity;
-}
-
-gb.sprite = 
-{
-	new: function(texture, w, h)
-	{
-		var s = new gb.Sprite();
-		s.start = 0;
-		s.end = 0;
-		s.playing = false;
-		s.speed = 0;
-		s.frame = 0;
-		s.loop_count = 0;
-		s.rows = gb.math.round(texture.width / w);
-		s.cols = gb.math.round(texture.height / h);
-		s.frame_skip = 0;
-		s.frame_width = 1 / (texture.width / w); 
-		s.frame_height = 1 / (texture.height / h);
-
-		var e = new gb.Entity();
-		e.mesh = gb.mesh.generate.quad(1,1);
-		e.mesh.vertex_buffer.update_mode = gb.webgl.ctx.DYNAMIC_DRAW;
-		s.entity = e;
-		return s;
-	},
-	set_animation: function(s, start, end, speed, loops)
-	{
-		s.start = start;
-		s.frame = start;
-		s.end = end;
-		s.speed = speed;
-		s.loops = loops;
-	},
-	play: function(s)
-	{
-		s.playing = true;
-		s.frame_skip = s.speed;
-		s.frame = s.start;
-	},
-	update: function(s, dt)
-	{
-		if(s.playing === false) return;
-
-		s.frame_skip -=1;
-		if(s.frame_skip == 0)
-		{
-			s.frame++;
-			s.frame_skip = s.speed;
-
-			if(s.frame === s.end)
-			{
-				s.loop_count -= 1;
-				if(s.loop_count === 0) // -1 = continuous loop
-					s.playing = false;
-
-				s.frame = s.start;
-			}
-
-			var ix = s.frame % s.cols;
-			var iy = gb.math.floor(s.frame / s.cols);
-
-			var x = ix * s.frame_width;
-			var y = iy * s.frame_height;
-			var w = x + s.frame_width;
-			var h = y + s.frame_height;
-
-			var pos = gb.mesh.get_stride(s.entity.mesh, 2); //3
-			var stride = gb.mesh.get_stride(s.entity.mesh); //5
-			var vb = s.entity.mesh.vertex_buffer.data;
-
-			var i = pos;
-			vb[  i] = x;
-			vb[i+1] = h;
-
-			i += stride;
-			vb[  i] = w;
-			vb[i+1] = h;
-
-			i += stride;
-			vb[  i] = x;
-			vb[i+1] = y;
-
-			i += stride;
-			vb[  i] = w;
-			vb[i+1] = y;
-
-			s.entity.mesh.dirty = true;
-		}
-	},
 }
 //DEBUG
 gb.gl_draw = 
@@ -4599,13 +4536,25 @@ function link_complete()
 
 	camera = gb.scene.find(construct, 'camera').camera;
 	sphere = gb.scene.find(construct, 'cube');
-
+	sphere.entity_type = gb.EntityType.RIG;
+	sphere.rig = assets.rigs['armature'];
+	
+	/*	
+	sphere.rig = new gb.Rig();
+	sphere.rig.joints.push(new gb.Joint());
+	sphere.rig.joints.push(new gb.Joint());
+	sphere.rig.joints[0].position[0] = -0.3;
+	sphere.rig.joints[1].scale[0] = 0.9;
+	sphere.rig.joints[1].scale[1] = 0.9;
+	sphere.rig.joints[1].scale[2] = 0.9;
+	*/
+	/*
 	anim = assets.animations.move;
 	anim.target = sphere;
 	anim.time_scale = 1;
-	//anim.t = gb.animation.get_animation_duration(anim);
+	anim.t = gb.animation.get_animation_duration(anim);
 	anim.is_playing = true;
-
+	*/
 	light_position = v3.new(3,3,3);
 
 	// TODO: create draw calls automatically
@@ -4634,7 +4583,7 @@ function update(t)
 
 	gb.scene.update(construct);
 
-	gb.animation.update(anim, dt);
+	//gb.animation.update(anim, dt);
 
 	//MODIFY MESH FOR LULZ
 	if(gb.input.held(gb.Keys.left))
@@ -4669,8 +4618,9 @@ function update(t)
 	//gb.entity.set_rotation(sphere, angle, 0,0);
 	sphere.dirty = true;
 
-	draw_call.material.uniforms.light_position = light_position;
-	
+	//draw_call.material.uniforms.light_position = light_position;
+	//draw_call.material.uniforms['joints[0]'] = joints;
+
 	gb.webgl.render_draw_call(draw_call);
 	//gb.webgl.render_draw_call(gb.gl_draw.draw_call);
 

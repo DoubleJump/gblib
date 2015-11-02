@@ -30,6 +30,7 @@ def compile_shader_file(name, src_file, writer):
 	uniform_mvp = False
 	uniform_camera = False
 	uniform_lights = False
+	uniform_rig = False
 	vertex_shader_found = False
 	fragment_shader_found = False
 
@@ -45,6 +46,8 @@ def compile_shader_file(name, src_file, writer):
 				uniform_camera = True
 			elif line == "#LIGHTS\n":
 				uniform_lights = True
+			elif line == "#RIG\n":
+				uniform_rig = True
 			elif line == "#VERTEX\n":
 				vertex_shader_found = True
 				read_state = 1
@@ -69,6 +72,7 @@ def compile_shader_file(name, src_file, writer):
 	if uniform_mvp: uniform_mask |= 1
 	if uniform_camera: uniform_mask |= 2
 	if uniform_lights: uniform_mask |= 4
+	if uniform_rig: uniform_mask |= 8
 
 	write_str(writer, name)
 	write_int(writer, uniform_mask)

@@ -44,6 +44,7 @@ OB_TYPE_MATERIAL = 3
 OB_TYPE_ACTION = 4
 OB_TYPE_OBJECT = 5
 OB_TYPE_EMPTY = 6
+OB_TYPE_ARMATURE = 7
 OB_TYPE_FILE_END = -101
 
 def round_vec3(v):
@@ -75,6 +76,11 @@ def write_quat(writer, val):
 	write_float(writer, val.y)
 	write_float(writer, val.z)
 	write_float(writer, val.w)
+
+def write_matrix(writer, val):
+	for i in range(0,4):
+		for j in range(0,4):
+			write_float(writer, val[i][j])
 
 def write_str(writer, val):
 	out_str = val.lower().encode('ascii')
@@ -158,6 +164,34 @@ def write_camera(writer, ob, camera):
 	write_float(writer, camera.clip_start)
 	write_float(writer, camera.clip_end)
 	write_float(writer, camera.lens)
+
+def write_armature(writer, ob, armature):
+	print("Exporting Armature: " + ob.name)
+	write_int(writer, OB_TYPE_ARMATURE)
+	write_str(writer, ob.name)
+	num_bones = len(armature.bones)
+	write_int(writer, num_bones)
+
+	index = 0
+	bone_ids = {}
+	for bone in armature.bones:
+		if bone.parent is None:
+			write_int(writer, -1)
+		else:
+			parent_index = bone_ids[bone.parent.name]
+			write_int(writer, parent_index)
+
+		loc, rot, scale = bone.matrix_local.decompose()
+		#print(loc)
+		#print(rot)
+		#print(scale)
+		write_vec3(writer, loc)
+		write_vec3(writer, scale)
+		write_quat(writer, rot)
+		write_matrix(writer, bone.matrix_local.inverted())
+		bone_ids[bone.name] = index
+		#print("Bone: " + bone.name + " Index: " + str(index))
+		index += 1
 		
 def write_mesh(writer, ob, mesh):
 	print("Exporting Mesh: " + ob.data.name)
@@ -219,9 +253,21 @@ def write_mesh(writer, ob, mesh):
 			index_buffer.append(vertex_count)
 
 			groups = mesh.vertices[v].groups
-			for g in groups:
-				vertex_buffer.append(g.group)
-				vertex_buffer.append(g.weight)
+			num_groups = len(groups)
+			if num_groups is 0:
+				vertex_buffer.append(0)
+				vertex_buffer.append(1)
+				vertex_buffer.append(0)
+				vertex_buffer.append(0)
+			elif num_groups is 1:
+				vertex_buffer.append(0)
+				vertex_buffer.append(0)
+				vertex_buffer.append(groups[0].group)
+				vertex_buffer.append(groups[0].weight)
+			else:
+				for g in groups:
+					vertex_buffer.append(g.group)
+					vertex_buffer.append(g.weight)
 
 			vertex_count += 1
 
@@ -319,6 +365,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 		exported_materials = []
 		exported_cameras = []
 		exported_lamps = []
+		exported_armatures = []
 
 		print("")
 		print("######### EXPORTING SCENE: " + scene.name + " ###########")
@@ -333,7 +380,20 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 						write_action(writer, action, ob, scene)
 						exported_actions.append(action)
 
-			if ob.type == 'CAMERA': 
+			if ob.type == 'ARMATURE':
+				armature = ob.data
+				if not armature in exported_armatures:
+					if not armature.animation_data is None:
+						action = armature.animation_data.action
+						if not action is None:
+							if not action in exported_actions:
+								write_action(writer, action, ob, scene)
+								exported_actions.append(action)
+
+					write_armature(writer, ob, armature)
+					exported_armatures.append(armature)
+
+			elif ob.type == 'CAMERA': 
 				camera = ob.data
 				if not camera in exported_cameras:
 					if not camera.animation_data is None:
@@ -361,7 +421,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 
 			elif ob.type == 'MESH':
 				material = ob.material_slots[0].material
-				if not material is None:
+				if not material is None: #and 'shader' in material:
 					if not material in exported_materials:
 						if not material.animation_data is None:
 							action = material.animation_data.action

@@ -4,12 +4,15 @@ gb.EntityType =
 	CAMERA: 1,
 	LAMP: 2,
 	SPRITE: 3,
+	EMPTY: 4,
+	RIG: 5,
 }
+// TODO each data type needs a constructor and a blank for serialization
 gb.Entity = function()
 {
 	this.name;
 	this.id;
-	this.entity_type = gb.EntityType.ENTITY;
+	this.entity_type = gb.EntityType.EMPTY;
 	this.parent = null;
 	this.children = [];
 
@@ -24,9 +27,6 @@ gb.Entity = function()
 	this.local_matrix = gb.mat4.new();
 	this.world_matrix = gb.mat4.new();
 	this.bounds = gb.aabb.new();
-
-	//this.material = null;
-	//this.mesh = null;
 }
 gb.entity = 
 {
@@ -89,11 +89,43 @@ gb.entity =
 		gb.quat.euler(e.rotation, x,y,z);
 		e.dirty = true;
 	},
+
+	// TODO: needs updating to ensure components get updated on recursive calls
+	update: function(e)
+	{
+		if(e.active === false || e.dirty === false) return;
+		if(e.mesh && e.mesh.dirty === true)
+		{
+			gb.webgl.update_mesh(e.mesh);
+		}
+		if(e.rig)
+		{
+			gb.rig.update(e.rig);
+		}
+		gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
+		if(e.parent !== null)
+		{
+			gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
+		}
+		else
+		{
+			gb.mat4.eq(e.world_matrix, e.local_matrix);
+		}
+		var n = e.children.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var child = e.children[i];
+			child.dirty = true;
+			gb.scene.update_entity(child);
+		}
+		e.dirty = false;
+	},
 }
-gb.serialize.r_entity = function(entity, br, ag)
+gb.serialize.r_entity = function(br, ag)
 {
     var s = gb.serialize;
 
+    var entity = new gb.Entity();
     entity.name = s.r_string(br);
 
     var parent_name = s.r_string(br);
@@ -114,4 +146,6 @@ gb.serialize.r_entity = function(entity, br, ag)
     entity.rotation[1] = s.r_f32(br);
     entity.rotation[2] = s.r_f32(br);
     entity.rotation[3] = s.r_f32(br);
+
+    return entity;
 }

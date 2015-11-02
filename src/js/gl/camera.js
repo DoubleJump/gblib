@@ -66,6 +66,20 @@ gb.camera =
 		c.far = far;
 		c.dirty = true;
 	},
+
+	update: function(c)
+	{
+		ASSERT(c.entity != null, "Camera has no transform!");
+		if(c.dirty === true)
+		{
+			gb.camera.update_projection(c, gb.webgl.view);
+		}
+		gb.mat4.inverse(c.view, c.entity.world_matrix);
+		gb.mat4.mul(c.view_projection, c.view, c.projection);
+		gb.mat3.from_mat4(c.normal, c.view);
+		gb.mat3.inverse(c.normal, c.normal);
+		gb.mat3.transposed(c.normal, c.normal);
+	},
 }
 
 gb.Projection = 
@@ -74,10 +88,10 @@ gb.Projection =
     PERSPECTIVE: 1,
 }
 
-gb.serialize.r_camera = function(entity, br, ag)
+gb.serialize.r_camera = function(br, ag)
 {
     var s = gb.serialize;
-    s.r_entity(entity, br, ag);
+    var entity = s.r_entity(br, ag);
     entity.entity_type = gb.EntityType.CAMERA;
     var c = new gb.Camera();
     var camera_type = s.r_i32(br);
@@ -89,4 +103,5 @@ gb.serialize.r_camera = function(entity, br, ag)
     c.dirty = true;
     entity.camera = c;
     c.entity = entity;
+    return entity;
 }

@@ -73,7 +73,9 @@ void main()
     //vec4 diffuse_color = linear(vec4(1.0));
     vec4 diffuse_color = linear(texture2D(diffuse, _uv));
     vec4 light_color = linear(vec4(1.0));
+    vec3 ambient = vec3(0.3,0.3,0.3);
 
-    vec4 result = vec4(diffuse_color.rgb * light_color.rgb * diffuse_term, 1.0);
+    vec3 rgb = light_color.rgb * diffuse_term;
+    vec4 result = vec4(rgb, 1.0);
 	gl_FragColor = gamma(result);
 }

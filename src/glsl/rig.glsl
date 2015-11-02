@@ -20,7 +20,6 @@ mat4 bone_transform()
 	float n = 1.0 / (weight.y + weight.w);
 	return n * weight.w * rig[int(weight.z)] + 
 		   n * weight.y * rig[int(weight.x)];
-	//return rig[1] * weight.w + rig[0] * weight.x;
 }
 
 void main()

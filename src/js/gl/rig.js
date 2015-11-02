@@ -11,6 +11,7 @@ gb.Joint = function()
 	this.local_matrix = gb.mat4.new();
 	this.world_matrix = gb.mat4.new(); 
 	this.inverse_bind_pose = gb.mat4.new();
+	this.offset_matrix = gb.mat4.new();
 }
 
 gb.rig = 
@@ -25,15 +26,16 @@ gb.rig =
 			if(j.parent !== -1)
 			{
 				var parent = rig.joints[j.parent];
-				gb.mat4.mul(j.world_matrix, j.local_matrix, j.parent.world_matrix);
+				gb.mat4.mul(j.world_matrix, j.local_matrix, parent.world_matrix);
 			}
 			else
 			{
 				gb.mat4.eq(j.world_matrix, j.local_matrix);
 			}
 			
-			gb.mat4.mul(j.world_matrix, j.world_matrix, j.inverse_bind_pose);
 		}
+		
+		gb.mat4.mul(j.offset_matrix, j.world_matrix, j.inverse_bind_pose);
 	},
 }
 
@@ -43,14 +45,11 @@ gb.serialize.r_rig = function(br, ag)
 
     var rig = new gb.Rig();
     rig.name = s.r_string(br);
-    console.log("Name: " + rig.name);
     var num_joints = s.r_i32(br);
-    console.log("Num Joints: " + num_joints);
     for(var i = 0; i < num_joints; ++i)
     {
     	var joint = new gb.Joint();
-    	var parent_index = s.r_i32(br);
-    	console.log("Parent Index: " + parent_index);
+    	joint.parent = s.r_i32(br);
     	joint.position[0] = s.r_f32(br);
     	joint.position[1] = s.r_f32(br);
     	joint.position[2] = s.r_f32(br);
@@ -63,7 +62,7 @@ gb.serialize.r_rig = function(br, ag)
     	joint.rotation[3] = s.r_f32(br);
     	for(var j = 0; j < 16; ++j)
     	{
-    		joint.inverse_bind_pose[i] = s.r_f32(br);
+    		joint.inverse_bind_pose[j] = s.r_f32(br);
     	}
     	rig.joints.push(joint);
     } 

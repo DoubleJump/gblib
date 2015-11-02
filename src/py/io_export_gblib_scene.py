@@ -169,28 +169,33 @@ def write_armature(writer, ob, armature):
 	print("Exporting Armature: " + ob.name)
 	write_int(writer, OB_TYPE_ARMATURE)
 	write_str(writer, ob.name)
-	num_bones = len(armature.bones)
+	num_bones = len(armature.pose.bones)
 	write_int(writer, num_bones)
 
 	index = 0
 	bone_ids = {}
-	for bone in armature.bones:
+	for bone in armature.pose.bones:
+
 		if bone.parent is None:
+			bone_matrix = bone.matrix * bone.matrix.inverted()
 			write_int(writer, -1)
 		else:
+			bone_matrix = bone.matrix * bone.parent.matrix.inverted()
 			parent_index = bone_ids[bone.parent.name]
+			print("Parent: " + str(parent_index))
 			write_int(writer, parent_index)
 
-		loc, rot, scale = bone.matrix_local.decompose()
+		loc, rot, scale = bone_matrix.decompose()
+		print("Bone: " + bone.name + " Index: " + str(index))
 		#print(loc)
 		#print(rot)
 		#print(scale)
 		write_vec3(writer, loc)
 		write_vec3(writer, scale)
 		write_quat(writer, rot)
-		write_matrix(writer, bone.matrix_local.inverted())
+		write_matrix(writer, bone_matrix.transposed().inverted())
+		#print(bone_matrix.inverted())
 		bone_ids[bone.name] = index
-		#print("Bone: " + bone.name + " Index: " + str(index))
 		index += 1
 		
 def write_mesh(writer, ob, mesh):
@@ -352,6 +357,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 	def execute(self, context):
 			
 		scene = bpy.context.scene 
+		scene.frame_set(0)
 
 		filepath = self.filepath
 		filepath = bpy.path.ensure_ext(filepath, self.filename_ext)
@@ -381,14 +387,16 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 						exported_actions.append(action)
 
 			if ob.type == 'ARMATURE':
-				armature = ob.data
+				armature = bpy.data.objects[ob.name]
 				if not armature in exported_armatures:
+					'''
 					if not armature.animation_data is None:
 						action = armature.animation_data.action
 						if not action is None:
 							if not action in exported_actions:
 								write_action(writer, action, ob, scene)
 								exported_actions.append(action)
+					'''
 
 					write_armature(writer, ob, armature)
 					exported_armatures.append(armature)

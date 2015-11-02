@@ -544,9 +544,10 @@ gb.webgl =
 				var t = 0;
 				for(var i = 0; i < n; i++)
 				{
+					var joint = e.rig.joints[i];
 					for(var j = 0; j < 16; ++j)
 					{
-						rig[t+j] = e.rig.joints[i].world_matrix[j];
+						rig[t+j] = joint.offset_matrix[j];
 					}
 					t += 16;
 				}

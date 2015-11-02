@@ -12,6 +12,9 @@ function LOG(message)
 var gb = 
 {
 	has_focus: true,
+	frame_skip: false,
+	do_skip_this_frame: false,
+
 	init: function(){},
 	update: function(t){},
 
@@ -37,6 +40,17 @@ var gb =
 	},
 	_update: function(t)
 	{
+		if(gb.frame_skip === true)
+		{
+			if(gb.do_skip_this_frame === true)
+			{
+				gb.do_skip_this_frame = false;
+				requestAnimationFrame(gb._update);
+				return;
+			}
+			gb.do_skip_this_frame = true;
+		}
+		
 		gb.time.update(t);
 		if(gb.time.paused || gb.has_focus === false)
 		{
@@ -53,7 +67,7 @@ var gb =
 	has_flag_set: function(mask, flag)
 	{
 	    return (flag & mask) === flag;
-	}
+	},
 }
 window.addEventListener('load', gb._init, false);
 window.onfocus = gb.focus;

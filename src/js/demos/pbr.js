@@ -75,6 +75,8 @@ function init()
 {
 	assets_loaded = false;
 
+	gb.frame_skip = true;
+
 	var k = gb.Keys;
 	gb.input.init(document,
 	{
@@ -125,15 +127,15 @@ function link_complete()
 	sphere = gb.scene.find(construct, 'cube');
 	sphere.entity_type = gb.EntityType.RIG;
 	sphere.rig = assets.rigs['armature'];
+	sphere.rig.joints[1].position[0] = 0.6;
+	//gb.quat.euler(sphere.rig.joints[1].rotation, 30,0,0);
 	
-	/*	
+	/*
 	sphere.rig = new gb.Rig();
 	sphere.rig.joints.push(new gb.Joint());
 	sphere.rig.joints.push(new gb.Joint());
-	sphere.rig.joints[0].position[0] = -0.3;
-	sphere.rig.joints[1].scale[0] = 0.9;
-	sphere.rig.joints[1].scale[1] = 0.9;
-	sphere.rig.joints[1].scale[2] = 0.9;
+	sphere.rig.joints[1].position[2] = 1.5;
+	sphere.rig.joints[1].inverse_bind_pose[14] = -0.5;
 	*/
 	/*
 	anim = assets.animations.move;

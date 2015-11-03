@@ -5,7 +5,7 @@ gb.Animation = function()
 	this.auto_play = true;
 	this.t = 0;
 	this.time_scale = 1;
-	this.target; 
+	this.target;
 	this.tweens = [];
 	this.loops = 1;
 	this.loop_count = 0;
@@ -17,6 +17,7 @@ gb.Animation = function()
 }
 gb.Tween = function()
 {
+	this.bone_index;
 	this.property;
 	this.index = -1;
 	this.keyframes = [];
@@ -125,13 +126,20 @@ gb.animation =
 				   (3 * u * tt * cy) + 
 				   (ttt * dy);
 
-			if(tween.index === -1)
+			if(tween.bone)
 			{
-				animation.target[tween.property] = value;
+				animation.target[tween.bone][tween.property][tween.index] = value;
 			}
 			else
 			{
-				animation.target[tween.property][tween.index] = value;
+				if(tween.index === -1)
+				{
+					animation.target[tween.property] = value;
+				}
+				else
+				{
+					animation.target[tween.property][tween.index] = value;
+				}
 			}
 		}
 		if(in_range === false)
@@ -186,4 +194,34 @@ gb.serialize.r_action = function(br)
     	animation.tweens.push(tween);
     }
     return animation;	
+}
+gb.serialize.r_rig_action = function(br)
+{
+	var s = gb.serialize;
+    var animation = new gb.Animation();
+    animation.name = s.r_string(br);
+   
+    var num_curves = s.r_i32(br);
+    for(var i = 0; i < num_curves; ++i)
+    {
+    	var tween = new gb.Tween();
+    	tween.bone = s.r_i32(br);
+    	tween.property = s.r_string(br);
+    	tween.index = s.r_i32(br);
+
+    	var num_frames = s.r_i32(br);
+    	for(var j = 0; j < num_frames; ++j)
+    	{
+    		var kf = new gb.Keyframe();
+    		kf.t = s.r_f32(br);
+    		kf.value = s.r_f32(br);
+    		kf.handles[0] = s.r_f32(br);
+    		kf.handles[1] = s.r_f32(br);
+    		kf.handles[2] = s.r_f32(br);
+    		kf.handles[3] = s.r_f32(br);
+    		tween.keyframes.push(kf);
+    	}
+    	animation.tweens.push(tween);
+    }
+    return animation;
 }

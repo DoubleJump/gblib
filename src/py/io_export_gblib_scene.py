@@ -34,6 +34,7 @@ import mathutils, struct
 from math import radians
 from bpy_extras.io_utils import ExportHelper
 from struct import pack
+import re
 
 FP_PRECISION = 3
 
@@ -45,7 +46,10 @@ OB_TYPE_ACTION = 4
 OB_TYPE_OBJECT = 5
 OB_TYPE_EMPTY = 6
 OB_TYPE_ARMATURE = 7
+OB_TYPE_ARMATURE_ACTION = 8
 OB_TYPE_FILE_END = -101
+
+GB_MATRIX = mathutils.Matrix.Rotation(radians(-90.0), 4, 'Z')
 
 def round_vec3(v):
 	return round(v[0], FP_PRECISION), round(v[1], FP_PRECISION), round(v[2], FP_PRECISION)
@@ -103,12 +107,17 @@ def write_transform(writer, ob):
 	if(ob.parent == None): write_str(writer, "none")
 	else: write_str(writer, ob.parent.name) 
 
+	#tmp = ob.matrix_world.copy()
+	#ob.matrix_world = GB_MATRIX * ob.matrix_world
+
 	write_vec3(writer, ob.location)
 	write_vec3(writer, ob.scale)
 
 	ob.rotation_mode = 'QUATERNION'
 	write_quat(writer, ob.rotation_quaternion)
 	#ob.rotation_mode = 'XYZ'
+
+	#ob.matrix_world = tmp
 
 def write_material(writer, material):
 	print("Exporting Material: " + material.name)
@@ -182,19 +191,13 @@ def write_armature(writer, ob, armature):
 		else:
 			bone_matrix = bone.matrix * bone.parent.matrix.inverted()
 			parent_index = bone_ids[bone.parent.name]
-			print("Parent: " + str(parent_index))
 			write_int(writer, parent_index)
 
 		loc, rot, scale = bone_matrix.decompose()
-		print("Bone: " + bone.name + " Index: " + str(index))
-		#print(loc)
-		#print(rot)
-		#print(scale)
 		write_vec3(writer, loc)
 		write_vec3(writer, scale)
 		write_quat(writer, rot)
 		write_matrix(writer, bone_matrix.transposed().inverted())
-		#print(bone_matrix.inverted())
 		bone_ids[bone.name] = index
 		index += 1
 		
@@ -207,8 +210,8 @@ def write_mesh(writer, ob, mesh):
 	index_buffer = []
 	vertex_count = 0
 
-	matrix = mathutils.Matrix.Rotation(radians(-90.0), 4, 'Z')
-	mesh.transform(matrix)
+	#matrix = mathutils.Matrix.Rotation(radians(-90.0), 4, 'Z')
+	#mesh.transform(matrix)
 	mesh.calc_normals()
 	mesh.calc_tessface() 
 
@@ -324,7 +327,6 @@ def write_action(writer, action, owner, scene):
 			prop = 'rotation'
 			value_mode = 2
 		
-		print(prop)
 		write_str(writer, prop)
 		if type(data_type) is float:
 			write_int(writer, -1)
@@ -332,9 +334,9 @@ def write_action(writer, action, owner, scene):
 			index = curve.array_index
 			if value_mode == 2:
 				if index == 0: index = 3 #W
-				elif index == 1: index = 0
+				elif index == 1: index = 2
 				elif index == 2: index = 1
-				elif index == 3: index = 2
+				elif index == 3: index = 0
 			write_int(writer, index)
 		
 		write_int(writer, len(curve.keyframe_points))
@@ -346,6 +348,51 @@ def write_action(writer, action, owner, scene):
 			write_float(writer, keyframe.handle_right[0])
 			write_float(writer, keyframe.handle_right[1])
 
+def write_armature_action(writer, action, owner, scene):
+	print("Exporting Rig Action: " + action.name)
+	write_int(writer, OB_TYPE_ARMATURE_ACTION)
+	write_str(writer, action.name)
+	write_int(writer, len(action.fcurves))
+	for curve in action.fcurves:
+		path = curve.data_path
+		prop = path.split('.')[2]
+		target_bone = path[12:].split('"')[0]
+
+		bone_index = 0
+		for bone in owner.pose.bones:
+			if bone.name == target_bone: break
+			bone_index += 1
+
+		data_type = owner.path_resolve(path)
+		value_mode = 1
+		if prop == 'location': prop = 'position'
+		elif prop == 'rotation_euler': 
+			prop = 'rotation'
+		elif prop == 'rotation_quaternion':
+			prop = 'rotation'
+			value_mode = 2
+
+		write_int(writer, bone_index)
+		write_str(writer, prop)
+
+		index = curve.array_index
+
+		if value_mode == 2:
+			if index == 0: index = 3 #W
+			elif index == 1: index = 2
+			elif index == 2: index = 1
+			elif index == 3: index = 0
+
+		write_int(writer, index)
+
+		write_int(writer, len(curve.keyframe_points))
+		for keyframe in curve.keyframe_points:
+			write_float(writer, keyframe.co[0] / scene.render.fps)
+			write_float(writer, keyframe.co[1])
+			write_float(writer, keyframe.handle_left[0])
+			write_float(writer, keyframe.handle_left[1])
+			write_float(writer, keyframe.handle_right[0])
+			write_float(writer, keyframe.handle_right[1])
 
 class ExportTest(bpy.types.Operator, ExportHelper):
 	bl_idname = "export_gblib.test"
@@ -379,29 +426,27 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 
 		for ob in scene.objects:
 			
-			if not ob.animation_data is None:
+			if ob.type == 'ARMATURE':
+				armature = bpy.data.objects[ob.name]
+				if not armature in exported_armatures:
+					if not armature.animation_data is None:
+						action = armature.animation_data.action
+						if not action is None:
+							if not action in exported_actions:
+								write_armature_action(writer, action, ob, scene)
+								exported_actions.append(action)
+
+					write_armature(writer, ob, armature)
+					exported_armatures.append(armature)
+
+			elif not ob.animation_data is None:
 				action = ob.animation_data.action
 				if not action is None:
 					if not action in exported_actions:
 						write_action(writer, action, ob, scene)
 						exported_actions.append(action)
 
-			if ob.type == 'ARMATURE':
-				armature = bpy.data.objects[ob.name]
-				if not armature in exported_armatures:
-					'''
-					if not armature.animation_data is None:
-						action = armature.animation_data.action
-						if not action is None:
-							if not action in exported_actions:
-								write_action(writer, action, ob, scene)
-								exported_actions.append(action)
-					'''
-
-					write_armature(writer, ob, armature)
-					exported_armatures.append(armature)
-
-			elif ob.type == 'CAMERA': 
+			if ob.type == 'CAMERA': 
 				camera = ob.data
 				if not camera in exported_cameras:
 					if not camera.animation_data is None:

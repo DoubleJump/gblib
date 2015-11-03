@@ -14,9 +14,11 @@ gb.gl_draw =
 
 		_t.draw_call = new gb.DrawCall();
 		_t.draw_call.clear = false;
+		_t.draw_call.depth_test = false;
 		_t.entity = gb.entity.new();
 		_t.draw_call.entities.push(_t.entity);
 		_t.matrix = _t.entity.world_matrix;
+		_t.entity.entity_type = gb.EntityType.ENTITY;
 
 		_t.offset = 0;
 		_t.color = gb.color.new(1,1,1,1);
@@ -30,6 +32,7 @@ gb.gl_draw =
 	    m.vertex_buffer = vb;
 	    m.vertex_count = 0;
 	    m.dirty = true;
+	    gb.mesh.update_vertex_buffer(vb);
 	    _t.entity.mesh = m;
 	    _t.mesh = m;
 
@@ -293,5 +296,21 @@ gb.gl_draw =
 		{
 			_t.mesh.vertex_buffer.data[i] = 0;
 		}	
+	},
+	rig: function(r)
+	{
+		var _t = gb.gl_draw;
+		var v3 = gb.vec3;
+		var n = r.joints.length;
+		var a = v3.tmp();
+		var b = v3.tmp();
+		for(var i = 1; i < n; ++i)
+		{
+			var ja = r.joints[i-1];
+			var jb = r.joints[i];
+			m4.mul_point(a, ja.world_matrix, ja.position);
+			m4.mul_point(b, jb.world_matrix, jb.position);
+			_t.line(a, b);
+		}
 	},
 }

@@ -2235,7 +2235,7 @@ gb.Animation = function()
 	this.auto_play = true;
 	this.t = 0;
 	this.time_scale = 1;
-	this.target; 
+	this.target;
 	this.tweens = [];
 	this.loops = 1;
 	this.loop_count = 0;
@@ -2247,6 +2247,7 @@ gb.Animation = function()
 }
 gb.Tween = function()
 {
+	this.bone_index;
 	this.property;
 	this.index = -1;
 	this.keyframes = [];
@@ -2355,13 +2356,20 @@ gb.animation =
 				   (3 * u * tt * cy) + 
 				   (ttt * dy);
 
-			if(tween.index === -1)
+			if(tween.bone)
 			{
-				animation.target[tween.property] = value;
+				animation.target[tween.bone][tween.property][tween.index] = value;
 			}
 			else
 			{
-				animation.target[tween.property][tween.index] = value;
+				if(tween.index === -1)
+				{
+					animation.target[tween.property] = value;
+				}
+				else
+				{
+					animation.target[tween.property][tween.index] = value;
+				}
 			}
 		}
 		if(in_range === false)
@@ -2416,6 +2424,36 @@ gb.serialize.r_action = function(br)
     	animation.tweens.push(tween);
     }
     return animation;	
+}
+gb.serialize.r_rig_action = function(br)
+{
+	var s = gb.serialize;
+    var animation = new gb.Animation();
+    animation.name = s.r_string(br);
+   
+    var num_curves = s.r_i32(br);
+    for(var i = 0; i < num_curves; ++i)
+    {
+    	var tween = new gb.Tween();
+    	tween.bone = s.r_i32(br);
+    	tween.property = s.r_string(br);
+    	tween.index = s.r_i32(br);
+
+    	var num_frames = s.r_i32(br);
+    	for(var j = 0; j < num_frames; ++j)
+    	{
+    		var kf = new gb.Keyframe();
+    		kf.t = s.r_f32(br);
+    		kf.value = s.r_f32(br);
+    		kf.handles[0] = s.r_f32(br);
+    		kf.handles[1] = s.r_f32(br);
+    		kf.handles[2] = s.r_f32(br);
+    		kf.handles[3] = s.r_f32(br);
+    		tween.keyframes.push(kf);
+    	}
+    	animation.tweens.push(tween);
+    }
+    return animation;
 }
 gb.EntityType = 
 {
@@ -2510,7 +2548,7 @@ gb.entity =
 	},
 
 	// TODO: needs updating to ensure components get updated on recursive calls
-	update: function(e)
+	update: function(e, scene)
 	{
 		if(e.active === false || e.dirty === false) return;
 		if(e.mesh && e.mesh.dirty === true)
@@ -2519,7 +2557,7 @@ gb.entity =
 		}
 		if(e.rig)
 		{
-			gb.rig.update(e.rig);
+			gb.rig.update(e.rig, scene);
 		}
 		gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
 		if(e.parent !== null)
@@ -2528,7 +2566,7 @@ gb.entity =
 		}
 		else
 		{
-			gb.mat4.eq(e.world_matrix, e.local_matrix);
+			gb.mat4.mul(e.world_matrix, e.local_matrix, scene.world_matrix);
 		}
 		var n = e.children.length;
 		for(var i = 0; i < n; ++i)
@@ -2717,6 +2755,7 @@ gb.serialize.r_camera = function(br, ag)
 }
 gb.Scene = function()
 {
+	this.world_matrix = gb.mat4.new();
 	this.num_entities = 0;
 	this.entities = [];
 }
@@ -2754,7 +2793,7 @@ gb.scene =
 		for(var i = 0; i < n; ++i) 
 		{
 			var e = s.entities[i];
-			gb.entity.update(e);
+			gb.entity.update(e, s);
 			switch(e.entity_type)
 			{
 				case gb.EntityType.CAMERA:
@@ -2769,49 +2808,12 @@ gb.scene =
 				}
 				case gb.EntityType.RIG:
 				{
-					//gb.scene.update_rig(e.rig);
+					//gb.rig.update(e.rig, s);
 					break;
 				}
 			}
 		}
 	},
-	update_rig: function(rig)
-	{
-		var n = rig.joints.length;
-		for(var i = 0; i < n; ++i)
-		{
-			var j = rig.joints[i];
-			gb.mat4.compose(j.local_matrix, j.position, j.scale, j.rotation);
-			if(j.parent !== -1)
-			{
-				var parent = rig.joints[j.parent];
-				gb.mat4.mul(j.world_matrix, j.local_matrix, j.parent.world_matrix);
-			}
-			else
-			{
-				gb.mat4.eq(j.world_matrix, j.local_matrix);
-			}
-			
-			gb.mat4.mul(j.world_matrix, j.world_matrix, j.inverse_bind_pose);
-		}
-	},
-
-	/*
-	gb.Rig = function()
-	{
-		this.joints = [];	
-	}
-	gb.Joint = function()
-	{
-		this.parent = -1;
-		this.position = gb.vec3.new();
-		this.scale = gb.vec3.new();
-		this.rotation = gb.quat.new();
-		this.local_matrix = gb.mat4.new();
-		this.world_matrix = gb.mat4.new(); 
-		this.inverse_bind_pose = gb.mat4.new();
-	}
-	*/
 }
 gb.Vertex_Attribute_Info = function(name, size, normalized)
 {
@@ -3233,7 +3235,7 @@ gb.Joint = function()
 
 gb.rig = 
 {
-	update: function(rig)
+	update: function(rig, scene)
 	{
 		var n = rig.joints.length;
 		for(var i = 0; i < n; ++i)
@@ -3247,11 +3249,9 @@ gb.rig =
 			}
 			else
 			{
-				gb.mat4.eq(j.world_matrix, j.local_matrix);
+				gb.mat4.mul(j.world_matrix, j.local_matrix, scene.world_matrix);
 			}
-			
 		}
-		
 		gb.mat4.mul(j.offset_matrix, j.world_matrix, j.inverse_bind_pose);
 	},
 }
@@ -3299,26 +3299,27 @@ gb.Render_Target = function()
 
 gb.render_target = 
 {
+    COLOR: 1,
+    DEPTH: 2,
+    STENCIL: 4,
+    DEPTH_STENCIL: 8,
+
     new: function(view, mask, color)
     {
         var rt = new gb.Render_Target();
         rt.bounds = gb.rect.new();
         gb.rect.eq(rt.bounds, view);
-        if((1 & mask) === 1) //color
+        if(gb.has_flag_set(mask, gb.render_target.COLOR) === true)
         {
             rt.color = gb.texture.rgba(view.width, view.height, null, gb.webgl.default_sampler, 0);
             gb.webgl.link_texture(rt.color);
         }
-        if((2 & mask) === 2) //depth
+        if(gb.has_flag_set(mask, gb.render_target.DEPTH) === true)
         {
             rt.depth = gb.texture.depth(view.width, view.height);
             gb.webgl.link_texture(rt.depth);
         }
-        /*
-        if((4 & mask) === 4)
-        {
-        }
-        */
+
         gb.webgl.link_render_target(rt);
         return rt;
     },
@@ -3327,6 +3328,7 @@ gb.render_target =
 gb.DrawCall = function()
 {
 	this.clear = false;
+	this.depth_test = true;
 	this.target;
 	this.camera;
 	this.material;
@@ -3819,7 +3821,9 @@ gb.webgl =
 		//var lights = dc.lights;
 
 		//TODO: obvs do this before draw call list
-		gl.enable(gl.DEPTH_TEST);
+		
+		if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
+		else gl.disable(gl.DEPTH_TEST);
 
 		if(dc.target.linked === false)
 		{
@@ -3841,8 +3845,6 @@ gb.webgl =
 		}
 
 		//if(shader.lights)
-
-
 		
 		var n = dc.entities.length;
 		for(var i = 0; i < n; ++i)
@@ -4078,6 +4080,13 @@ gb.on_asset_load = function(e)
                         LOG("Loaded Rig: " + rig.name);
                         break;
                     }
+                    case 8:
+                    {
+                        var action = s.r_rig_action(br);
+                        ag.animations[action.name] = action;
+                        LOG("Loaded Action: " + action.name);
+                        break;
+                    }
                     case -101: //FINISH
                     {
                         scene_complete = true;
@@ -4128,9 +4137,11 @@ gb.gl_draw =
 
 		_t.draw_call = new gb.DrawCall();
 		_t.draw_call.clear = false;
+		_t.draw_call.depth_test = false;
 		_t.entity = gb.entity.new();
 		_t.draw_call.entities.push(_t.entity);
 		_t.matrix = _t.entity.world_matrix;
+		_t.entity.entity_type = gb.EntityType.ENTITY;
 
 		_t.offset = 0;
 		_t.color = gb.color.new(1,1,1,1);
@@ -4144,6 +4155,7 @@ gb.gl_draw =
 	    m.vertex_buffer = vb;
 	    m.vertex_count = 0;
 	    m.dirty = true;
+	    gb.mesh.update_vertex_buffer(vb);
 	    _t.entity.mesh = m;
 	    _t.mesh = m;
 
@@ -4408,6 +4420,22 @@ gb.gl_draw =
 			_t.mesh.vertex_buffer.data[i] = 0;
 		}	
 	},
+	rig: function(r)
+	{
+		var _t = gb.gl_draw;
+		var v3 = gb.vec3;
+		var n = r.joints.length;
+		var a = v3.tmp();
+		var b = v3.tmp();
+		for(var i = 1; i < n; ++i)
+		{
+			var ja = r.joints[i-1];
+			var jb = r.joints[i];
+			m4.mul_point(a, ja.world_matrix, ja.position);
+			m4.mul_point(b, jb.world_matrix, jb.position);
+			_t.line(a, b);
+		}
+	},
 }
 gb.debug =
 {
@@ -4492,8 +4520,6 @@ var render_target;
 var sphere;
 var anim;
 var post;
-var light_position; //change to enitity
-var angle = 0;
 
 var draw_call;
 var post_call;
@@ -4542,36 +4568,26 @@ function load_complete(asset_group)
 }
 function link_complete()
 {
-	//DEBUG
-	//gb.gl_draw.init({buffer_size: 160000});
-	//END
-
-	render_target = gb.render_target.new(gl.view, 1 | 2);
+	render_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
 	construct = gb.scene.new();
+	//var world_rotation = gb.quat.new();
+	//qt.euler(world_rotation, 0,0,90);
+	//m4.set_rotation(construct.world_matrix, world_rotation);
+
 	gb.scene.load_asset_group(construct, assets);
 
 	camera = gb.scene.find(construct, 'camera').camera;
 	sphere = gb.scene.find(construct, 'cube');
 	sphere.entity_type = gb.EntityType.RIG;
 	sphere.rig = assets.rigs['armature'];
-	sphere.rig.joints[1].position[0] = 0.6;
-	//gb.quat.euler(sphere.rig.joints[1].rotation, 30,0,0);
+	qt.euler(sphere.rig.joints[1].rotation, -30,0,0);
 	
-	/*
-	sphere.rig = new gb.Rig();
-	sphere.rig.joints.push(new gb.Joint());
-	sphere.rig.joints.push(new gb.Joint());
-	sphere.rig.joints[1].position[2] = 1.5;
-	sphere.rig.joints[1].inverse_bind_pose[14] = -0.5;
-	*/
-	/*
-	anim = assets.animations.move;
-	anim.target = sphere;
-	anim.time_scale = 1;
-	anim.t = gb.animation.get_animation_duration(anim);
+	anim = assets.animations.test;
+	anim.target = sphere.rig.joints;
+	anim.loops = -1;
 	anim.is_playing = true;
-	*/
-	light_position = v3.new(3,3,3);
+	
+	//light_position = v3.new(3,3,3);
 
 	// TODO: create draw calls automatically
 	draw_call = new gb.DrawCall();
@@ -4581,8 +4597,11 @@ function link_complete()
 	draw_call.target = render_target;
 	draw_call.material = assets.materials.material;
 
-	//gb.gl_draw.draw_call.camera = camera;
-	//gb.gl_draw.draw_call.target = render_target;
+	//DEBUG
+	gb.gl_draw.init({buffer_size: 160000});
+	gb.gl_draw.draw_call.camera = camera;
+	gb.gl_draw.draw_call.target = render_target;
+	//END
 
 	post_call = new gb.PostCall();
 	post_call.mesh = gb.mesh.generate.quad(2,2);
@@ -4599,46 +4618,26 @@ function update(t)
 
 	gb.scene.update(construct);
 
-	//gb.animation.update(anim, dt);
+	gb.animation.update(anim, dt);
 
-	//MODIFY MESH FOR LULZ
-	if(gb.input.held(gb.Keys.left))
-	{
-		light_position[0] -= dt;
-	}	
-	else if(gb.input.held(gb.Keys.right))
-	{
-		light_position[0] += dt;
-	}
+	gb.gl_draw.clear();
+	
+	gb.gl_draw.set_color(1,0,0,1);
+	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(10,0,0));
+	
+	gb.gl_draw.set_color(0,1,0,1);
+	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(0,10,0));
 
-	if(gb.input.held(gb.Keys.up))
-	{
-		light_position[1] += dt;
-	}	
-	else if(gb.input.held(gb.Keys.down))
-	{
-		light_position[1] -= dt;
-	}
+	gb.gl_draw.set_color(0,0,1,1);
+	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(0,0,10));
 
-	if(gb.input.held(gb.Keys.z))
-	{
-		light_position[2] += dt;
-	}	
-	else if(gb.input.held(gb.Keys.x))
-	{
-		light_position[2] -= dt;
-	}
-	//gb.gl_draw.line(v3.tmp(0,0,0), light_position);
-	//gb.gl_draw.wire_mesh(sphere.mesh, sphere.world_matrix);
-	//angle += 10 * dt;
-	//gb.entity.set_rotation(sphere, angle, 0,0);
+	gb.gl_draw.set_color(1,1,1,1);
+	gb.gl_draw.rig(sphere.rig);
+
 	sphere.dirty = true;
 
-	//draw_call.material.uniforms.light_position = light_position;
-	//draw_call.material.uniforms['joints[0]'] = joints;
-
 	gb.webgl.render_draw_call(draw_call);
-	//gb.webgl.render_draw_call(gb.gl_draw.draw_call);
+	gb.webgl.render_draw_call(gb.gl_draw.draw_call);
 
 	post_call.material.uniforms.tex = render_target.color;
 	gl.render_post_call(post_call);

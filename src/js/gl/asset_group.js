@@ -141,6 +141,13 @@ gb.on_asset_load = function(e)
                         LOG("Loaded Rig: " + rig.name);
                         break;
                     }
+                    case 8:
+                    {
+                        var action = s.r_rig_action(br);
+                        ag.animations[action.name] = action;
+                        LOG("Loaded Action: " + action.name);
+                        break;
+                    }
                     case -101: //FINISH
                     {
                         scene_complete = true;

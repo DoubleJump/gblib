@@ -16,7 +16,7 @@ gb.Joint = function()
 
 gb.rig = 
 {
-	update: function(rig)
+	update: function(rig, scene)
 	{
 		var n = rig.joints.length;
 		for(var i = 0; i < n; ++i)
@@ -30,11 +30,9 @@ gb.rig =
 			}
 			else
 			{
-				gb.mat4.eq(j.world_matrix, j.local_matrix);
+				gb.mat4.mul(j.world_matrix, j.local_matrix, scene.world_matrix);
 			}
-			
 		}
-		
 		gb.mat4.mul(j.offset_matrix, j.world_matrix, j.inverse_bind_pose);
 	},
 }

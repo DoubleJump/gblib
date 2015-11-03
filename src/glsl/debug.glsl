@@ -15,7 +15,7 @@ void main()
 }
 
 #FRAGMENT
-precision mediump float;
+precision highp float;
 
 varying vec4 _color;
 

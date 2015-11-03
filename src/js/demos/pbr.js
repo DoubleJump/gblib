@@ -65,8 +65,6 @@ var render_target;
 var sphere;
 var anim;
 var post;
-var light_position; //change to enitity
-var angle = 0;
 
 var draw_call;
 var post_call;
@@ -115,36 +113,26 @@ function load_complete(asset_group)
 }
 function link_complete()
 {
-	//DEBUG
-	//gb.gl_draw.init({buffer_size: 160000});
-	//END
-
-	render_target = gb.render_target.new(gl.view, 1 | 2);
+	render_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
 	construct = gb.scene.new();
+	//var world_rotation = gb.quat.new();
+	//qt.euler(world_rotation, 0,0,90);
+	//m4.set_rotation(construct.world_matrix, world_rotation);
+
 	gb.scene.load_asset_group(construct, assets);
 
 	camera = gb.scene.find(construct, 'camera').camera;
 	sphere = gb.scene.find(construct, 'cube');
 	sphere.entity_type = gb.EntityType.RIG;
 	sphere.rig = assets.rigs['armature'];
-	sphere.rig.joints[1].position[0] = 0.6;
-	//gb.quat.euler(sphere.rig.joints[1].rotation, 30,0,0);
+	qt.euler(sphere.rig.joints[1].rotation, -30,0,0);
 	
-	/*
-	sphere.rig = new gb.Rig();
-	sphere.rig.joints.push(new gb.Joint());
-	sphere.rig.joints.push(new gb.Joint());
-	sphere.rig.joints[1].position[2] = 1.5;
-	sphere.rig.joints[1].inverse_bind_pose[14] = -0.5;
-	*/
-	/*
-	anim = assets.animations.move;
-	anim.target = sphere;
-	anim.time_scale = 1;
-	anim.t = gb.animation.get_animation_duration(anim);
+	anim = assets.animations.test;
+	anim.target = sphere.rig.joints;
+	anim.loops = -1;
 	anim.is_playing = true;
-	*/
-	light_position = v3.new(3,3,3);
+	
+	//light_position = v3.new(3,3,3);
 
 	// TODO: create draw calls automatically
 	draw_call = new gb.DrawCall();
@@ -154,8 +142,11 @@ function link_complete()
 	draw_call.target = render_target;
 	draw_call.material = assets.materials.material;
 
-	//gb.gl_draw.draw_call.camera = camera;
-	//gb.gl_draw.draw_call.target = render_target;
+	//DEBUG
+	gb.gl_draw.init({buffer_size: 160000});
+	gb.gl_draw.draw_call.camera = camera;
+	gb.gl_draw.draw_call.target = render_target;
+	//END
 
 	post_call = new gb.PostCall();
 	post_call.mesh = gb.mesh.generate.quad(2,2);
@@ -172,46 +163,26 @@ function update(t)
 
 	gb.scene.update(construct);
 
-	//gb.animation.update(anim, dt);
+	gb.animation.update(anim, dt);
 
-	//MODIFY MESH FOR LULZ
-	if(gb.input.held(gb.Keys.left))
-	{
-		light_position[0] -= dt;
-	}	
-	else if(gb.input.held(gb.Keys.right))
-	{
-		light_position[0] += dt;
-	}
+	gb.gl_draw.clear();
+	
+	gb.gl_draw.set_color(1,0,0,1);
+	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(10,0,0));
+	
+	gb.gl_draw.set_color(0,1,0,1);
+	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(0,10,0));
 
-	if(gb.input.held(gb.Keys.up))
-	{
-		light_position[1] += dt;
-	}	
-	else if(gb.input.held(gb.Keys.down))
-	{
-		light_position[1] -= dt;
-	}
+	gb.gl_draw.set_color(0,0,1,1);
+	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(0,0,10));
 
-	if(gb.input.held(gb.Keys.z))
-	{
-		light_position[2] += dt;
-	}	
-	else if(gb.input.held(gb.Keys.x))
-	{
-		light_position[2] -= dt;
-	}
-	//gb.gl_draw.line(v3.tmp(0,0,0), light_position);
-	//gb.gl_draw.wire_mesh(sphere.mesh, sphere.world_matrix);
-	//angle += 10 * dt;
-	//gb.entity.set_rotation(sphere, angle, 0,0);
+	gb.gl_draw.set_color(1,1,1,1);
+	gb.gl_draw.rig(sphere.rig);
+
 	sphere.dirty = true;
 
-	//draw_call.material.uniforms.light_position = light_position;
-	//draw_call.material.uniforms['joints[0]'] = joints;
-
 	gb.webgl.render_draw_call(draw_call);
-	//gb.webgl.render_draw_call(gb.gl_draw.draw_call);
+	gb.webgl.render_draw_call(gb.gl_draw.draw_call);
 
 	post_call.material.uniforms.tex = render_target.color;
 	gl.render_post_call(post_call);

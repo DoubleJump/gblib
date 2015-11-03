@@ -1,6 +1,7 @@
 gb.DrawCall = function()
 {
 	this.clear = false;
+	this.depth_test = true;
 	this.target;
 	this.camera;
 	this.material;
@@ -493,7 +494,9 @@ gb.webgl =
 		//var lights = dc.lights;
 
 		//TODO: obvs do this before draw call list
-		gl.enable(gl.DEPTH_TEST);
+		
+		if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
+		else gl.disable(gl.DEPTH_TEST);
 
 		if(dc.target.linked === false)
 		{
@@ -515,8 +518,6 @@ gb.webgl =
 		}
 
 		//if(shader.lights)
-
-
 		
 		var n = dc.entities.length;
 		for(var i = 0; i < n; ++i)

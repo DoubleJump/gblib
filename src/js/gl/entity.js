@@ -91,7 +91,7 @@ gb.entity =
 	},
 
 	// TODO: needs updating to ensure components get updated on recursive calls
-	update: function(e)
+	update: function(e, scene)
 	{
 		if(e.active === false || e.dirty === false) return;
 		if(e.mesh && e.mesh.dirty === true)
@@ -100,7 +100,7 @@ gb.entity =
 		}
 		if(e.rig)
 		{
-			gb.rig.update(e.rig);
+			gb.rig.update(e.rig, scene);
 		}
 		gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
 		if(e.parent !== null)
@@ -109,7 +109,7 @@ gb.entity =
 		}
 		else
 		{
-			gb.mat4.eq(e.world_matrix, e.local_matrix);
+			gb.mat4.mul(e.world_matrix, e.local_matrix, scene.world_matrix);
 		}
 		var n = e.children.length;
 		for(var i = 0; i < n; ++i)

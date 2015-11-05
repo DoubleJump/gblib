@@ -371,29 +371,34 @@ def write_armature_action(writer, action, owner, scene):
 
 		index = curve.array_index
 
-		'''
+		#reorder quaternion
 		if value_mode == 2:
-			if index == 0: index = 3 #W
-			elif index == 1: index = 2
-			elif index == 2: index = 0
-			elif index == 3: index = 1
-		'''
-		if value_mode == 2:
-			if index == 0: index = 3 #W
-			elif index == 1: index = 0
-			elif index == 2: index = 1
-			elif index == 3: index = 2
+			if index == 0: index = 3 #negate
+			elif index == 1: index = 0 
+			elif index == 2: index = 2
+			elif index == 3: index = 1 #negate 
 
 		write_int(writer, index)
 
 		write_int(writer, len(curve.keyframe_points))
 		for keyframe in curve.keyframe_points:
 			write_float(writer, keyframe.co[0] / scene.render.fps)
-			write_float(writer, keyframe.co[1])
+
+			value = keyframe.co[1]
+			h_left = keyframe.handle_left[1]
+			h_right = keyframe.handle_right[1]
+
+			if value_mode == 2: #need to flip quaternion sign and can only do it here
+				if index == 3 or index == 1:
+					value = -keyframe.co[1]
+					h_left = -h_left
+					h_right = -h_right
+
+			write_float(writer, value)
 			write_float(writer, keyframe.handle_left[0])
-			write_float(writer, keyframe.handle_left[1])
+			write_float(writer, h_left)
 			write_float(writer, keyframe.handle_right[0])
-			write_float(writer, keyframe.handle_right[1])
+			write_float(writer, h_right)
 
 class ExportTest(bpy.types.Operator, ExportHelper):
 	bl_idname = "export_gblib.test"

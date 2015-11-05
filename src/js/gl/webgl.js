@@ -305,12 +305,6 @@ gb.webgl =
 		else
 		{
 			gl.bindFramebuffer(gl.FRAMEBUFFER, rt.frame_buffer);
-			/*
-			if(rt.depth)
-			{
-				gl.enable(gl.DEPTH_TEST);
-			}
-			*/
 			if(rt.render_buffer)
 				gl.bindRenderbuffer(gl.RENDERBUFFER, rt.render_buffer);
 			_t.set_viewport(rt.bounds);

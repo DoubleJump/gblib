@@ -9,17 +9,15 @@ uniform mat4 proj_matrix;
 uniform mat4 view_matrix;
 uniform mat4 model_matrix;
 uniform mat3 normal_matrix;
-uniform mat4 rig[2];
+uniform mat4 rig[3];
 
 varying vec3 _position;
 varying vec3 _normal;
 
-
 mat4 bone_transform() 
 {
 	float n = 1.0 / (weight.y + weight.w);
-	return n * weight.w * rig[int(weight.z)] + 
-		   n * weight.y * rig[int(weight.x)];
+	return n * weight.w * rig[int(weight.z)] + n * weight.y * rig[int(weight.x)];
 }
 
 void main()
@@ -41,7 +39,7 @@ varying vec3 _normal;
 
 void main()
 { 
-	vec3 N = ((_normal) / 2.0) + 0.5;
+	vec3 N = (_normal / 2.0) + 0.5;
     vec4 result = vec4(N, 1.0);
 	gl_FragColor = result;
 }

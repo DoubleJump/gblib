@@ -17,7 +17,7 @@ gb.Animation = function()
 }
 gb.Tween = function()
 {
-	this.bone_index;
+	this.bone_index = -1;
 	this.property;
 	this.index = -1;
 	this.keyframes = [];
@@ -126,9 +126,9 @@ gb.animation =
 				   (3 * u * tt * cy) + 
 				   (ttt * dy);
 
-			if(tween.bone)
+			if(tween.bone_index !== -1)
 			{
-				animation.target[tween.bone][tween.property][tween.index] = value;
+				animation.target[tween.bone_index][tween.property][tween.index] = value;
 			}
 			else
 			{
@@ -205,7 +205,7 @@ gb.serialize.r_rig_action = function(br)
     for(var i = 0; i < num_curves; ++i)
     {
     	var tween = new gb.Tween();
-    	tween.bone = s.r_i32(br);
+    	tween.bone_index = s.r_i32(br);
     	tween.property = s.r_string(br);
     	tween.index = s.r_i32(br);
 

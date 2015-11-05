@@ -16,24 +16,34 @@ gb.Joint = function()
 
 gb.rig = 
 {
+	//TODO rig copy from src
+
 	update: function(rig, scene)
 	{
+		var qt = gb.quat.tmp();
+
 		var n = rig.joints.length;
 		for(var i = 0; i < n; ++i)
 		{
 			var j = rig.joints[i];
-			gb.mat4.compose(j.local_matrix, j.position, j.scale, j.rotation);
-			if(j.parent !== -1)
+			var r = j.rotation;
+			qt[0] = r[0];
+			qt[1] = r[2];
+			qt[2] = -r[1];
+			qt[3] = -r[3];
+
+			gb.mat4.compose(j.local_matrix, j.position, j.scale, qt);
+			if(j.parent === -1)
+			{
+				gb.mat4.mul(j.world_matrix, j.local_matrix, scene.world_matrix);
+			}
+			else
 			{
 				var parent = rig.joints[j.parent];
 				gb.mat4.mul(j.world_matrix, j.local_matrix, parent.world_matrix);
 			}
-			else
-			{
-				gb.mat4.mul(j.world_matrix, j.local_matrix, scene.world_matrix);
-			}
+			gb.mat4.mul(j.offset_matrix, j.inverse_bind_pose, j.world_matrix);
 		}
-		gb.mat4.mul(j.offset_matrix, j.world_matrix, j.inverse_bind_pose);
 	},
 }
 
@@ -51,17 +61,9 @@ gb.serialize.r_rig = function(br, ag)
     	joint.position[0] = s.r_f32(br);
     	joint.position[1] = s.r_f32(br);
     	joint.position[2] = s.r_f32(br);
-    	joint.scale[0] = s.r_f32(br);
-    	joint.scale[1] = s.r_f32(br);
-    	joint.scale[2] = s.r_f32(br);
-    	joint.rotation[0] = s.r_f32(br);
-    	joint.rotation[1] = s.r_f32(br);
-    	joint.rotation[2] = s.r_f32(br);
-    	joint.rotation[3] = s.r_f32(br);
-    	for(var j = 0; j < 16; ++j)
-    	{
-    		joint.inverse_bind_pose[j] = s.r_f32(br);
-    	}
+    	joint.inverse_bind_pose[12] = s.r_f32(br);
+    	joint.inverse_bind_pose[13] = s.r_f32(br);
+    	joint.inverse_bind_pose[14] = s.r_f32(br);
     	rig.joints.push(joint);
     } 
 

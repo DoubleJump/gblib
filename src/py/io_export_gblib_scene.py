@@ -107,17 +107,11 @@ def write_transform(writer, ob):
 	if(ob.parent == None): write_str(writer, "none")
 	else: write_str(writer, ob.parent.name) 
 
-	#tmp = ob.matrix_world.copy()
-	#ob.matrix_world = GB_MATRIX * ob.matrix_world
-
 	write_vec3(writer, ob.location)
 	write_vec3(writer, ob.scale)
 
 	ob.rotation_mode = 'QUATERNION'
 	write_quat(writer, ob.rotation_quaternion)
-	#ob.rotation_mode = 'XYZ'
-
-	#ob.matrix_world = tmp
 
 def write_material(writer, material):
 	print("Exporting Material: " + material.name)
@@ -185,19 +179,19 @@ def write_armature(writer, ob, armature):
 	bone_ids = {}
 	for bone in armature.pose.bones:
 
+		loc, rot, scale = bone.matrix.decompose()
+
 		if bone.parent is None:
-			bone_matrix = bone.matrix * bone.matrix.inverted()
 			write_int(writer, -1)
+			write_vec3(writer, loc)
+			write_vec3(writer, -loc)
 		else:
-			bone_matrix = bone.matrix * bone.parent.matrix.inverted()
+			parent = bone.parent
 			parent_index = bone_ids[bone.parent.name]
 			write_int(writer, parent_index)
+			write_vec3(writer, loc - parent.head)
+			write_vec3(writer, -loc)
 
-		loc, rot, scale = bone_matrix.decompose()
-		write_vec3(writer, loc)
-		write_vec3(writer, scale)
-		write_quat(writer, rot)
-		write_matrix(writer, bone_matrix.transposed().inverted())
 		bone_ids[bone.name] = index
 		index += 1
 		
@@ -264,14 +258,14 @@ def write_mesh(writer, ob, mesh):
 			num_groups = len(groups)
 			if num_groups is 0:
 				vertex_buffer.append(0)
-				vertex_buffer.append(1)
+				vertex_buffer.append(0.5)
 				vertex_buffer.append(0)
-				vertex_buffer.append(0)
+				vertex_buffer.append(0.5)
 			elif num_groups is 1:
-				vertex_buffer.append(0)
-				vertex_buffer.append(0)
 				vertex_buffer.append(groups[0].group)
-				vertex_buffer.append(groups[0].weight)
+				vertex_buffer.append(1.0)
+				vertex_buffer.append(0)
+				vertex_buffer.append(0)
 			else:
 				for g in groups:
 					vertex_buffer.append(g.group)
@@ -334,9 +328,9 @@ def write_action(writer, action, owner, scene):
 			index = curve.array_index
 			if value_mode == 2:
 				if index == 0: index = 3 #W
-				elif index == 1: index = 2
+				elif index == 1: index = 0
 				elif index == 2: index = 1
-				elif index == 3: index = 0
+				elif index == 3: index = 2
 			write_int(writer, index)
 		
 		write_int(writer, len(curve.keyframe_points))
@@ -377,11 +371,18 @@ def write_armature_action(writer, action, owner, scene):
 
 		index = curve.array_index
 
+		'''
 		if value_mode == 2:
 			if index == 0: index = 3 #W
 			elif index == 1: index = 2
+			elif index == 2: index = 0
+			elif index == 3: index = 1
+		'''
+		if value_mode == 2:
+			if index == 0: index = 3 #W
+			elif index == 1: index = 0
 			elif index == 2: index = 1
-			elif index == 3: index = 0
+			elif index == 3: index = 2
 
 		write_int(writer, index)
 

@@ -59,12 +59,15 @@ var assets;
 var assets_loaded;
 
 var construct;
+var pivot;
 var camera;
 var texture;
 var render_target;
 var sphere;
 var anim;
 var post;
+var h_angle = 0;
+var v_angle = 0;
 
 var draw_call;
 var post_call;
@@ -121,11 +124,16 @@ function link_complete()
 
 	gb.scene.load_asset_group(construct, assets);
 
+	pivot = gb.entity.new();
+	gb.scene.add(construct, pivot);
+
 	camera = gb.scene.find(construct, 'camera').camera;
+	gb.entity.set_parent(camera.entity, pivot);
+
 	sphere = gb.scene.find(construct, 'cube');
 	sphere.entity_type = gb.EntityType.RIG;
 	sphere.rig = assets.rigs['armature'];
-	qt.euler(sphere.rig.joints[1].rotation, -30,0,0);
+	//qt.euler(sphere.rig.joints[1].rotation, -30,0,0);
 	
 	anim = assets.animations.test;
 	anim.target = sphere.rig.joints;
@@ -161,23 +169,35 @@ function update(t)
 
 	var dt = gb.time.dt; 
 
+	var view_speed = 30;
+	if(gb.input.held(gb.Keys.left))
+	{
+		h_angle += view_speed * dt;
+	}
+	else if(gb.input.held(gb.Keys.right))
+	{
+		h_angle -= view_speed * dt;
+	}
+	if(gb.input.held(gb.Keys.up))
+	{
+		v_angle += view_speed * dt;
+	}
+	else if(gb.input.held(gb.Keys.down))
+	{
+		v_angle -= view_speed * dt;
+	}
+	gb.entity.set_rotation(pivot, v_angle, 0, h_angle);
+
 	gb.scene.update(construct);
 
 	gb.animation.update(anim, dt);
 
 	gb.gl_draw.clear();
-	
-	gb.gl_draw.set_color(1,0,0,1);
-	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(10,0,0));
-	
-	gb.gl_draw.set_color(0,1,0,1);
-	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(0,10,0));
-
-	gb.gl_draw.set_color(0,0,1,1);
-	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(0,0,10));
+	//gb.gl_draw.transform(sphere.rig.joints[1].world_matrix);
 
 	gb.gl_draw.set_color(1,1,1,1);
 	gb.gl_draw.rig(sphere.rig);
+	gb.gl_draw.set_color(0,0,0,1);
 
 	sphere.dirty = true;
 

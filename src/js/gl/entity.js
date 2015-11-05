@@ -103,20 +103,21 @@ gb.entity =
 			gb.rig.update(e.rig, scene);
 		}
 		gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
-		if(e.parent !== null)
+		if(e.parent === null)
 		{
-			gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
+			gb.mat4.eq(e.world_matrix, e.local_matrix);
 		}
 		else
 		{
-			gb.mat4.mul(e.world_matrix, e.local_matrix, scene.world_matrix);
+			gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
 		}
+
 		var n = e.children.length;
 		for(var i = 0; i < n; ++i)
 		{
 			var child = e.children[i];
 			child.dirty = true;
-			gb.scene.update_entity(child);
+			gb.entity.update(child);
 		}
 		e.dirty = false;
 	},

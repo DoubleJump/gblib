@@ -227,6 +227,7 @@ gb.webgl =
 	        su.type = _t.shader_types[uniform.type];
 	        su.size = uniform.size;
 	        s.uniforms[uniform.name] = su;
+	        console.log(uniform.name);
 	    }
 
 	    s.linked = true;
@@ -304,10 +305,12 @@ gb.webgl =
 		else
 		{
 			gl.bindFramebuffer(gl.FRAMEBUFFER, rt.frame_buffer);
+			/*
 			if(rt.depth)
 			{
 				gl.enable(gl.DEPTH_TEST);
 			}
+			*/
 			if(rt.render_buffer)
 				gl.bindRenderbuffer(gl.RENDERBUFFER, rt.render_buffer);
 			_t.set_viewport(rt.bounds);
@@ -495,6 +498,7 @@ gb.webgl =
 
 		//TODO: obvs do this before draw call list
 		
+		//gl.enable(gl.DEPTH_TEST);
 		if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
 		else gl.disable(gl.DEPTH_TEST);
 
@@ -543,7 +547,7 @@ gb.webgl =
 				var rig = mat.uniforms['rig[0]'];
 				var n = e.rig.joints.length;
 				var t = 0;
-				for(var i = 0; i < n; i++)
+				for(var i = 0; i < n; ++i)
 				{
 					var joint = e.rig.joints[i];
 					for(var j = 0; j < 16; ++j)

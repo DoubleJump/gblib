@@ -1920,6 +1920,12 @@ gb.random =
 		var z = Math.random() * (max_z - min_x) + min_z;
 		gb.quat.euler(r, x,y,z);
 	},
+	fill: function(r)
+	{
+		var n = r.length;
+		for(var i = 0; i < n; ++i)
+			r[i] = Math.random();
+	},
 	color: function(r, min_r, max_r, min_g, max_g, min_b, max_b, min_a, max_a)
 	{
 		r[0] = Math.random() * (max_r - min_r) + min_r;
@@ -2247,7 +2253,7 @@ gb.Animation = function()
 }
 gb.Tween = function()
 {
-	this.bone_index;
+	this.bone_index = -1;
 	this.property;
 	this.index = -1;
 	this.keyframes = [];
@@ -2356,9 +2362,9 @@ gb.animation =
 				   (3 * u * tt * cy) + 
 				   (ttt * dy);
 
-			if(tween.bone)
+			if(tween.bone_index !== -1)
 			{
-				animation.target[tween.bone][tween.property][tween.index] = value;
+				animation.target[tween.bone_index][tween.property][tween.index] = value;
 			}
 			else
 			{
@@ -2435,7 +2441,7 @@ gb.serialize.r_rig_action = function(br)
     for(var i = 0; i < num_curves; ++i)
     {
     	var tween = new gb.Tween();
-    	tween.bone = s.r_i32(br);
+    	tween.bone_index = s.r_i32(br);
     	tween.property = s.r_string(br);
     	tween.index = s.r_i32(br);
 
@@ -2560,20 +2566,21 @@ gb.entity =
 			gb.rig.update(e.rig, scene);
 		}
 		gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
-		if(e.parent !== null)
+		if(e.parent === null)
 		{
-			gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
+			gb.mat4.eq(e.world_matrix, e.local_matrix);
 		}
 		else
 		{
-			gb.mat4.mul(e.world_matrix, e.local_matrix, scene.world_matrix);
+			gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
 		}
+
 		var n = e.children.length;
 		for(var i = 0; i < n; ++i)
 		{
 			var child = e.children[i];
 			child.dirty = true;
-			gb.scene.update_entity(child);
+			gb.entity.update(child);
 		}
 		e.dirty = false;
 	},
@@ -3166,7 +3173,7 @@ gb.serialize.r_shader = function(br)
     shader.rig = gb.has_flag_set(uniform_mask, 8);
     return shader;
 }
-gb.MAX_RIG_BONES = 8;
+
 
 gb.Material = function()
 {
@@ -3190,7 +3197,7 @@ gb.material =
         }
         if(shader.rig === true)
         {
-            m.uniforms['rig[0]'] = new Float32Array(gb.MAX_RIG_BONES * 16)
+            m.uniforms['rig[0]'] = new Float32Array(gb.rig.MAX_JOINTS * 16);
         }
         return m;
     },
@@ -3235,34 +3242,49 @@ gb.Joint = function()
 
 gb.rig = 
 {
+	MAX_JOINTS: 6,
+	//TODO rig copy from src
+
 	update: function(rig, scene)
 	{
+		var qt = gb.quat.tmp();
+
 		var n = rig.joints.length;
 		for(var i = 0; i < n; ++i)
 		{
 			var j = rig.joints[i];
+
+			// Note: this will correct blender bone rotations but mess up any we create manually
+			/*
+			var r = j.rotation;
+			qt[0] = r[0];
+			qt[1] = r[2];
+			qt[2] = -r[1];
+			qt[3] = -r[3];
+			gb.mat4.compose(j.local_matrix, j.position, j.scale, qt);
+			*/
 			gb.mat4.compose(j.local_matrix, j.position, j.scale, j.rotation);
-			if(j.parent !== -1)
+			if(j.parent === -1)
+			{
+				gb.mat4.mul(j.world_matrix, j.local_matrix, scene.world_matrix);
+			}
+			else
 			{
 				var parent = rig.joints[j.parent];
 				gb.mat4.mul(j.world_matrix, j.local_matrix, parent.world_matrix);
 			}
-			else
-			{
-				gb.mat4.mul(j.world_matrix, j.local_matrix, scene.world_matrix);
-			}
+			gb.mat4.mul(j.offset_matrix, j.inverse_bind_pose, j.world_matrix);
 		}
-		gb.mat4.mul(j.offset_matrix, j.world_matrix, j.inverse_bind_pose);
 	},
 }
 
 gb.serialize.r_rig = function(br, ag)
 {
     var s = gb.serialize;
-
     var rig = new gb.Rig();
     rig.name = s.r_string(br);
     var num_joints = s.r_i32(br);
+    ASSERT(num_joints <= gb.rig.MAX_JOINTS, "Rig has too many joints!");
     for(var i = 0; i < num_joints; ++i)
     {
     	var joint = new gb.Joint();
@@ -3270,20 +3292,11 @@ gb.serialize.r_rig = function(br, ag)
     	joint.position[0] = s.r_f32(br);
     	joint.position[1] = s.r_f32(br);
     	joint.position[2] = s.r_f32(br);
-    	joint.scale[0] = s.r_f32(br);
-    	joint.scale[1] = s.r_f32(br);
-    	joint.scale[2] = s.r_f32(br);
-    	joint.rotation[0] = s.r_f32(br);
-    	joint.rotation[1] = s.r_f32(br);
-    	joint.rotation[2] = s.r_f32(br);
-    	joint.rotation[3] = s.r_f32(br);
-    	for(var j = 0; j < 16; ++j)
-    	{
-    		joint.inverse_bind_pose[j] = s.r_f32(br);
-    	}
+    	joint.inverse_bind_pose[12] = s.r_f32(br);
+    	joint.inverse_bind_pose[13] = s.r_f32(br);
+    	joint.inverse_bind_pose[14] = s.r_f32(br);
     	rig.joints.push(joint);
     } 
-
     return rig;
 }
 gb.Render_Target = function()
@@ -3554,6 +3567,7 @@ gb.webgl =
 	        su.type = _t.shader_types[uniform.type];
 	        su.size = uniform.size;
 	        s.uniforms[uniform.name] = su;
+	        console.log(uniform.name);
 	    }
 
 	    s.linked = true;
@@ -3631,10 +3645,6 @@ gb.webgl =
 		else
 		{
 			gl.bindFramebuffer(gl.FRAMEBUFFER, rt.frame_buffer);
-			if(rt.depth)
-			{
-				gl.enable(gl.DEPTH_TEST);
-			}
 			if(rt.render_buffer)
 				gl.bindRenderbuffer(gl.RENDERBUFFER, rt.render_buffer);
 			_t.set_viewport(rt.bounds);
@@ -3822,6 +3832,7 @@ gb.webgl =
 
 		//TODO: obvs do this before draw call list
 		
+		//gl.enable(gl.DEPTH_TEST);
 		if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
 		else gl.disable(gl.DEPTH_TEST);
 
@@ -3870,7 +3881,7 @@ gb.webgl =
 				var rig = mat.uniforms['rig[0]'];
 				var n = e.rig.joints.length;
 				var t = 0;
-				for(var i = 0; i < n; i++)
+				for(var i = 0; i < n; ++i)
 				{
 					var joint = e.rig.joints[i];
 					for(var j = 0; j < 16; ++j)
@@ -4240,18 +4251,6 @@ gb.gl_draw =
 		_t.line(tr, br);
 		_t.line(br, bl);
 	},
-	/*
-	draw: function(camera)
-	{
-		var _t = gb.gl_draw;
-		var w = gb.webgl;
-		w.set_shader(_t.shader);
-		w.update_mesh(_t.mesh);
-		w.link_attributes(_t.shader, _t.mesh);
-		w.set_shader_mat4(_t.shader, "mvp", camera.view_projection);
-		w.draw_mesh_arrays(_t.mesh);
-	},
-	*/
 	cube: function(width, height, depth)
 	{
 		var _t = gb.gl_draw;
@@ -4367,7 +4366,7 @@ gb.gl_draw =
 		var v3 = gb.vec3;
 		var mt = gb.mat4;
 		m4.eq(_t.matrix, matrix);
-		var stride = gb.mesh.get_stride(mesh);
+		var stride = mesh.vertex_buffer.stride;
 		var n = mesh.vertex_count / 3;
 		var d = mesh.vertex_buffer.data;
 		var c = 0;
@@ -4431,9 +4430,9 @@ gb.gl_draw =
 		{
 			var ja = r.joints[i-1];
 			var jb = r.joints[i];
-			m4.mul_point(a, ja.world_matrix, ja.position);
-			m4.mul_point(b, jb.world_matrix, jb.position);
-			_t.line(a, b);
+			m4.get_position(a, ja.world_matrix);
+			m4.get_position(b, jb.world_matrix);
+			_t.line(a,b);
 		}
 	},
 }
@@ -4514,12 +4513,15 @@ var assets;
 var assets_loaded;
 
 var construct;
+var pivot;
 var camera;
 var texture;
 var render_target;
 var sphere;
 var anim;
 var post;
+var h_angle = 0;
+var v_angle = 0;
 
 var draw_call;
 var post_call;
@@ -4576,11 +4578,16 @@ function link_complete()
 
 	gb.scene.load_asset_group(construct, assets);
 
+	pivot = gb.entity.new();
+	gb.scene.add(construct, pivot);
+
 	camera = gb.scene.find(construct, 'camera').camera;
+	gb.entity.set_parent(camera.entity, pivot);
+
 	sphere = gb.scene.find(construct, 'cube');
 	sphere.entity_type = gb.EntityType.RIG;
 	sphere.rig = assets.rigs['armature'];
-	qt.euler(sphere.rig.joints[1].rotation, -30,0,0);
+	//qt.euler(sphere.rig.joints[1].rotation, -30,0,0);
 	
 	anim = assets.animations.test;
 	anim.target = sphere.rig.joints;
@@ -4616,23 +4623,35 @@ function update(t)
 
 	var dt = gb.time.dt; 
 
+	var view_speed = 30;
+	if(gb.input.held(gb.Keys.left))
+	{
+		h_angle += view_speed * dt;
+	}
+	else if(gb.input.held(gb.Keys.right))
+	{
+		h_angle -= view_speed * dt;
+	}
+	if(gb.input.held(gb.Keys.up))
+	{
+		v_angle += view_speed * dt;
+	}
+	else if(gb.input.held(gb.Keys.down))
+	{
+		v_angle -= view_speed * dt;
+	}
+	gb.entity.set_rotation(pivot, v_angle, 0, h_angle);
+
 	gb.scene.update(construct);
 
 	gb.animation.update(anim, dt);
 
 	gb.gl_draw.clear();
-	
-	gb.gl_draw.set_color(1,0,0,1);
-	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(10,0,0));
-	
-	gb.gl_draw.set_color(0,1,0,1);
-	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(0,10,0));
-
-	gb.gl_draw.set_color(0,0,1,1);
-	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(0,0,10));
+	//gb.gl_draw.transform(sphere.rig.joints[1].world_matrix);
 
 	gb.gl_draw.set_color(1,1,1,1);
 	gb.gl_draw.rig(sphere.rig);
+	gb.gl_draw.set_color(0,0,0,1);
 
 	sphere.dirty = true;
 

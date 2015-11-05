@@ -117,18 +117,6 @@ gb.gl_draw =
 		_t.line(tr, br);
 		_t.line(br, bl);
 	},
-	/*
-	draw: function(camera)
-	{
-		var _t = gb.gl_draw;
-		var w = gb.webgl;
-		w.set_shader(_t.shader);
-		w.update_mesh(_t.mesh);
-		w.link_attributes(_t.shader, _t.mesh);
-		w.set_shader_mat4(_t.shader, "mvp", camera.view_projection);
-		w.draw_mesh_arrays(_t.mesh);
-	},
-	*/
 	cube: function(width, height, depth)
 	{
 		var _t = gb.gl_draw;
@@ -244,7 +232,7 @@ gb.gl_draw =
 		var v3 = gb.vec3;
 		var mt = gb.mat4;
 		m4.eq(_t.matrix, matrix);
-		var stride = gb.mesh.get_stride(mesh);
+		var stride = mesh.vertex_buffer.stride;
 		var n = mesh.vertex_count / 3;
 		var d = mesh.vertex_buffer.data;
 		var c = 0;
@@ -308,9 +296,9 @@ gb.gl_draw =
 		{
 			var ja = r.joints[i-1];
 			var jb = r.joints[i];
-			m4.mul_point(a, ja.world_matrix, ja.position);
-			m4.mul_point(b, jb.world_matrix, jb.position);
-			_t.line(a, b);
+			m4.get_position(a, ja.world_matrix);
+			m4.get_position(b, jb.world_matrix);
+			_t.line(a,b);
 		}
 	},
 }

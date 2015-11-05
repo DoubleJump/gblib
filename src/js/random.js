@@ -34,6 +34,12 @@ gb.random =
 		var z = Math.random() * (max_z - min_x) + min_z;
 		gb.quat.euler(r, x,y,z);
 	},
+	fill: function(r)
+	{
+		var n = r.length;
+		for(var i = 0; i < n; ++i)
+			r[i] = Math.random();
+	},
 	color: function(r, min_r, max_r, min_g, max_g, min_b, max_b, min_a, max_a)
 	{
 		r[0] = Math.random() * (max_r - min_r) + min_r;

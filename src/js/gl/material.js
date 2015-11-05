@@ -1,4 +1,4 @@
-gb.MAX_RIG_BONES = 8;
+
 
 gb.Material = function()
 {
@@ -22,7 +22,7 @@ gb.material =
         }
         if(shader.rig === true)
         {
-            m.uniforms['rig[0]'] = new Float32Array(gb.MAX_RIG_BONES * 16)
+            m.uniforms['rig[0]'] = new Float32Array(gb.rig.MAX_JOINTS * 16);
         }
         return m;
     },

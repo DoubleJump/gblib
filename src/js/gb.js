@@ -21,21 +21,21 @@ var gb =
 	focus: function(e)
 	{
 		gb.has_focus = true;
-		//DEBUG
-		console.log('focus');
-		//END
+		LOG('focus');
 	},
 	blur: function(e)
 	{
 		gb.has_focus = false;
-		//DEBUG
-		console.log('blur');
-		//END
+		LOG('blur');
 	},
 	_init: function(e)
 	{
 		if(gb.init) gb.init();
-		gb.time.init();
+		requestAnimationFrame(gb._init_time);
+	},
+	_init_time: function(t)
+	{
+		gb.time.init(t);
 		if(gb.update) requestAnimationFrame(gb._update);
 	},
 	_update: function(t)

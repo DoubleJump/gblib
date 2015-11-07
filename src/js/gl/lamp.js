@@ -1,17 +1,18 @@
 gb.Lamp = function()
 {
 	this.entity;
-	this.lamp_type = gb.LampType.POINT;
+	this.type = gb.LampType.POINT;
 	this.energy = 1;
 	this.distance = 1;
 }
 
 gb.lamp = 
 {
-	new: function(energy, distance)
+	new: function(type, energy, distance)
 	{
 		var e = gb.entity.new();
 	    var l = new gb.Lamp();
+	    l.type = type;
 	    l.energy = energy;
 	    l.distance = distance;
 	    e.lamp = l;

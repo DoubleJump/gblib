@@ -51,11 +51,6 @@ gb.scene =
 					//gb.lamp.update(e.lamp);
 					break;
 				}
-				case gb.EntityType.RIG:
-				{
-					//gb.rig.update(e.rig, s);
-					break;
-				}
 			}
 		}
 	},

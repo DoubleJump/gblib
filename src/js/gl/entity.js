@@ -32,7 +32,14 @@ gb.entity =
 {
 	new: function()
 	{
-		return new gb.Entity();
+		var e = new gb.Entity();
+		e.position = gb.vec3.new(0,0,0);
+		e.scale = gb.vec3.new(1,1,1);
+		e.rotation = gb.quat.new(0,0,0,1);
+		e.local_matrix = gb.mat4.new();
+		e.world_matrix = gb.mat4.new();
+		e.bounds = gb.aabb.new();
+		return e;
 	},
 	set_active: function(e, val)
 	{
@@ -137,16 +144,8 @@ gb.serialize.r_entity = function(br, ag)
     	gb.entity.set_parent(entity, parent);
     }
 
-    entity.position[0] = s.r_f32(br);
-    entity.position[1] = s.r_f32(br);
-    entity.position[2] = s.r_f32(br);
-    entity.scale[0] = s.r_f32(br);
-    entity.scale[1] = s.r_f32(br);
-    entity.scale[2] = s.r_f32(br);
-    entity.rotation[0] = s.r_f32(br);
-    entity.rotation[1] = s.r_f32(br);
-    entity.rotation[2] = s.r_f32(br);
-    entity.rotation[3] = s.r_f32(br);
-
+    entity.position = s.r_vec3(br);
+    entity.scale = s.r_vec3(br);
+    entity.rotation = s.r_vec4(br);
     return entity;
 }

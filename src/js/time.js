@@ -1,6 +1,6 @@
 gb.time = 
 {
-	began: 0,
+	start: 0,
     elapsed: 0,
     now: 0,
     last: 0,
@@ -9,12 +9,11 @@ gb.time =
     scale: 1,
     paused: false,
 
-    init: function()
+    init: function(t)
     {
         var _t = gb.time;
     	_t.time_elapsed = 0;
-        if(window.performance) _t.time_start = window.performance.now();
-        else _t.time_start = Date.now();
+        _t.start = t;
     },
     update: function(t)
     {

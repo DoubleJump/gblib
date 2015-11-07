@@ -34,19 +34,15 @@ gb.on_asset_load = function(e)
         var n_textures = header[1];
         var n_scenes = header[2];
 
-        //DEBUG
         LOG("Shaders: " + n_shaders);
         LOG("Textures: " + n_textures);
         LOG("Scenes: " + n_scenes);
-        //END
 
         for(var i = 0; i < n_shaders; ++i)
         {
             var shader = s.r_shader(br);
             ag.shaders[shader.name] = shader;
-            //DEBUG
             LOG("Loaded Shader: " + shader.name);
-            //END
         }
 
         for(var i = 0; i < n_textures; ++i)
@@ -57,18 +53,14 @@ gb.on_asset_load = function(e)
             {
                 var t = s.r_dds(br);
                 ag.textures[name] = t;
-                //DEBUG
-                console.log("Width: " + t.width);
-                console.log("Height: " + t.height);
-                console.log("Loaded DDS: " + name);
-                //END
+                LOG("Width: " + t.width);
+                LOG("Height: " + t.height);
+                LOG("Loaded DDS: " + name);
             }
             else if(id === 1 && gb.webgl.extensions.pvr !== null)
             {
                 ag.textures[name] = s.r_pvr(br);
-                //DEBUG
-                console.log("Loaded PVR: " + name);
-                //END
+                LOG("Loaded PVR: " + name);
             }
         }
 
@@ -168,16 +160,13 @@ gb.on_asset_load = function(e)
 gb.link_asset_group = function(asset_group, callback)
 {
     for(var s in asset_group.shaders)
-    {
         gb.webgl.link_shader(asset_group.shaders[s]);
-    }
+    
     for(var m in asset_group.meshes)
-    {
         gb.webgl.link_mesh(asset_group.meshes[m]);
-    }
+    
     for(var t in asset_group.textures)
-    {
         gb.webgl.link_texture(asset_group.textures[t]);
-    }
+    
     callback();
 }

@@ -57,381 +57,375 @@ def round_vec2(v):
 	return round(v[0], FP_PRECISION), round(v[1], FP_PRECISION)
 
 class FileWriter:
-	target = None
-	offset = 0
-	BYTE_PADDING = 4
+	def __init__(self, path):
+		self.target = open(path, "wb")
+		self.offset = 0
+		self.BYTE_PADDING = 4
 
-def write_int(writer, val):
-	writer.target.write(pack("i", val))
-	writer.offset += 4
+	def close(self):
+		self.target.close()
 
-def write_float(writer, val):
-	writer.target.write(pack("f", val))
-	writer.offset += 4
+	def i32(self, val):
+		self.target.write(pack("i", val))
+		self.offset += 4
 
-def write_vec3(writer, val):
-	write_float(writer, val.x)
-	write_float(writer, val.y)
-	write_float(writer, val.z)
+	def f32(self, val):
+		self.target.write(pack("f", val))
+		self.offset += 4
 
-def write_quat(writer, val):
-	write_float(writer, val.x)
-	write_float(writer, val.y)
-	write_float(writer, val.z)
-	write_float(writer, val.w)
+	def vec3(self, val):
+		self.f32(val.x)
+		self.f32(val.y)
+		self.f32(val.z)
 
-def write_matrix(writer, val):
-	copy = val.transposed()
-	for i in range(0,4):
-		for j in range(0,4):
-			write_float(writer, copy[i][j])
+	def quaternion(self, val):
+		self.f32(val.x)
+		self.f32(val.y)
+		self.f32(val.z)
+		self.f32(val.w)
 
-def write_str(writer, val):
-	out_str = val.lower().encode('ascii')
-	strlen = len(out_str)
-	new_offset = writer.offset + strlen
-	padding = writer.BYTE_PADDING - (new_offset % writer.BYTE_PADDING);
-	write_int(writer, padding)
-	write_int(writer, strlen)
-	writer.target.write(out_str)
-	writer.offset += strlen
-	for i in range(0, padding):
-		writer.target.write(pack("B", 128))
-		writer.offset += 1	
+	def mat4(self, val):
+		matrix = val.transposed()
+		for i in range(0,4):
+			for j in range(0,4):
+				self.f32(matrix[i][j])
 
-def write_bytes(writer, val):
-	writer.target.write(val)
-	writer.offset += len(val)
+	def string(self, val):
+		str_encoded = val.lower().encode('ascii')
+		str_len = len(str_encoded)
+		new_offset = self.offset + str_len
+		padding = self.BYTE_PADDING - (new_offset % self.BYTE_PADDING);
+		self.i32(padding)
+		self.i32(str_len)
+		self.target.write(str_encoded)
+		self.offset += str_len
+		for i in range(0, padding):
+			self.target.write(pack("B", 128))
+			self.offset += 1	
 
-def write_transform(writer, ob):
-	if(ob.parent == None): write_str(writer, "none")
-	else: write_str(writer, ob.parent.name) 
-
-	write_vec3(writer, ob.location)
-	write_vec3(writer, ob.scale)
-
-	ob.rotation_mode = 'QUATERNION'
-	write_quat(writer, ob.rotation_quaternion)
-
-def write_material(writer, material):
-	print("Exporting Material: " + material.name)
-	write_int(writer, OB_TYPE_MATERIAL)
-	write_str(writer, material.name)
-	write_str(writer, material['shader'])
-
-	num_textures = 0
-	for i in material.texture_slots:
-		if i == None: continue
-		texture = bpy.data.textures[i.name]
-		if texture.image == None: continue
-		num_textures += 1
-
-	write_int(writer, num_textures)
+	def bytes(self, val):
+		self.target.write(val)
+		self.offset += len(val)
 	
-	for i in material.texture_slots:
-		if i == None: continue
-		texture = bpy.data.textures[i.name]
-		if texture.image == None: continue
-		write_str(writer, texture.image.name.split('.')[0])
-		write_str(writer, texture['sampler'])
+	def transform(self, transform):
+		if(transform.parent == None): self.string("none")
+		else: self.string(transform.parent.name) 
+		transform.rotation_mode = 'QUATERNION'
+		self.vec3(transform.location)
+		self.vec3(transform.scale)
+		self.quaternion(transform.rotation_quaternion)
 
-def write_empty(writer, ob):
-	print("Exporting Empty: " + ob.name)
-	write_int(writer, OB_TYPE_EMPTY)
-	write_str(writer, ob.name)
-	write_transform(writer, ob)
+	def material(self, material):
+		print("Exporting Material: " + material.name)
+		self.i32(OB_TYPE_MATERIAL)
+		self.string(material.name)
+		self.string(material['shader'])
 
-def write_object(writer, ob):
-	print("Exporting Object: " + ob.name)
-	write_int(writer, OB_TYPE_OBJECT)
-	write_str(writer, ob.name)
-	write_transform(writer, ob)
-	write_str(writer, ob.material_slots[0].material.name) #our material
-	write_str(writer, ob.data.name) #our mesh
+		num_textures = 0
+		for i in material.texture_slots:
+			if i == None: continue
+			texture = bpy.data.textures[i.name]
+			if texture.image == None: continue
+			num_textures += 1
 
-def write_lamp(writer, ob, lamp):
-	print("Exporting Lamp: " + ob.name)
-	write_int(writer, OB_TYPE_LAMP)
-	write_str(writer, ob.name)
-	write_transform(writer, ob)
-	write_float(writer, lamp.energy)
-	write_float(writer, lamp.distance)
-
-def write_camera(writer, ob, camera):
-	print("Exporting Camera: " + ob.name)
-	write_int(writer, OB_TYPE_CAMERA)
-	write_str(writer, ob.name)
-	write_transform(writer, ob)
-	if camera.type == 'PERSP': write_int(writer, 0)
-	else: write_int(writer, 1)
-	write_float(writer, camera.clip_start)
-	write_float(writer, camera.clip_end)
-	write_float(writer, camera.lens)
-
-def write_armature(writer, ob):
-	print("Exporting Armature: " + ob.name)
-	write_int(writer, OB_TYPE_ARMATURE)
-	write_str(writer, ob.name)
-
-	armature_ob = bpy.data.objects[ob.name]
-	armature_data = bpy.data.armatures[ob.name]
-
-	#bpy.context.scene.objects.active = ob
-	#bpy.ops.object.editmode_toggle()
-	num_bones = len(armature_data.bones)
-	write_int(writer, num_bones)
-
-	index = 0
-	bone_ids = {}
-	for bone in armature_data.bones:
-
-		local_matrix = bone.matrix_local
-		world_matrix = bone.matrix_local
-
-		if bone.parent is None:
-			write_int(writer, -1)
-		else:
-			parent = bone.parent
-			parent_index = bone_ids[bone.parent.name]
-			write_int(writer, parent_index)
-
-			local_matrix = parent.matrix_local.inverted() * bone.matrix_local
-			'''			
-			w_loc = bone.head
-			l_loc = w_loc - parent.head
-
-			w_dir = bone.tail - bone.head
-			l_dir = w_dir - (parent.tail - parent.head)
-
-			w_rot = w_dir.to_track_quat('Y', 'Z')
-			l_rot = l_dir.to_track_quat('Y', 'Z')
-			print('World:' + str(l_rot))	
-			'''		
-
-		write_matrix(writer, local_matrix)
-		write_matrix(writer, world_matrix.inverted()) #inverse bind pose
-
-		bone_ids[bone.name] = index
-		index += 1
-
-	#bpy.ops.object.editmode_toggle()
-	#bpy.context.scene.objects.active = None
+		self.i32(num_textures)
 		
-def write_mesh(writer, ob, mesh):
-	print("Exporting Mesh: " + ob.data.name)
-	write_int(writer, OB_TYPE_MESH)
-	write_str(writer, ob.data.name)
+		for i in material.texture_slots:
+			if i == None: continue
+			texture = bpy.data.textures[i.name]
+			if texture.image == None: continue
+			self.string(texture.image.name.split('.')[0])
+			self.string(texture['sampler'])
 
-	armature = None
-	modifiers = ob.modifiers
-	for mod in modifiers:
-		if(mod.type == 'ARMATURE'):
-			armature = mod.object
+	def empty(self, empty):
+		print("Exporting Empty: " + empty.name)
+		self.i32(OB_TYPE_EMPTY)
+		self.string(empty.name)
+		self.transform(empty)
 
-	vertex_buffer = []
-	index_buffer = []
-	vertex_count = 0
+	def object(self, ob):
+		print("Exporting Object: " + ob.name)
+		self.i32(OB_TYPE_OBJECT)
+		self.string(ob.name)
+		self.transform(ob)
+		self.string(ob.material_slots[0].material.name) #our material
+		self.string(ob.data.name) #our mesh
 
-	#matrix = mathutils.Matrix.Rotation(radians(-90.0), 4, 'Z')
-	#mesh.transform(matrix)
-	mesh.calc_normals()
-	mesh.calc_tessface() 
+	def lamp(self, ob, lamp):
+		print("Exporting Lamp: " + ob.name)
+		self.i32(OB_TYPE_LAMP)
+		self.string(ob.name)
+		self.transform(ob)
+		self.f32(lamp.energy)
+		self.f32(lamp.distance)
 
-	# Create a list for each vertex color layer
-	color_layers = mesh.tessface_vertex_colors
+	def camera(self, ob, camera):
+		print("Exporting Camera: " + ob.name)
+		self.i32(OB_TYPE_CAMERA)
+		self.string(ob.name)
+		self.transform(ob)
+		if camera.type == 'PERSP': self.i32(0)
+		else: self.i32(1)
+		self.f32(camera.clip_start)
+		self.f32(camera.clip_end)
+		self.f32(camera.lens)
 
-	# Create a list for each uv layer
-	uv_layers = mesh.tessface_uv_textures
+	def armature(self, ob):
+		print("Exporting Armature: " + ob.name)
 
-	for i, f in enumerate(mesh.tessfaces): # For each face on mesh
-		for j, v in enumerate(f.vertices): # For each vertex of face
-		
-			p = round_vec3(mesh.vertices[v].co)
-			vertex_buffer.append(p[0])
-			vertex_buffer.append(p[1])
-			vertex_buffer.append(p[2])
+		self.i32(OB_TYPE_ARMATURE)
+		self.string(ob.name)
 
-			norm = round_vec3(mesh.vertices[v].normal)
-			vertex_buffer.append(norm[0])
-			vertex_buffer.append(norm[1])
-			vertex_buffer.append(norm[2])
+		armature_ob = bpy.data.objects[ob.name]
+		armature_data = bpy.data.armatures[ob.name]
+		num_bones = len(armature_data.bones)
+		self.i32(num_bones)
 
-			for n, l in enumerate(uv_layers):
-				uv = uv_layers[n].data[i].uv[j]
-				uv = round_vec2(uv)
-				vertex_buffer.append(uv[0])
-				vertex_buffer.append(uv[1])
+		index = 0
+		bone_ids = {}
+		for bone in armature_data.bones:
 
-			for k, l in enumerate(color_layers):
-				c = None;
-				
-				if(j == 0): 
-					c = color_layers[k].data[i].color1
-				elif(j == 1): 
-					c = color_layers[k].data[i].color2
-				elif(j == 2): 
-					c = color_layers[k].data[i].color3
-				else: 
-					c = color_layers[k].data[i].color4
-				
-				c = round_vec3(c);
-				vertex_buffer.append(c[0])
-				vertex_buffer.append(c[1])
-				vertex_buffer.append(c[2])
-				vertex_buffer.append(1.0)
-																					  
-			index_buffer.append(vertex_count)
+			local_matrix = bone.matrix_local
+			world_matrix = bone.matrix_local
 
-			groups = mesh.vertices[v].groups
-			num_groups = len(groups)
-			if num_groups is 0:
-				vertex_buffer.append(0)
-				vertex_buffer.append(0.5)
-				vertex_buffer.append(0)
-				vertex_buffer.append(0.5)
-			elif num_groups is 1:
-				for g in groups:
-					group_index = 0
-					vertex_group = ob.vertex_groups[g.group]
-					for b in armature.pose.bones:
-						if b.name == vertex_group.name: 
-							vertex_buffer.append(group_index)
-							vertex_buffer.append(g.weight)
-							break
-						group_index += 1
-
-				vertex_buffer.append(0)
-				vertex_buffer.append(0)
+			if bone.parent is None:
+				self.i32(-1)
 			else:
-				for g in groups:
-					group_index = 0
-					vertex_group = ob.vertex_groups[g.group]
-					for b in armature.pose.bones:
-						if b.name == vertex_group.name: 
-							vertex_buffer.append(group_index)
-							vertex_buffer.append(g.weight)
-							break
-						group_index += 1
+				self.i32(bone_ids[bone.parent.name])
+				local_matrix = bone.parent.matrix_local.inverted() * bone.matrix_local
 
-					vertex_buffer.append(group_index)
-					vertex_buffer.append(g.weight)
+			self.mat4(local_matrix)
+			self.mat4(world_matrix.inverted()) #inverse bind pose
 
-
-			vertex_count += 1
-
-	uv_ln = len(uv_layers)
-	color_ln = len(color_layers)
-	weight_ln = len(ob.vertex_groups)
-
-	offset_mask = 1 | 2 #positon and normal
-	if(uv_ln == 1): offset_mask |= 4
-	elif(uv_ln == 2): 
-		offset_mask |= 4
-		offset_mask |= 8
-	if(color_ln == 1): offset_mask |= 16
-	elif(color_ln == 2): 
-		offset_mask |= 16
-		offset_mask |= 32 
-	if(weight_ln > 0):
-		offset_mask |= 64
-
-	vertex_data_ln = len(vertex_buffer)
-	index_data_ln = len(index_buffer)
-	
-	write_int(writer, vertex_count)
-	write_int(writer, vertex_data_ln)
-	write_int(writer, index_data_ln)
-	write_int(writer, offset_mask)
-
-	for i in range(0, vertex_data_ln):
-		write_float(writer, vertex_buffer[i])
-
-	for i in range(0, index_data_ln):
-		write_int(writer, index_buffer[i])
-
-def write_action(writer, action, owner, scene):
-	print("Exporting Action: " + action.name)
-	write_int(writer, OB_TYPE_ACTION)
-	write_str(writer, action.name)
-	write_int(writer, len(action.fcurves))
-	for curve in action.fcurves:
-		prop = curve.data_path
-		data_type = owner.path_resolve(prop)
+			bone_ids[bone.name] = index
+			index += 1
 		
-		value_mode = 0
-		if prop == 'location': prop = 'position'
-		elif prop == 'rotation_euler': 
-			prop = 'rotation'
+	def mesh(self, ob, scene):
+		print("Exporting Mesh: " + ob.data.name)
+
+		modifiers = ob.modifiers
+		has_triangulate = False
+		for mod in modifiers:
+			if(mod.type == 'TRIANGULATE'):
+				has_triangulate = True
+
+		if not has_triangulate:
+			modifiers.new("TEMP", type = 'TRIANGULATE')
+
+		mesh = ob.to_mesh(scene = scene, apply_modifiers = True, settings = 'PREVIEW')
+
+		self.i32(OB_TYPE_MESH)
+		self.string(ob.data.name)
+
+		armature = None
+		modifiers = ob.modifiers
+		for mod in modifiers:
+			if(mod.type == 'ARMATURE'):
+				armature = mod.object
+
+		vertex_buffer = []
+		index_buffer = []
+		vertex_count = 0
+
+		#mesh.transform(matrix)
+		mesh.calc_normals()
+		mesh.calc_tessface() 
+
+		# Create a list for each vertex color layer
+		color_layers = mesh.tessface_vertex_colors
+
+		# Create a list for each uv layer
+		uv_layers = mesh.tessface_uv_textures
+
+		for i, f in enumerate(mesh.tessfaces): # For each face on mesh
+			for j, v in enumerate(f.vertices): # For each vertex of face
+			
+				p = round_vec3(mesh.vertices[v].co)
+				vertex_buffer.append(p[0])
+				vertex_buffer.append(p[1])
+				vertex_buffer.append(p[2])
+
+				norm = round_vec3(mesh.vertices[v].normal)
+				vertex_buffer.append(norm[0])
+				vertex_buffer.append(norm[1])
+				vertex_buffer.append(norm[2])
+
+				for n, l in enumerate(uv_layers):
+					uv = uv_layers[n].data[i].uv[j]
+					uv = round_vec2(uv)
+					vertex_buffer.append(uv[0])
+					vertex_buffer.append(uv[1])
+
+				for k, l in enumerate(color_layers):
+					c = None;
+					if(j == 0): c = color_layers[k].data[i].color1
+					elif(j == 1): c = color_layers[k].data[i].color2
+					elif(j == 2): c = color_layers[k].data[i].color3
+					else: c = color_layers[k].data[i].color4
+					c = round_vec3(c);
+					vertex_buffer.append(c[0])
+					vertex_buffer.append(c[1])
+					vertex_buffer.append(c[2])
+					vertex_buffer.append(1.0)
+																						  
+				index_buffer.append(vertex_count)
+
+				groups = mesh.vertices[v].groups
+				num_groups = len(groups)
+				if num_groups is 0:
+					vertex_buffer.append(0)
+					vertex_buffer.append(0.5)
+					vertex_buffer.append(0)
+					vertex_buffer.append(0.5)
+				elif num_groups is 1:
+					for g in groups:
+						group_index = 0
+						vertex_group = ob.vertex_groups[g.group]
+						for b in armature.pose.bones:
+							if b.name == vertex_group.name: 
+								vertex_buffer.append(group_index)
+								vertex_buffer.append(g.weight)
+								break
+							group_index += 1
+
+					vertex_buffer.append(0)
+					vertex_buffer.append(0)
+				else:
+					for g in groups:
+						group_index = 0
+						vertex_group = ob.vertex_groups[g.group]
+						for b in armature.pose.bones:
+							if b.name == vertex_group.name: 
+								vertex_buffer.append(group_index)
+								vertex_buffer.append(g.weight)
+								break
+							group_index += 1
+
+						vertex_buffer.append(group_index)
+						vertex_buffer.append(g.weight)
+
+				vertex_count += 1
+
+		uv_ln = len(uv_layers)
+		color_ln = len(color_layers)
+		weight_ln = len(ob.vertex_groups)
+
+		offset_mask = 1 | 2 #positon and normal
+		if(uv_ln == 1): offset_mask |= 4
+		elif(uv_ln == 2): 
+			offset_mask |= 4
+			offset_mask |= 8
+		if(color_ln == 1): offset_mask |= 16
+		elif(color_ln == 2): 
+			offset_mask |= 16
+			offset_mask |= 32 
+		if(weight_ln > 0):
+			offset_mask |= 64
+
+		vertex_data_ln = len(vertex_buffer)
+		index_data_ln = len(index_buffer)
+		
+		self.i32(vertex_count)
+		self.i32(vertex_data_ln)
+		self.i32(index_data_ln)
+		self.i32(offset_mask)
+
+		for i in range(0, vertex_data_ln):
+			self.f32(vertex_buffer[i])
+
+		for i in range(0, index_data_ln):
+			self.i32(index_buffer[i])
+
+		bpy.data.meshes.remove(mesh)
+		if not has_triangulate:
+			modifiers.remove(modifiers[len(modifiers)-1])
+
+	def write_action(self, action, ob, scene):
+		print("Exporting Action: " + action.name)
+
+		self.i32(OB_TYPE_ACTION)
+		self.string(action.name)
+		self.i32(len(action.fcurves))
+
+		for curve in action.fcurves:
+			prop = curve.data_path
+			data_type = ob.path_resolve(prop)
+			
+			value_mode = 0
+			if prop == 'location': prop = 'position'
+			elif prop == 'rotation_euler': 
+				prop = 'rotation'
+				value_mode = 1
+			elif prop == 'rotation_quaternion':
+				prop = 'rotation'
+				value_mode = 2
+			self.string(prop)
+
+			if type(data_type) is float:
+				self.i32(-1)
+			else: #reorder quaternion
+				index = curve.array_index
+				if value_mode == 2:
+					if index == 0: index = 3 #W
+					elif index == 1: index = 0
+					elif index == 2: index = 1
+					elif index == 3: index = 2
+				self.i32(index)
+			
+			self.i32(len(curve.keyframe_points))
+			for keyframe in curve.keyframe_points:
+				self.f32(keyframe.co[0] / scene.render.fps)
+				self.f32(keyframe.co[1])
+				self.f32(keyframe.handle_left[0])
+				self.f32(keyframe.handle_left[1])
+				self.f32(keyframe.handle_right[0])
+				self.f32(keyframe.handle_right[1])
+
+
+	def armature_action(self, action, ob, scene):
+		print("Exporting Rig Action: " + action.name)
+
+		self.i32(OB_TYPE_ARMATURE_ACTION)
+		self.string(action.name)
+		self.i32(len(action.fcurves))
+
+		for curve in action.fcurves:
+			path = curve.data_path
+			prop = path.split('.')[2]
+			target_bone = path[12:].split('"')[0]
+
+			bone_index = 0
+			for bone in ob.pose.bones:
+				if bone.name == target_bone: break
+				bone_index += 1
+			self.i32(bone_index)
+
+			data_type = ob.path_resolve(path)
 			value_mode = 1
-		elif prop == 'rotation_quaternion':
-			prop = 'rotation'
-			value_mode = 2
-		
-		write_str(writer, prop)
-		if type(data_type) is float:
-			write_int(writer, -1)
-		else: #reorder quaternion
+			if prop == 'location': prop = 'position'
+			elif prop == 'rotation_euler': 
+				prop = 'rotation'
+			elif prop == 'rotation_quaternion':
+				prop = 'rotation'
+				value_mode = 2
+			self.string(prop)
+
 			index = curve.array_index
 			if value_mode == 2:
-				if index == 0: index = 3 #W
-				elif index == 1: index = 0
+				if index == 0: index = 3
+				elif index == 1: index = 0 
 				elif index == 2: index = 1
-				elif index == 3: index = 2
-			write_int(writer, index)
-		
-		write_int(writer, len(curve.keyframe_points))
-		for keyframe in curve.keyframe_points:
-			write_float(writer, keyframe.co[0] / scene.render.fps)
-			write_float(writer, keyframe.co[1])
-			write_float(writer, keyframe.handle_left[0])
-			write_float(writer, keyframe.handle_left[1])
-			write_float(writer, keyframe.handle_right[0])
-			write_float(writer, keyframe.handle_right[1])
+				elif index == 3: index = 2 
+			self.i32(index)
 
-def write_armature_action(writer, action, owner, scene):
-	print("Exporting Rig Action: " + action.name)
-	write_int(writer, OB_TYPE_ARMATURE_ACTION)
-	write_str(writer, action.name)
-	write_int(writer, len(action.fcurves))
-	for curve in action.fcurves:
-		path = curve.data_path
-		prop = path.split('.')[2]
-		target_bone = path[12:].split('"')[0]
-
-		bone_index = 0
-		for bone in owner.pose.bones:
-			if bone.name == target_bone: break
-			bone_index += 1
-
-		data_type = owner.path_resolve(path)
-		value_mode = 1
-		if prop == 'location': prop = 'position'
-		elif prop == 'rotation_euler': 
-			prop = 'rotation'
-		elif prop == 'rotation_quaternion':
-			prop = 'rotation'
-			value_mode = 2
-
-		write_int(writer, bone_index)
-		write_str(writer, prop)
-
-		index = curve.array_index
-		if value_mode == 2:
-			if index == 0: index = 3
-			elif index == 1: index = 0 
-			elif index == 2: index = 1
-			elif index == 3: index = 2 
-
-		write_int(writer, index)
-
-		write_int(writer, len(curve.keyframe_points))
-		for keyframe in curve.keyframe_points:
-			write_float(writer, keyframe.co[0] / scene.render.fps)
-			write_float(writer, keyframe.co[1])
-			write_float(writer, keyframe.handle_left[0])
-			write_float(writer, keyframe.handle_left[1])
-			write_float(writer, keyframe.handle_right[0])
-			write_float(writer, keyframe.handle_right[1])
+			self.i32(len(curve.keyframe_points))
+			for keyframe in curve.keyframe_points:
+				self.f32(keyframe.co[0] / scene.render.fps)
+				self.f32(keyframe.co[1])
+				self.f32(keyframe.handle_left[0])
+				self.f32(keyframe.handle_left[1])
+				self.f32(keyframe.handle_right[0])
+				self.f32(keyframe.handle_right[1])
 
 class ExportTest(bpy.types.Operator, ExportHelper):
 	bl_idname = "export_gblib.test"
@@ -447,10 +441,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 
 		filepath = self.filepath
 		filepath = bpy.path.ensure_ext(filepath, self.filename_ext)
-
-		writer = FileWriter()
-		writer.target = open(filepath, "wb")
-		writer.offset = 0 
+		writer = FileWriter(filepath)
 
 		exported_meshes = []
 		exported_actions = []
@@ -474,17 +465,17 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 						action = armature.animation_data.action
 						if not action is None:
 							if not action in exported_actions:
-								write_armature_action(writer, action, ob, scene)
+								writer.armature_action(action, ob, scene)
 								exported_actions.append(action)
 
-					write_armature(writer, ob)
+					writer.armature(ob)
 					exported_armatures.append(armature)
 
 			elif not ob.animation_data is None:
 				action = ob.animation_data.action
 				if not action is None:
 					if not action in exported_actions:
-						write_action(writer, action, ob, scene)
+						writer.action(action, ob, scene)
 						exported_actions.append(action)
 
 			if ob.type == 'CAMERA': 
@@ -494,10 +485,10 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 						action = camera.animation_data.action
 						if not action is None:
 							if not action in exported_actions:
-								write_action(writer, action, ob, scene)
+								writer.action(action, ob, scene)
 								exported_actions.append(action)
 
-					write_camera(writer, ob, camera)
+					writer.camera(ob, camera)
 					exported_cameras.append(camera)
 
 			elif ob.type == 'LAMP': 
@@ -507,10 +498,10 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 						action = lamp.animation_data.action
 						if not action is None:
 							if not action in exported_actions:
-								write_action(writer, action, ob, scene)
+								writer.action(action, ob, scene)
 								exported_actions.append(action)
 				
-					write_lamp(writer, ob, lamp)
+					writer.lamp(ob, lamp)
 					exported_lamps.append(lamp)
 
 			elif ob.type == 'MESH':
@@ -521,37 +512,27 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 							action = material.animation_data.action
 							if not action is None:
 								if not action in exported_actions:
-									write_action(writer, action, ob, scene)
+									writer.action(action, ob, scene)
 									exported_actions.append(action)
 
-						write_material(writer, material)
+						writer.material(material)
 						exported_materials.append(material)
 
 				if not ob.data.name in exported_meshes:
-					modifiers = ob.modifiers
-					has_triangulate = False
-					for mod in modifiers:
-						if(mod.type == 'TRIANGULATE'):
-							has_triangulate = True
-
-					if not has_triangulate:
-						modifiers.new("TEMP", type = 'TRIANGULATE')
-
-					mesh = ob.to_mesh(scene = scene, apply_modifiers = True, settings = 'PREVIEW')
-					write_mesh(writer, ob, mesh)
+					writer.mesh(ob, scene)
 					exported_meshes.append(ob.data.name)
-					bpy.data.meshes.remove(mesh)
 
-					if not has_triangulate:
-						modifiers.remove(modifiers[len(modifiers)-1])
-
-				write_object(writer, ob)
+				writer.object(ob)
 
 			elif ob.type == 'EMPTY':
-				write_empty(writer, ob)
+				writer.empty(ob)
 
-		write_int(writer, OB_TYPE_FILE_END)
-		writer.target.close()
+		writer.i32(OB_TYPE_FILE_END)
+		writer.close()
+
+		print("")
+		print("######### EXPORTING COMPLETED ###########")
+		print("")
 							
 		return {'FINISHED'}
 

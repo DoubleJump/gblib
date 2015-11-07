@@ -1,25 +1,66 @@
 gb.Rig = function()
 {
-	this.joints = [];	
+	this.joints;	
 }
 gb.Joint = function()
 {
-	this.parent = -1;
-	this.position = gb.vec3.new();
-	this.scale = gb.vec3.new(1,1,1);
-	this.rotation = gb.quat.new();
-	this.local_matrix = gb.mat4.new();
-	this.world_matrix = gb.mat4.new(); 
-	this.inverse_bind_pose = gb.mat4.new();
-	this.offset_matrix = gb.mat4.new();
-	this.bind_pose = gb.mat4.new();
+	this.parent;
+	this.position;
+	this.scale;
+	this.rotation;
+	this.local_matrix;
+	this.world_matrix; 
+	this.inverse_bind_pose;
+	this.offset_matrix;
+	this.bind_pose;
 }
 
 gb.rig = 
 {
 	MAX_JOINTS: 18,
 	//TODO rig copy from src
-
+	new: function()
+	{
+		var r = new gb.Rig();
+		r.joints = [];
+		return r;
+	},
+	copy: function(src)
+	{
+		var r = new gb.Rig();
+		r.joints = [];
+		var n = src.joints.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var sj = src.joints[i];
+			var j = gb.rig.joint();
+			j.parent = sj.parent;
+			gb.vec3.eq(j.postition, sj.position);
+			gb.vec3.eq(j.scale, sj.scale);
+			gb.quat.eq(j.rotation, sj.rotation);
+			gb.mat4.eq(j.local_matrix, sj.local_matrix);
+			gb.mat4.eq(j.world_matrix, sj.world_matrix);
+			gb.mat4.eq(j.bind_pose, sj.bind_pose);
+			gb.mat4.eq(j.inverse_bind_pose, sj.inverse_bind_pose);
+			gb.mat4.eq(j.offset_matrix, sj.offset_matrix);
+			r.joints.push(j);
+		}
+		return r;
+	},
+	joint: function()
+	{
+		var j = new gb.Joint();
+		j.parent = -1;
+		j.position = gb.vec3.new();
+		j.scale = gb.vec3.new(1,1,1);
+		j.rotation = gb.quat.new();
+		j.local_matrix = gb.mat4.new();
+		j.world_matrix = gb.mat4.new(); 
+		j.bind_pose = gb.mat4.new();
+		j.inverse_bind_pose = gb.mat4.new();
+		j.offset_matrix = gb.mat4.new();
+		return j;
+	},
 	update: function(rig, scene)
 	{
 		var qt = gb.quat.tmp();
@@ -30,10 +71,8 @@ gb.rig =
 			var j = rig.joints[i];
 			gb.mat4.compose(j.local_matrix, j.position, j.scale, j.rotation);
 			gb.mat4.mul(j.local_matrix, j.local_matrix, j.bind_pose);
-			//gb.mat4.mul(j.world_matrix, j.local_matrix, j.bind_pose);
 			if(j.parent === -1)
 			{
-				//gb.mat4.mul(j.world_matrix, j.local_matrix, scene.world_matrix);
 				gb.mat4.eq(j.world_matrix, j.local_matrix);
 			}
 			else
@@ -43,39 +82,29 @@ gb.rig =
 			}
 
 			gb.mat4.mul(j.offset_matrix, j.inverse_bind_pose, j.world_matrix);
-			//gb.mat4.mul(j.offset_matrix, j.offset_matrix, j.bind_pose);
 		}
 	},
 }
-
 gb.serialize.r_rig = function(br, ag)
 {
     var s = gb.serialize;
-    var rig = new gb.Rig();
+    var rig = gb.rig.new();
     rig.name = s.r_string(br);
     var num_joints = s.r_i32(br);
     ASSERT(num_joints <= gb.rig.MAX_JOINTS, "Rig has too many joints!");
     for(var i = 0; i < num_joints; ++i)
     {
-    	var joint = new gb.Joint();
-    	joint.parent = s.r_i32(br);
-    	/*
-    	joint.position[0] = s.r_f32(br);
-    	joint.position[1] = s.r_f32(br);
-    	joint.position[2] = s.r_f32(br);
-    	joint.inverse_bind_pose[12] = s.r_f32(br);
-    	joint.inverse_bind_pose[13] = s.r_f32(br);
-    	joint.inverse_bind_pose[14] = s.r_f32(br);
-    	*/
-    	for(var j = 0; j < 16; ++j)
-    		joint.bind_pose[j] = s.r_f32(br);
-    	for(var j = 0; j < 16; ++j)
-    		joint.inverse_bind_pose[j] = s.r_f32(br);
-    	/*
-    	for(var j = 0; j < 16; ++j)
-    		s.r_f32(br);
-    	*/
-    	rig.joints.push(joint);
+    	var j = new gb.Joint();
+		j.position = gb.vec3.new();
+		j.scale = gb.vec3.new(1,1,1);
+		j.rotation = gb.quat.new();
+		j.local_matrix = gb.mat4.new();
+		j.world_matrix = gb.mat4.new(); 
+		j.offset_matrix = gb.mat4.new();
+    	j.parent = s.r_i32(br);
+    	j.bind_pose = s.r_mat4(br);
+    	j.inverse_bind_pose = s.r_mat4(br);
+    	rig.joints.push(j);
     } 
     return rig;
 }

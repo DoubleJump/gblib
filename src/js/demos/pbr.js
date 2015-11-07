@@ -9,8 +9,6 @@ TODO:
 */
 
 //INCLUDE gb.js
-
-//INCLUDE dom/dom.js
 //INCLUDE stack.js
 //INCLUDE time.js
 //INCLUDE math.js
@@ -84,7 +82,7 @@ function init()
 		keycodes: [k.mouse_left, k.a, k.x, k.z, k.one, k.two, k.three, k.up, k.down, k.left, k.right],
 	});
 
-	gl.init(gb.dom.find('.container'),
+	gl.init(document.querySelector('.container'),
 	{
 		width: 1024,
 		height: 576,

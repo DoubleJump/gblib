@@ -233,7 +233,7 @@ gb.mat4 =
 		t[14] = a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14];
 		t[15] = a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15];
 		_t.eq(r,t);
-		_t.stack.index = 0;
+		_t.stack.index = i;
 	},
 
 	determinant: function(m)

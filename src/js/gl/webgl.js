@@ -74,7 +74,8 @@ gb.webgl =
 			width = container.offsetWidth * config.resolution;
         	height = container.offsetHeight * config.resolution;	
 		}
-        var canvas = gb.dom.insert('canvas', container);
+		var canvas = document.createElement('canvas');
+        container.appendChild(canvas);
         canvas.width = width;
         canvas.height = height;
         _t.view = gb.rect.new(0,0,width,height);
@@ -129,8 +130,6 @@ gb.webgl =
 		ex.pvr = gl.getExtension("WEBKIT_WEBGL_compressed_texture_pvrtc");
 		ex.fp_texture = gl.getExtension("OES_texture_float");
 		ex.uint = gl.getExtension("OES_element_index_uint");
-
-		//_t.m_offsets = new Uint32Array(gb.NUM_VERTEX_ATTRIBUTES);
 	},
 
 	set_clear_color: function(r,g,b,a)

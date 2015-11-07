@@ -45,21 +45,21 @@ var gb =
 	focus: function(e)
 	{
 		gb.has_focus = true;
-		//DEBUG
-		console.log('focus');
-		//END
+		LOG('focus');
 	},
 	blur: function(e)
 	{
 		gb.has_focus = false;
-		//DEBUG
-		console.log('blur');
-		//END
+		LOG('blur');
 	},
 	_init: function(e)
 	{
 		if(gb.init) gb.init();
-		gb.time.init();
+		requestAnimationFrame(gb._init_time);
+	},
+	_init_time: function(t)
+	{
+		gb.time.init(t);
 		if(gb.update) requestAnimationFrame(gb._update);
 	},
 	_update: function(t)
@@ -96,67 +96,6 @@ var gb =
 window.addEventListener('load', gb._init, false);
 window.onfocus = gb.focus;
 window.onblur = gb.blur;
-
-gb.dom = 
-{
-	insert: function(type, parent)
-	{
-		var el = document.createElement(type);
-        parent.appendChild(el);
-        return el;
-	},
-	div: function(parent, classes)
-	{
-		var e = gb.dom.insert('div', parent);
-		if(classes !== null) gb.dom.set_class(e, classes);
-		return e;
-	},
-	add_stylesheet: function(url)
-	{
-		var l = document.createElement('link');
-        l.rel = 'stylesheet';
-        l.type =  'text/css';
-        l.href =  url;
-        document.head.appendChild(l);
-	},
-	set_class: function(el, c)
-	{
-		el.className = c;
-	},
-	add_class: function(el, c)
-	{
-		el.classList.add(c);
-	},
-	remove_class: function(el, c)
-	{
-		el.classList.remove(c);
-	},
-	find: function(query)
-	{
-		return document.querySelector(query);
-	},
-	set_transform: function(el, sx, sy, tx, ty, r)
-	{
-		var ang = r * gb.math.DEG2RAD;
-		var a = Math.cos(ang) * sx;
-		var b = -Math.sin(ang);
-		var c = tx;
-		var d = Math.sin(ang);
-		var e = Math.cos(ang) * sy;
-		var f = ty;
-
-		var matrix = "matrix("+a+","+b+","+d+","+e+","+c+","+f+")";
-
-		el.style["webkitTransform"] = matrix;
-		el.style.MozTransform = matrix;
-		el.style["oTransform"] = matrix;
-		el.style["msTransform"] = matrix;
-	},
-	add_event: function(el, event, handler)
-	{
-		el.addEventListener(event, handler, false);
-	},
-}
 gb.stack_array = [];
 gb.Stack = function(type, count)
 {
@@ -191,7 +130,7 @@ gb.stack =
 }
 gb.time = 
 {
-	began: 0,
+	start: 0,
     elapsed: 0,
     now: 0,
     last: 0,
@@ -200,12 +139,11 @@ gb.time =
     scale: 1,
     paused: false,
 
-    init: function()
+    init: function(t)
     {
         var _t = gb.time;
     	_t.time_elapsed = 0;
-        if(window.performance) _t.time_start = window.performance.now();
-        else _t.time_start = Date.now();
+        _t.start = t;
     },
     update: function(t)
     {
@@ -361,6 +299,30 @@ gb.serialize =
 	{
 		var r = new Int32Array(br.buffer, br.offset, l);
 		br.offset += l * 4;
+		return r;
+	},
+	r_vec3: function(br)
+	{
+		var r = new Float32Array(br.buffer, br.offset, 3);
+		br.offset += 12;
+		return r;
+	},
+	r_vec4: function(br)
+	{
+		var r = new Float32Array(br.buffer, br.offset, 4);
+		br.offset += 16;
+		return r;
+	},
+	r_mat3: function(br)
+	{
+		var r = new Float32Array(br.buffer, br.offset, 9);
+		br.offset += 36;
+		return r;
+	},
+	r_mat4: function(br)
+	{
+		var r = new Float32Array(br.buffer, br.offset, 16);
+		br.offset += 64;
 		return r;
 	},
 }
@@ -1129,7 +1091,7 @@ gb.mat4 =
 		t[14] = a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14];
 		t[15] = a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15];
 		_t.eq(r,t);
-		_t.stack.index = 0;
+		_t.stack.index = i;
 	},
 
 	determinant: function(m)
@@ -1680,8 +1642,8 @@ gb.intersect =
 
 		var tb = (-b + sd) / (2 * a);
 
-		draw.text("TA: " + ta, 10, 30)
-		draw.text("TB: " + tb, 10, 60);
+		//draw.text("TA: " + ta, 10, 30)
+		//draw.text("TB: " + tb, 10, 60);
 
 		if(gb.math.abs(ta - 0.5) < gb.math.abs(tb - 0.5))
         {
@@ -2251,7 +2213,6 @@ gb.Animation = function()
 	this.duration;
 	this.callback;
 	this.next;
-	return this;
 }
 gb.Tween = function()
 {
@@ -2259,18 +2220,37 @@ gb.Tween = function()
 	this.property;
 	this.index = -1;
 	this.keyframes = [];
-	return this;
 }
 gb.Keyframe = function()
 {
 	this.value;
 	this.t;
-	this.handles = new Float32Array(4);
-	return this;
+	this.handles;
 }
 
 gb.animation = 
 {
+	new: function()
+	{
+		var a = new gb.Animation();
+		return a;
+	},
+	tween: function(property, index, frames)
+	{
+		var t = new gb.Tween();
+		t.property = property;
+		t.index = index;
+		t.keyframes = frames;
+		return t;
+	},
+	keyframe: function(value, t)
+	{
+		var k = new gb.Keyframe();
+		k.value = value;
+		k.t = t;
+		h.handles = new Float32Array(4);
+		return k;
+	},
 	get_animation_start: function(animation)
 	{
 		if(animation.start_time) return animation.start_time;
@@ -2423,10 +2403,7 @@ gb.serialize.r_action = function(br)
     		var kf = new gb.Keyframe();
     		kf.t = s.r_f32(br);
     		kf.value = s.r_f32(br);
-    		kf.handles[0] = s.r_f32(br);
-    		kf.handles[1] = s.r_f32(br);
-    		kf.handles[2] = s.r_f32(br);
-    		kf.handles[3] = s.r_f32(br);
+    		kf.handles = s.r_vec4(br);
     		tween.keyframes.push(kf);
     	}
     	animation.tweens.push(tween);
@@ -2453,10 +2430,7 @@ gb.serialize.r_rig_action = function(br)
     		var kf = new gb.Keyframe();
     		kf.t = s.r_f32(br);
     		kf.value = s.r_f32(br);
-    		kf.handles[0] = s.r_f32(br);
-    		kf.handles[1] = s.r_f32(br);
-    		kf.handles[2] = s.r_f32(br);
-    		kf.handles[3] = s.r_f32(br);
+    		kf.handles = s.r_vec4(br);
     		tween.keyframes.push(kf);
     	}
     	animation.tweens.push(tween);
@@ -2497,7 +2471,14 @@ gb.entity =
 {
 	new: function()
 	{
-		return new gb.Entity();
+		var e = new gb.Entity();
+		e.position = gb.vec3.new(0,0,0);
+		e.scale = gb.vec3.new(1,1,1);
+		e.rotation = gb.quat.new(0,0,0,1);
+		e.local_matrix = gb.mat4.new();
+		e.world_matrix = gb.mat4.new();
+		e.bounds = gb.aabb.new();
+		return e;
 	},
 	set_active: function(e, val)
 	{
@@ -2602,33 +2583,26 @@ gb.serialize.r_entity = function(br, ag)
     	gb.entity.set_parent(entity, parent);
     }
 
-    entity.position[0] = s.r_f32(br);
-    entity.position[1] = s.r_f32(br);
-    entity.position[2] = s.r_f32(br);
-    entity.scale[0] = s.r_f32(br);
-    entity.scale[1] = s.r_f32(br);
-    entity.scale[2] = s.r_f32(br);
-    entity.rotation[0] = s.r_f32(br);
-    entity.rotation[1] = s.r_f32(br);
-    entity.rotation[2] = s.r_f32(br);
-    entity.rotation[3] = s.r_f32(br);
-
+    entity.position = s.r_vec3(br);
+    entity.scale = s.r_vec3(br);
+    entity.rotation = s.r_vec4(br);
     return entity;
 }
 gb.Lamp = function()
 {
 	this.entity;
-	this.lamp_type = gb.LampType.POINT;
+	this.type = gb.LampType.POINT;
 	this.energy = 1;
 	this.distance = 1;
 }
 
 gb.lamp = 
 {
-	new: function(energy, distance)
+	new: function(type, energy, distance)
 	{
 		var e = gb.entity.new();
 	    var l = new gb.Lamp();
+	    l.type = type;
 	    l.energy = energy;
 	    l.distance = distance;
 	    e.lamp = l;
@@ -2813,11 +2787,6 @@ gb.scene =
 				case gb.EntityType.LAMP:
 				{
 					//gb.lamp.update(e.lamp);
-					break;
-				}
-				case gb.EntityType.RIG:
-				{
-					//gb.rig.update(e.rig, s);
 					break;
 				}
 			}
@@ -3228,26 +3197,67 @@ gb.serialize.r_material = function(br, ag)
 }
 gb.Rig = function()
 {
-	this.joints = [];	
+	this.joints;	
 }
 gb.Joint = function()
 {
-	this.parent = -1;
-	this.position = gb.vec3.new();
-	this.scale = gb.vec3.new(1,1,1);
-	this.rotation = gb.quat.new();
-	this.local_matrix = gb.mat4.new();
-	this.world_matrix = gb.mat4.new(); 
-	this.inverse_bind_pose = gb.mat4.new();
-	this.offset_matrix = gb.mat4.new();
-	this.bind_pose = gb.mat4.new();
+	this.parent;
+	this.position;
+	this.scale;
+	this.rotation;
+	this.local_matrix;
+	this.world_matrix; 
+	this.inverse_bind_pose;
+	this.offset_matrix;
+	this.bind_pose;
 }
 
 gb.rig = 
 {
 	MAX_JOINTS: 18,
 	//TODO rig copy from src
-
+	new: function()
+	{
+		var r = new gb.Rig();
+		r.joints = [];
+		return r;
+	},
+	copy: function(src)
+	{
+		var r = new gb.Rig();
+		r.joints = [];
+		var n = src.joints.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var sj = src.joints[i];
+			var j = gb.rig.joint();
+			j.parent = sj.parent;
+			gb.vec3.eq(j.postition, sj.position);
+			gb.vec3.eq(j.scale, sj.scale);
+			gb.quat.eq(j.rotation, sj.rotation);
+			gb.mat4.eq(j.local_matrix, sj.local_matrix);
+			gb.mat4.eq(j.world_matrix, sj.world_matrix);
+			gb.mat4.eq(j.bind_pose, sj.bind_pose);
+			gb.mat4.eq(j.inverse_bind_pose, sj.inverse_bind_pose);
+			gb.mat4.eq(j.offset_matrix, sj.offset_matrix);
+			r.joints.push(j);
+		}
+		return r;
+	},
+	joint: function()
+	{
+		var j = new gb.Joint();
+		j.parent = -1;
+		j.position = gb.vec3.new();
+		j.scale = gb.vec3.new(1,1,1);
+		j.rotation = gb.quat.new();
+		j.local_matrix = gb.mat4.new();
+		j.world_matrix = gb.mat4.new(); 
+		j.bind_pose = gb.mat4.new();
+		j.inverse_bind_pose = gb.mat4.new();
+		j.offset_matrix = gb.mat4.new();
+		return j;
+	},
 	update: function(rig, scene)
 	{
 		var qt = gb.quat.tmp();
@@ -3258,10 +3268,8 @@ gb.rig =
 			var j = rig.joints[i];
 			gb.mat4.compose(j.local_matrix, j.position, j.scale, j.rotation);
 			gb.mat4.mul(j.local_matrix, j.local_matrix, j.bind_pose);
-			//gb.mat4.mul(j.world_matrix, j.local_matrix, j.bind_pose);
 			if(j.parent === -1)
 			{
-				//gb.mat4.mul(j.world_matrix, j.local_matrix, scene.world_matrix);
 				gb.mat4.eq(j.world_matrix, j.local_matrix);
 			}
 			else
@@ -3271,39 +3279,29 @@ gb.rig =
 			}
 
 			gb.mat4.mul(j.offset_matrix, j.inverse_bind_pose, j.world_matrix);
-			//gb.mat4.mul(j.offset_matrix, j.offset_matrix, j.bind_pose);
 		}
 	},
 }
-
 gb.serialize.r_rig = function(br, ag)
 {
     var s = gb.serialize;
-    var rig = new gb.Rig();
+    var rig = gb.rig.new();
     rig.name = s.r_string(br);
     var num_joints = s.r_i32(br);
     ASSERT(num_joints <= gb.rig.MAX_JOINTS, "Rig has too many joints!");
     for(var i = 0; i < num_joints; ++i)
     {
-    	var joint = new gb.Joint();
-    	joint.parent = s.r_i32(br);
-    	/*
-    	joint.position[0] = s.r_f32(br);
-    	joint.position[1] = s.r_f32(br);
-    	joint.position[2] = s.r_f32(br);
-    	joint.inverse_bind_pose[12] = s.r_f32(br);
-    	joint.inverse_bind_pose[13] = s.r_f32(br);
-    	joint.inverse_bind_pose[14] = s.r_f32(br);
-    	*/
-    	for(var j = 0; j < 16; ++j)
-    		joint.bind_pose[j] = s.r_f32(br);
-    	for(var j = 0; j < 16; ++j)
-    		joint.inverse_bind_pose[j] = s.r_f32(br);
-    	/*
-    	for(var j = 0; j < 16; ++j)
-    		s.r_f32(br);
-    	*/
-    	rig.joints.push(joint);
+    	var j = new gb.Joint();
+		j.position = gb.vec3.new();
+		j.scale = gb.vec3.new(1,1,1);
+		j.rotation = gb.quat.new();
+		j.local_matrix = gb.mat4.new();
+		j.world_matrix = gb.mat4.new(); 
+		j.offset_matrix = gb.mat4.new();
+    	j.parent = s.r_i32(br);
+    	j.bind_pose = s.r_mat4(br);
+    	j.inverse_bind_pose = s.r_mat4(br);
+    	rig.joints.push(j);
     } 
     return rig;
 }
@@ -3422,7 +3420,8 @@ gb.webgl =
 			width = container.offsetWidth * config.resolution;
         	height = container.offsetHeight * config.resolution;	
 		}
-        var canvas = gb.dom.insert('canvas', container);
+		var canvas = document.createElement('canvas');
+        container.appendChild(canvas);
         canvas.width = width;
         canvas.height = height;
         _t.view = gb.rect.new(0,0,width,height);
@@ -3477,8 +3476,6 @@ gb.webgl =
 		ex.pvr = gl.getExtension("WEBKIT_WEBGL_compressed_texture_pvrtc");
 		ex.fp_texture = gl.getExtension("OES_texture_float");
 		ex.uint = gl.getExtension("OES_element_index_uint");
-
-		//_t.m_offsets = new Uint32Array(gb.NUM_VERTEX_ATTRIBUTES);
 	},
 
 	set_clear_color: function(r,g,b,a)
@@ -3991,19 +3988,15 @@ gb.on_asset_load = function(e)
         var n_textures = header[1];
         var n_scenes = header[2];
 
-        //DEBUG
         LOG("Shaders: " + n_shaders);
         LOG("Textures: " + n_textures);
         LOG("Scenes: " + n_scenes);
-        //END
 
         for(var i = 0; i < n_shaders; ++i)
         {
             var shader = s.r_shader(br);
             ag.shaders[shader.name] = shader;
-            //DEBUG
             LOG("Loaded Shader: " + shader.name);
-            //END
         }
 
         for(var i = 0; i < n_textures; ++i)
@@ -4014,18 +4007,14 @@ gb.on_asset_load = function(e)
             {
                 var t = s.r_dds(br);
                 ag.textures[name] = t;
-                //DEBUG
-                console.log("Width: " + t.width);
-                console.log("Height: " + t.height);
-                console.log("Loaded DDS: " + name);
-                //END
+                LOG("Width: " + t.width);
+                LOG("Height: " + t.height);
+                LOG("Loaded DDS: " + name);
             }
             else if(id === 1 && gb.webgl.extensions.pvr !== null)
             {
                 ag.textures[name] = s.r_pvr(br);
-                //DEBUG
-                console.log("Loaded PVR: " + name);
-                //END
+                LOG("Loaded PVR: " + name);
             }
         }
 
@@ -4125,17 +4114,14 @@ gb.on_asset_load = function(e)
 gb.link_asset_group = function(asset_group, callback)
 {
     for(var s in asset_group.shaders)
-    {
         gb.webgl.link_shader(asset_group.shaders[s]);
-    }
+    
     for(var m in asset_group.meshes)
-    {
         gb.webgl.link_mesh(asset_group.meshes[m]);
-    }
+    
     for(var t in asset_group.textures)
-    {
         gb.webgl.link_texture(asset_group.textures[t]);
-    }
+    
     callback();
 }
 //DEBUG
@@ -4560,7 +4546,7 @@ function init()
 		keycodes: [k.mouse_left, k.a, k.x, k.z, k.one, k.two, k.three, k.up, k.down, k.left, k.right],
 	});
 
-	gl.init(gb.dom.find('.container'),
+	gl.init(document.querySelector('.container'),
 	{
 		width: 1024,
 		height: 576,

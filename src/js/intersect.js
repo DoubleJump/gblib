@@ -94,8 +94,8 @@ gb.intersect =
 
 		var tb = (-b + sd) / (2 * a);
 
-		draw.text("TA: " + ta, 10, 30)
-		draw.text("TB: " + tb, 10, 60);
+		//draw.text("TA: " + ta, 10, 30)
+		//draw.text("TB: " + tb, 10, 60);
 
 		if(gb.math.abs(ta - 0.5) < gb.math.abs(tb - 0.5))
         {

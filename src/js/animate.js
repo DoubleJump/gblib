@@ -13,7 +13,6 @@ gb.Animation = function()
 	this.duration;
 	this.callback;
 	this.next;
-	return this;
 }
 gb.Tween = function()
 {
@@ -21,18 +20,37 @@ gb.Tween = function()
 	this.property;
 	this.index = -1;
 	this.keyframes = [];
-	return this;
 }
 gb.Keyframe = function()
 {
 	this.value;
 	this.t;
-	this.handles = new Float32Array(4);
-	return this;
+	this.handles;
 }
 
 gb.animation = 
 {
+	new: function()
+	{
+		var a = new gb.Animation();
+		return a;
+	},
+	tween: function(property, index, frames)
+	{
+		var t = new gb.Tween();
+		t.property = property;
+		t.index = index;
+		t.keyframes = frames;
+		return t;
+	},
+	keyframe: function(value, t)
+	{
+		var k = new gb.Keyframe();
+		k.value = value;
+		k.t = t;
+		h.handles = new Float32Array(4);
+		return k;
+	},
 	get_animation_start: function(animation)
 	{
 		if(animation.start_time) return animation.start_time;
@@ -185,10 +203,7 @@ gb.serialize.r_action = function(br)
     		var kf = new gb.Keyframe();
     		kf.t = s.r_f32(br);
     		kf.value = s.r_f32(br);
-    		kf.handles[0] = s.r_f32(br);
-    		kf.handles[1] = s.r_f32(br);
-    		kf.handles[2] = s.r_f32(br);
-    		kf.handles[3] = s.r_f32(br);
+    		kf.handles = s.r_vec4(br);
     		tween.keyframes.push(kf);
     	}
     	animation.tweens.push(tween);
@@ -215,10 +230,7 @@ gb.serialize.r_rig_action = function(br)
     		var kf = new gb.Keyframe();
     		kf.t = s.r_f32(br);
     		kf.value = s.r_f32(br);
-    		kf.handles[0] = s.r_f32(br);
-    		kf.handles[1] = s.r_f32(br);
-    		kf.handles[2] = s.r_f32(br);
-    		kf.handles[3] = s.r_f32(br);
+    		kf.handles = s.r_vec4(br);
     		tween.keyframes.push(kf);
     	}
     	animation.tweens.push(tween);

@@ -34,7 +34,6 @@ import mathutils, struct
 from math import radians
 from bpy_extras.io_utils import ExportHelper
 from struct import pack
-import re
 
 FP_PRECISION = 3
 
@@ -49,7 +48,7 @@ OB_TYPE_ARMATURE = 7
 OB_TYPE_ARMATURE_ACTION = 8
 OB_TYPE_FILE_END = -101
 
-GB_MATRIX = mathutils.Matrix.Rotation(radians(-90.0), 4, 'Z')
+GB_MATRIX = mathutils.Matrix.Rotation(radians(-90.0), 4, 'X')
 
 def round_vec3(v):
 	return round(v[0], FP_PRECISION), round(v[1], FP_PRECISION), round(v[2], FP_PRECISION)
@@ -82,9 +81,10 @@ def write_quat(writer, val):
 	write_float(writer, val.w)
 
 def write_matrix(writer, val):
+	copy = val.transposed()
 	for i in range(0,4):
 		for j in range(0,4):
-			write_float(writer, val[i][j])
+			write_float(writer, copy[i][j])
 
 def write_str(writer, val):
 	out_str = val.lower().encode('ascii')
@@ -168,37 +168,65 @@ def write_camera(writer, ob, camera):
 	write_float(writer, camera.clip_end)
 	write_float(writer, camera.lens)
 
-def write_armature(writer, ob, armature):
+def write_armature(writer, ob):
 	print("Exporting Armature: " + ob.name)
 	write_int(writer, OB_TYPE_ARMATURE)
 	write_str(writer, ob.name)
-	num_bones = len(armature.pose.bones)
+
+	armature_ob = bpy.data.objects[ob.name]
+	armature_data = bpy.data.armatures[ob.name]
+
+	#bpy.context.scene.objects.active = ob
+	#bpy.ops.object.editmode_toggle()
+	num_bones = len(armature_data.bones)
 	write_int(writer, num_bones)
 
 	index = 0
 	bone_ids = {}
-	for bone in armature.pose.bones:
+	for bone in armature_data.bones:
 
-		loc, rot, scale = bone.matrix.decompose()
+		local_matrix = bone.matrix_local
+		world_matrix = bone.matrix_local
 
 		if bone.parent is None:
 			write_int(writer, -1)
-			write_vec3(writer, loc)
-			write_vec3(writer, -loc)
 		else:
 			parent = bone.parent
 			parent_index = bone_ids[bone.parent.name]
 			write_int(writer, parent_index)
-			write_vec3(writer, loc - parent.head)
-			write_vec3(writer, -loc)
+
+			local_matrix = parent.matrix_local.inverted() * bone.matrix_local
+			'''			
+			w_loc = bone.head
+			l_loc = w_loc - parent.head
+
+			w_dir = bone.tail - bone.head
+			l_dir = w_dir - (parent.tail - parent.head)
+
+			w_rot = w_dir.to_track_quat('Y', 'Z')
+			l_rot = l_dir.to_track_quat('Y', 'Z')
+			print('World:' + str(l_rot))	
+			'''		
+
+		write_matrix(writer, local_matrix)
+		write_matrix(writer, world_matrix.inverted()) #inverse bind pose
 
 		bone_ids[bone.name] = index
 		index += 1
+
+	#bpy.ops.object.editmode_toggle()
+	#bpy.context.scene.objects.active = None
 		
 def write_mesh(writer, ob, mesh):
 	print("Exporting Mesh: " + ob.data.name)
 	write_int(writer, OB_TYPE_MESH)
 	write_str(writer, ob.data.name)
+
+	armature = None
+	modifiers = ob.modifiers
+	for mod in modifiers:
+		if(mod.type == 'ARMATURE'):
+			armature = mod.object
 
 	vertex_buffer = []
 	index_buffer = []
@@ -262,14 +290,32 @@ def write_mesh(writer, ob, mesh):
 				vertex_buffer.append(0)
 				vertex_buffer.append(0.5)
 			elif num_groups is 1:
-				vertex_buffer.append(groups[0].group)
-				vertex_buffer.append(1.0)
+				for g in groups:
+					group_index = 0
+					vertex_group = ob.vertex_groups[g.group]
+					for b in armature.pose.bones:
+						if b.name == vertex_group.name: 
+							vertex_buffer.append(group_index)
+							vertex_buffer.append(g.weight)
+							break
+						group_index += 1
+
 				vertex_buffer.append(0)
 				vertex_buffer.append(0)
 			else:
 				for g in groups:
-					vertex_buffer.append(g.group)
+					group_index = 0
+					vertex_group = ob.vertex_groups[g.group]
+					for b in armature.pose.bones:
+						if b.name == vertex_group.name: 
+							vertex_buffer.append(group_index)
+							vertex_buffer.append(g.weight)
+							break
+						group_index += 1
+
+					vertex_buffer.append(group_index)
 					vertex_buffer.append(g.weight)
+
 
 			vertex_count += 1
 
@@ -370,35 +416,22 @@ def write_armature_action(writer, action, owner, scene):
 		write_str(writer, prop)
 
 		index = curve.array_index
-
-		#reorder quaternion
 		if value_mode == 2:
-			if index == 0: index = 3 #negate
+			if index == 0: index = 3
 			elif index == 1: index = 0 
-			elif index == 2: index = 2
-			elif index == 3: index = 1 #negate 
+			elif index == 2: index = 1
+			elif index == 3: index = 2 
 
 		write_int(writer, index)
 
 		write_int(writer, len(curve.keyframe_points))
 		for keyframe in curve.keyframe_points:
 			write_float(writer, keyframe.co[0] / scene.render.fps)
-
-			value = keyframe.co[1]
-			h_left = keyframe.handle_left[1]
-			h_right = keyframe.handle_right[1]
-
-			if value_mode == 2: #need to flip quaternion sign and can only do it here
-				if index == 3 or index == 1:
-					value = -keyframe.co[1]
-					h_left = -h_left
-					h_right = -h_right
-
-			write_float(writer, value)
+			write_float(writer, keyframe.co[1])
 			write_float(writer, keyframe.handle_left[0])
-			write_float(writer, h_left)
+			write_float(writer, keyframe.handle_left[1])
 			write_float(writer, keyframe.handle_right[0])
-			write_float(writer, h_right)
+			write_float(writer, keyframe.handle_right[1])
 
 class ExportTest(bpy.types.Operator, ExportHelper):
 	bl_idname = "export_gblib.test"
@@ -430,6 +463,8 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 		print("######### EXPORTING SCENE: " + scene.name + " ###########")
 		print("")
 
+		scene.objects.active = None;
+
 		for ob in scene.objects:
 			
 			if ob.type == 'ARMATURE':
@@ -442,7 +477,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 								write_armature_action(writer, action, ob, scene)
 								exported_actions.append(action)
 
-					write_armature(writer, ob, armature)
+					write_armature(writer, ob)
 					exported_armatures.append(armature)
 
 			elif not ob.animation_data is None:

@@ -9,7 +9,7 @@ uniform mat4 proj_matrix;
 uniform mat4 view_matrix;
 uniform mat4 model_matrix;
 uniform mat3 normal_matrix;
-uniform mat4 rig[6];
+uniform mat4 rig[18];
 
 varying vec3 _position;
 varying vec3 _normal;

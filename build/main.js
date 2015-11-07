@@ -1110,6 +1110,7 @@ gb.mat4 =
 	mul: function(r, a,b)
 	{
 		var _t = gb.mat4;
+		var i = _t.stack.index;
 		var t = _t.tmp();
 		t[ 0] = a[ 0] * b[0] + a[ 1] * b[4] + a[ 2] * b[ 8] + a[ 3] * b[12];
 		t[ 1] = a[ 0] * b[1] + a[ 1] * b[5] + a[ 2] * b[ 9] + a[ 3] * b[13];
@@ -1128,6 +1129,7 @@ gb.mat4 =
 		t[14] = a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14];
 		t[15] = a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15];
 		_t.eq(r,t);
+		_t.stack.index = 0;
 	},
 
 	determinant: function(m)
@@ -3238,11 +3240,12 @@ gb.Joint = function()
 	this.world_matrix = gb.mat4.new(); 
 	this.inverse_bind_pose = gb.mat4.new();
 	this.offset_matrix = gb.mat4.new();
+	this.bind_pose = gb.mat4.new();
 }
 
 gb.rig = 
 {
-	MAX_JOINTS: 6,
+	MAX_JOINTS: 18,
 	//TODO rig copy from src
 
 	update: function(rig, scene)
@@ -3253,27 +3256,22 @@ gb.rig =
 		for(var i = 0; i < n; ++i)
 		{
 			var j = rig.joints[i];
-
-			// Note: this will correct blender bone rotations but mess up any we create manually
-			/*
-			var r = j.rotation;
-			qt[0] = r[0];
-			qt[1] = r[2];
-			qt[2] = -r[1];
-			qt[3] = -r[3];
-			gb.mat4.compose(j.local_matrix, j.position, j.scale, qt);
-			*/
 			gb.mat4.compose(j.local_matrix, j.position, j.scale, j.rotation);
+			gb.mat4.mul(j.local_matrix, j.local_matrix, j.bind_pose);
+			//gb.mat4.mul(j.world_matrix, j.local_matrix, j.bind_pose);
 			if(j.parent === -1)
 			{
-				gb.mat4.mul(j.world_matrix, j.local_matrix, scene.world_matrix);
+				//gb.mat4.mul(j.world_matrix, j.local_matrix, scene.world_matrix);
+				gb.mat4.eq(j.world_matrix, j.local_matrix);
 			}
 			else
 			{
 				var parent = rig.joints[j.parent];
 				gb.mat4.mul(j.world_matrix, j.local_matrix, parent.world_matrix);
 			}
+
 			gb.mat4.mul(j.offset_matrix, j.inverse_bind_pose, j.world_matrix);
+			//gb.mat4.mul(j.offset_matrix, j.offset_matrix, j.bind_pose);
 		}
 	},
 }
@@ -3289,12 +3287,22 @@ gb.serialize.r_rig = function(br, ag)
     {
     	var joint = new gb.Joint();
     	joint.parent = s.r_i32(br);
+    	/*
     	joint.position[0] = s.r_f32(br);
     	joint.position[1] = s.r_f32(br);
     	joint.position[2] = s.r_f32(br);
     	joint.inverse_bind_pose[12] = s.r_f32(br);
     	joint.inverse_bind_pose[13] = s.r_f32(br);
     	joint.inverse_bind_pose[14] = s.r_f32(br);
+    	*/
+    	for(var j = 0; j < 16; ++j)
+    		joint.bind_pose[j] = s.r_f32(br);
+    	for(var j = 0; j < 16; ++j)
+    		joint.inverse_bind_pose[j] = s.r_f32(br);
+    	/*
+    	for(var j = 0; j < 16; ++j)
+    		s.r_f32(br);
+    	*/
     	rig.joints.push(joint);
     } 
     return rig;
@@ -3435,7 +3443,7 @@ gb.webgl =
 
         //DEBUG
         ASSERT(gl != null, "Could not load WebGL");
-        gb.debug.get_context_info(gl);
+        //gb.debug.get_context_info(gl);
         //END
 
 		_t.ctx = gl;
@@ -3567,7 +3575,6 @@ gb.webgl =
 	        su.type = _t.shader_types[uniform.type];
 	        su.size = uniform.size;
 	        s.uniforms[uniform.name] = su;
-	        console.log(uniform.name);
 	    }
 
 	    s.linked = true;
@@ -4324,6 +4331,7 @@ gb.gl_draw =
 	{
 		var _t = gb.gl_draw;
 		var v3 = gb.vec3;
+		var index = v3.stack.index;
 		var m4 = gb.mat4;
 		var o = v3.tmp(0,0,0);
 		var e = v3.tmp(0,0,0);
@@ -4339,6 +4347,8 @@ gb.gl_draw =
 		_t.set_color(0,0,1,1);
 		m4.mul_point(e, m, v3.tmp(0.0,0.0,1.0));
 		_t.line(o, e);
+
+		v3.stack.index = index;
 	},
 	bounds: function(b)
 	{
@@ -4419,6 +4429,7 @@ gb.gl_draw =
 			_t.mesh.vertex_buffer.data[i] = 0;
 		}	
 	},
+
 	rig: function(r)
 	{
 		var _t = gb.gl_draw;
@@ -4426,15 +4437,26 @@ gb.gl_draw =
 		var n = r.joints.length;
 		var a = v3.tmp();
 		var b = v3.tmp();
-		for(var i = 1; i < n; ++i)
+		for(var i = 0; i < n; ++i)
 		{
-			var ja = r.joints[i-1];
-			var jb = r.joints[i];
-			m4.get_position(a, ja.world_matrix);
-			m4.get_position(b, jb.world_matrix);
+			var j = r.joints[i];
+			if(j.parent === -1 || j.parent === 0) continue;
+
+			var parent = r.joints[j.parent];
+			m4.get_position(a, parent.world_matrix);
+			m4.get_position(b, j.world_matrix);
 			_t.line(a,b);
 		}
 	},
+	rig_transforms: function(r)
+	{
+		var n = r.joints.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var j = r.joints[i];
+			gb.gl_draw.transform(j.world_matrix);
+		}
+	}
 }
 gb.debug =
 {
@@ -4587,13 +4609,11 @@ function link_complete()
 	sphere = gb.scene.find(construct, 'cube');
 	sphere.entity_type = gb.EntityType.RIG;
 	sphere.rig = assets.rigs['armature'];
-	//qt.euler(sphere.rig.joints[1].rotation, -30,0,0);
 	
 	anim = assets.animations.test;
 	anim.target = sphere.rig.joints;
 	anim.loops = -1;
 	anim.is_playing = true;
-	
 	//light_position = v3.new(3,3,3);
 
 	// TODO: create draw calls automatically
@@ -4641,21 +4661,15 @@ function update(t)
 		v_angle -= view_speed * dt;
 	}
 	gb.entity.set_rotation(pivot, v_angle, 0, h_angle);
-
-	gb.scene.update(construct);
-
-	gb.animation.update(anim, dt);
-
-	gb.gl_draw.clear();
-	//gb.gl_draw.transform(sphere.rig.joints[1].world_matrix);
-
-	gb.gl_draw.set_color(1,1,1,1);
-	gb.gl_draw.rig(sphere.rig);
-	gb.gl_draw.set_color(0,0,0,1);
-
 	sphere.dirty = true;
 
+	gb.scene.update(construct);
+	gb.animation.update(anim, dt);
 	gb.webgl.render_draw_call(draw_call);
+
+	gb.gl_draw.clear();
+	gb.gl_draw.rig_transforms(sphere.rig);
+	//gb.gl_draw.rig(sphere.rig);
 	gb.webgl.render_draw_call(gb.gl_draw.draw_call);
 
 	post_call.material.uniforms.tex = render_target.color;

@@ -214,6 +214,7 @@ gb.mat4 =
 	mul: function(r, a,b)
 	{
 		var _t = gb.mat4;
+		var i = _t.stack.index;
 		var t = _t.tmp();
 		t[ 0] = a[ 0] * b[0] + a[ 1] * b[4] + a[ 2] * b[ 8] + a[ 3] * b[12];
 		t[ 1] = a[ 0] * b[1] + a[ 1] * b[5] + a[ 2] * b[ 9] + a[ 3] * b[13];
@@ -232,6 +233,7 @@ gb.mat4 =
 		t[14] = a[12] * b[2] + a[13] * b[6] + a[14] * b[10] + a[15] * b[14];
 		t[15] = a[12] * b[3] + a[13] * b[7] + a[14] * b[11] + a[15] * b[15];
 		_t.eq(r,t);
+		_t.stack.index = 0;
 	},
 
 	determinant: function(m)

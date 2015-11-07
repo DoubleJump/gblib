@@ -133,13 +133,11 @@ function link_complete()
 	sphere = gb.scene.find(construct, 'cube');
 	sphere.entity_type = gb.EntityType.RIG;
 	sphere.rig = assets.rigs['armature'];
-	//qt.euler(sphere.rig.joints[1].rotation, -30,0,0);
 	
 	anim = assets.animations.test;
 	anim.target = sphere.rig.joints;
 	anim.loops = -1;
 	anim.is_playing = true;
-	
 	//light_position = v3.new(3,3,3);
 
 	// TODO: create draw calls automatically
@@ -187,21 +185,15 @@ function update(t)
 		v_angle -= view_speed * dt;
 	}
 	gb.entity.set_rotation(pivot, v_angle, 0, h_angle);
-
-	gb.scene.update(construct);
-
-	gb.animation.update(anim, dt);
-
-	gb.gl_draw.clear();
-	//gb.gl_draw.transform(sphere.rig.joints[1].world_matrix);
-
-	gb.gl_draw.set_color(1,1,1,1);
-	gb.gl_draw.rig(sphere.rig);
-	gb.gl_draw.set_color(0,0,0,1);
-
 	sphere.dirty = true;
 
+	gb.scene.update(construct);
+	gb.animation.update(anim, dt);
 	gb.webgl.render_draw_call(draw_call);
+
+	gb.gl_draw.clear();
+	gb.gl_draw.rig_transforms(sphere.rig);
+	//gb.gl_draw.rig(sphere.rig);
 	gb.webgl.render_draw_call(gb.gl_draw.draw_call);
 
 	post_call.material.uniforms.tex = render_target.color;

@@ -95,7 +95,7 @@ gb.webgl =
 
         //DEBUG
         ASSERT(gl != null, "Could not load WebGL");
-        gb.debug.get_context_info(gl);
+        //gb.debug.get_context_info(gl);
         //END
 
 		_t.ctx = gl;
@@ -227,7 +227,6 @@ gb.webgl =
 	        su.type = _t.shader_types[uniform.type];
 	        su.size = uniform.size;
 	        s.uniforms[uniform.name] = su;
-	        console.log(uniform.name);
 	    }
 
 	    s.linked = true;

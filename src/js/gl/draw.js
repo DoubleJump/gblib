@@ -190,6 +190,7 @@ gb.gl_draw =
 	{
 		var _t = gb.gl_draw;
 		var v3 = gb.vec3;
+		var index = v3.stack.index;
 		var m4 = gb.mat4;
 		var o = v3.tmp(0,0,0);
 		var e = v3.tmp(0,0,0);
@@ -205,6 +206,8 @@ gb.gl_draw =
 		_t.set_color(0,0,1,1);
 		m4.mul_point(e, m, v3.tmp(0.0,0.0,1.0));
 		_t.line(o, e);
+
+		v3.stack.index = index;
 	},
 	bounds: function(b)
 	{
@@ -285,6 +288,7 @@ gb.gl_draw =
 			_t.mesh.vertex_buffer.data[i] = 0;
 		}	
 	},
+
 	rig: function(r)
 	{
 		var _t = gb.gl_draw;
@@ -292,13 +296,24 @@ gb.gl_draw =
 		var n = r.joints.length;
 		var a = v3.tmp();
 		var b = v3.tmp();
-		for(var i = 1; i < n; ++i)
+		for(var i = 0; i < n; ++i)
 		{
-			var ja = r.joints[i-1];
-			var jb = r.joints[i];
-			m4.get_position(a, ja.world_matrix);
-			m4.get_position(b, jb.world_matrix);
+			var j = r.joints[i];
+			if(j.parent === -1 || j.parent === 0) continue;
+
+			var parent = r.joints[j.parent];
+			m4.get_position(a, parent.world_matrix);
+			m4.get_position(b, j.world_matrix);
 			_t.line(a,b);
 		}
 	},
+	rig_transforms: function(r)
+	{
+		var n = r.joints.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var j = r.joints[i];
+			gb.gl_draw.transform(j.world_matrix);
+		}
+	}
 }

@@ -1,18 +1,4 @@
-gb.DrawCall = function()
-{
-	this.clear = false;
-	this.depth_test = true;
-	this.target;
-	this.camera;
-	this.material;
-	this.entities = [];
-	this.lights;
-}
-gb.PostCall = function()
-{
-	this.mesh;
-	this.material;
-}
+
 
 gb.webgl = 
 {
@@ -218,12 +204,18 @@ gb.webgl =
 	    	}
 	    }
 
+	    var sampler_index = 0;
 	    for(var i = 0; i < s.num_uniforms; ++i)
 	    {
 	        var uniform = gl.getActiveUniform(id, i);
 	        var su = new gb.ShaderUniform();
 	        su.location = gl.getUniformLocation(id, uniform.name);
 	        su.type = _t.shader_types[uniform.type];
+	        if(su.type === 'SAMPLER_2D')
+	        {
+	        	su.sampler_index = sampler_index;
+	        	sampler_index++;
+	        }
 	        su.size = uniform.size;
 	        s.uniforms[uniform.name] = su;
 	    }
@@ -297,16 +289,15 @@ gb.webgl =
 			_t.set_viewport(_t.view);
 			if(clear === true)
 			{
-				_t.ctx.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+				//_t.ctx.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+				_t.ctx.clear(gl.COLOR_BUFFER_BIT);
 			}
 		}
 		else
 		{
 			gl.bindFramebuffer(gl.FRAMEBUFFER, rt.frame_buffer);
-			if(rt.render_buffer)
-				gl.bindRenderbuffer(gl.RENDERBUFFER, rt.render_buffer);
+			gl.bindRenderbuffer(gl.RENDERBUFFER, rt.render_buffer);
 			_t.set_viewport(rt.bounds);
-
 			if(clear === true)
 			{
 				_t.clear(rt);
@@ -314,11 +305,11 @@ gb.webgl =
 		}
 	},
 
-	set_render_target_attachment: function(rt, attachment, t)
+	set_render_target_attachment: function(attachment, texture)
 	{
 		var gl = gb.webgl.ctx;
-		gl.bindTexture(gl.TEXTURE_2D, t.id);
-		gl.framebufferTexture2D(gl.FRAMEBUFFER, attachment, gl.TEXTURE_2D, t.id, 0);
+		gl.bindTexture(gl.TEXTURE_2D, texture.id);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, attachment, gl.TEXTURE_2D, texture.id, 0);
 	},
 
 	new_render_buffer: function(width, height)
@@ -337,13 +328,14 @@ gb.webgl =
 		rt.frame_buffer = gl.createFramebuffer();
 		gl.bindFramebuffer(gl.FRAMEBUFFER, rt.frame_buffer);
 
-		if(rt.color)
+		// TODO: just do an attachment array
+		if(rt.color !== null)
 		{
-			_t.set_render_target_attachment(rt, gl.COLOR_ATTACHMENT0, rt.color);
+			_t.set_render_target_attachment(gl.COLOR_ATTACHMENT0, rt.color);
 		}
-		if(rt.depth)
+		if(rt.depth !== null)
 		{
-			_t.set_render_target_attachment(rt, gl.DEPTH_ATTACHMENT, rt.depth);
+			_t.set_render_target_attachment(gl.DEPTH_ATTACHMENT, rt.depth);
 		}
 		else
 		{
@@ -449,10 +441,9 @@ gb.webgl =
 		        	{
 		        		_t.update_texture(val);
 		        	}
+					gl.uniform1i(loc, uniform.sampler_index);
+					gl.activeTexture(gl.TEXTURE0 + uniform.sampler_index);
 					gl.bindTexture(gl.TEXTURE_2D, val.id);
-					gl.activeTexture(gl.TEXTURE0 + sampler_index);
-					gl.uniform1i(loc, val.id);
-					sampler_index++;
 					break;
 				}
 		        //case 'SAMPLER_CUBE':

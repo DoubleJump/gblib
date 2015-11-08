@@ -27,6 +27,8 @@ gb.on_asset_load = function(e)
     {
         var s = gb.serialize;
         var br = new gb.Binary_Reader(e.target.response);
+        LOG("Asset File Size: " + br.buffer.byteLength + " bytes");
+
         var ag = e.target.upload.asset_group;
 
         var header = s.r_i32_array(br, 3);

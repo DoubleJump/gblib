@@ -3,9 +3,9 @@ gb.Render_Target = function()
 	this.bounds;
 	this.frame_buffer;
 	this.render_buffer;
-	this.color;
-	this.depth;
-	this.stencil;
+	this.color = null;
+	this.depth = null;
+	this.stencil = null;
     this.linked = false;
 }
 

@@ -3103,6 +3103,7 @@ gb.ShaderUniform = function()
     this.name;
     this.type;
     this.size;
+    this.sampler_index;
 }
 gb.Shader = function()
 {
@@ -3310,9 +3311,9 @@ gb.Render_Target = function()
 	this.bounds;
 	this.frame_buffer;
 	this.render_buffer;
-	this.color;
-	this.depth;
-	this.stencil;
+	this.color = null;
+	this.depth = null;
+	this.stencil = null;
     this.linked = false;
 }
 
@@ -3352,13 +3353,40 @@ gb.DrawCall = function()
 	this.camera;
 	this.material;
 	this.entities = [];
-	this.lights;
 }
 gb.PostCall = function()
 {
 	this.mesh;
 	this.material;
 }
+
+gb.draw_call = 
+{
+	new: function(clear, target, camera, material, entities)
+	{
+		var r = new gb.DrawCall();
+		r.clear = clear;
+		r.target = target;
+		r.camera = camera;
+		r.material = material;
+		r.entities = entities;
+		return r;
+	},
+}
+gb.post_call = 
+{
+	new: function(shader, full_screen)
+	{
+		var r = new gb.PostCall();
+		if(full_screen === true)
+		{
+			r.mesh = gb.mesh.generate.quad(2,2);
+		}
+		r.material = gb.material.new(shader);
+		return r;
+	},
+}
+
 
 gb.webgl = 
 {
@@ -3564,12 +3592,18 @@ gb.webgl =
 	    	}
 	    }
 
+	    var sampler_index = 0;
 	    for(var i = 0; i < s.num_uniforms; ++i)
 	    {
 	        var uniform = gl.getActiveUniform(id, i);
 	        var su = new gb.ShaderUniform();
 	        su.location = gl.getUniformLocation(id, uniform.name);
 	        su.type = _t.shader_types[uniform.type];
+	        if(su.type === 'SAMPLER_2D')
+	        {
+	        	su.sampler_index = sampler_index;
+	        	sampler_index++;
+	        }
 	        su.size = uniform.size;
 	        s.uniforms[uniform.name] = su;
 	    }
@@ -3643,16 +3677,15 @@ gb.webgl =
 			_t.set_viewport(_t.view);
 			if(clear === true)
 			{
-				_t.ctx.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+				//_t.ctx.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+				_t.ctx.clear(gl.COLOR_BUFFER_BIT);
 			}
 		}
 		else
 		{
 			gl.bindFramebuffer(gl.FRAMEBUFFER, rt.frame_buffer);
-			if(rt.render_buffer)
-				gl.bindRenderbuffer(gl.RENDERBUFFER, rt.render_buffer);
+			gl.bindRenderbuffer(gl.RENDERBUFFER, rt.render_buffer);
 			_t.set_viewport(rt.bounds);
-
 			if(clear === true)
 			{
 				_t.clear(rt);
@@ -3660,11 +3693,11 @@ gb.webgl =
 		}
 	},
 
-	set_render_target_attachment: function(rt, attachment, t)
+	set_render_target_attachment: function(attachment, texture)
 	{
 		var gl = gb.webgl.ctx;
-		gl.bindTexture(gl.TEXTURE_2D, t.id);
-		gl.framebufferTexture2D(gl.FRAMEBUFFER, attachment, gl.TEXTURE_2D, t.id, 0);
+		gl.bindTexture(gl.TEXTURE_2D, texture.id);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, attachment, gl.TEXTURE_2D, texture.id, 0);
 	},
 
 	new_render_buffer: function(width, height)
@@ -3683,13 +3716,14 @@ gb.webgl =
 		rt.frame_buffer = gl.createFramebuffer();
 		gl.bindFramebuffer(gl.FRAMEBUFFER, rt.frame_buffer);
 
-		if(rt.color)
+		// TODO: just do an attachment array
+		if(rt.color !== null)
 		{
-			_t.set_render_target_attachment(rt, gl.COLOR_ATTACHMENT0, rt.color);
+			_t.set_render_target_attachment(gl.COLOR_ATTACHMENT0, rt.color);
 		}
-		if(rt.depth)
+		if(rt.depth !== null)
 		{
-			_t.set_render_target_attachment(rt, gl.DEPTH_ATTACHMENT, rt.depth);
+			_t.set_render_target_attachment(gl.DEPTH_ATTACHMENT, rt.depth);
 		}
 		else
 		{
@@ -3795,10 +3829,9 @@ gb.webgl =
 		        	{
 		        		_t.update_texture(val);
 		        	}
+					gl.uniform1i(loc, uniform.sampler_index);
+					gl.activeTexture(gl.TEXTURE0 + uniform.sampler_index);
 					gl.bindTexture(gl.TEXTURE_2D, val.id);
-					gl.activeTexture(gl.TEXTURE0 + sampler_index);
-					gl.uniform1i(loc, val.id);
-					sampler_index++;
 					break;
 				}
 		        //case 'SAMPLER_CUBE':
@@ -3981,6 +4014,8 @@ gb.on_asset_load = function(e)
     {
         var s = gb.serialize;
         var br = new gb.Binary_Reader(e.target.response);
+        LOG("Asset File Size: " + br.buffer.byteLength + " bytes");
+
         var ag = e.target.upload.asset_group;
 
         var header = s.r_i32_array(br, 3);
@@ -4548,8 +4583,8 @@ function init()
 
 	gl.init(document.querySelector('.container'),
 	{
-		width: 1024,
-		height: 576,
+		width: 512,
+		height: 512,
 		resolution: 1,
 		alpha: false,
 	    depth: true,
@@ -4561,11 +4596,9 @@ function init()
 	    failIfMajorPerformanceCaveat: false
 	});
 
+	//if(gl.extensions.dds !== null)
 	assets = new gb.Asset_Group();
-	if(gl.extensions.dds !== null)
-	{
-		gb.load_asset_group("assets.gl", assets, load_complete, load_progress);
-	}
+	gb.load_asset_group("assets.gl", assets, load_complete, load_progress);
 }
 
 function load_progress(e)
@@ -4578,11 +4611,11 @@ function load_complete(asset_group)
 }
 function link_complete()
 {
-	render_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
 	construct = gb.scene.new();
 	//var world_rotation = gb.quat.new();
 	//qt.euler(world_rotation, 0,0,90);
 	//m4.set_rotation(construct.world_matrix, world_rotation);
+	render_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
 
 	gb.scene.load_asset_group(construct, assets);
 
@@ -4603,22 +4636,20 @@ function link_complete()
 	//light_position = v3.new(3,3,3);
 
 	// TODO: create draw calls automatically
-	draw_call = new gb.DrawCall();
-	draw_call.clear = true;
-	draw_call.camera = camera;
-	draw_call.entities = construct.entities;
-	draw_call.target = render_target;
-	draw_call.material = assets.materials.material;
+	draw_call = gb.draw_call.new(true, render_target, camera, assets.materials.material, construct.entities);
 
 	//DEBUG
+	/*
 	gb.gl_draw.init({buffer_size: 160000});
 	gb.gl_draw.draw_call.camera = camera;
 	gb.gl_draw.draw_call.target = render_target;
+	*/
 	//END
 
-	post_call = new gb.PostCall();
-	post_call.mesh = gb.mesh.generate.quad(2,2);
-	post_call.material = gb.material.new(assets.shaders.screen);
+	post_call = gb.post_call.new(assets.shaders.screen, true);
+	post_call.material.uniforms.albedo = render_target.color;
+	post_call.material.uniforms.depth = render_target.depth;
+
 	assets_loaded = true;
 }
 
@@ -4652,13 +4683,11 @@ function update(t)
 	gb.scene.update(construct);
 	gb.animation.update(anim, dt);
 	gb.webgl.render_draw_call(draw_call);
-
+	/*
 	gb.gl_draw.clear();
 	gb.gl_draw.rig_transforms(sphere.rig);
-	//gb.gl_draw.rig(sphere.rig);
 	gb.webgl.render_draw_call(gb.gl_draw.draw_call);
-
-	post_call.material.uniforms.tex = render_target.color;
+	*/
 	gl.render_post_call(post_call);
 }
 

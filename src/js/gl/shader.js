@@ -9,6 +9,7 @@ gb.ShaderUniform = function()
     this.name;
     this.type;
     this.size;
+    this.sampler_index;
 }
 gb.Shader = function()
 {

@@ -36,6 +36,7 @@ TODO:
 //INCLUDE gl/material.js
 //INCLUDE gl/rig.js
 //INCLUDE gl/render_target.js
+//INCLUDE gl/draw_call.js
 //INCLUDE gl/webgl.js
 //INCLUDE gl/asset_group.js
 //DEBUG
@@ -84,8 +85,8 @@ function init()
 
 	gl.init(document.querySelector('.container'),
 	{
-		width: 1024,
-		height: 576,
+		width: 512,
+		height: 512,
 		resolution: 1,
 		alpha: false,
 	    depth: true,
@@ -97,11 +98,9 @@ function init()
 	    failIfMajorPerformanceCaveat: false
 	});
 
+	//if(gl.extensions.dds !== null)
 	assets = new gb.Asset_Group();
-	if(gl.extensions.dds !== null)
-	{
-		gb.load_asset_group("assets.gl", assets, load_complete, load_progress);
-	}
+	gb.load_asset_group("assets.gl", assets, load_complete, load_progress);
 }
 
 function load_progress(e)
@@ -114,11 +113,11 @@ function load_complete(asset_group)
 }
 function link_complete()
 {
-	render_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
 	construct = gb.scene.new();
 	//var world_rotation = gb.quat.new();
 	//qt.euler(world_rotation, 0,0,90);
 	//m4.set_rotation(construct.world_matrix, world_rotation);
+	render_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
 
 	gb.scene.load_asset_group(construct, assets);
 
@@ -139,22 +138,20 @@ function link_complete()
 	//light_position = v3.new(3,3,3);
 
 	// TODO: create draw calls automatically
-	draw_call = new gb.DrawCall();
-	draw_call.clear = true;
-	draw_call.camera = camera;
-	draw_call.entities = construct.entities;
-	draw_call.target = render_target;
-	draw_call.material = assets.materials.material;
+	draw_call = gb.draw_call.new(true, render_target, camera, assets.materials.material, construct.entities);
 
 	//DEBUG
+	/*
 	gb.gl_draw.init({buffer_size: 160000});
 	gb.gl_draw.draw_call.camera = camera;
 	gb.gl_draw.draw_call.target = render_target;
+	*/
 	//END
 
-	post_call = new gb.PostCall();
-	post_call.mesh = gb.mesh.generate.quad(2,2);
-	post_call.material = gb.material.new(assets.shaders.screen);
+	post_call = gb.post_call.new(assets.shaders.screen, true);
+	post_call.material.uniforms.albedo = render_target.color;
+	post_call.material.uniforms.depth = render_target.depth;
+
 	assets_loaded = true;
 }
 
@@ -188,12 +185,10 @@ function update(t)
 	gb.scene.update(construct);
 	gb.animation.update(anim, dt);
 	gb.webgl.render_draw_call(draw_call);
-
+	/*
 	gb.gl_draw.clear();
 	gb.gl_draw.rig_transforms(sphere.rig);
-	//gb.gl_draw.rig(sphere.rig);
 	gb.webgl.render_draw_call(gb.gl_draw.draw_call);
-
-	post_call.material.uniforms.tex = render_target.color;
+	*/
 	gl.render_post_call(post_call);
 }

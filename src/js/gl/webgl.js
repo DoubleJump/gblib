@@ -37,7 +37,6 @@ gb.webgl =
 		uint: null,
 	},
 	ctx: null,
-	//m_offsets: null,
 	view: null,
 	default_sampler: null,
     screen_mesh: null,
@@ -221,7 +220,6 @@ gb.webgl =
 	    }
 
 	    s.linked = true;
-
 	    return s;
 	},
 
@@ -300,7 +298,8 @@ gb.webgl =
 			_t.set_viewport(rt.bounds);
 			if(clear === true)
 			{
-				_t.clear(rt);
+				_t.ctx.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+				//_t.clear(rt);
 			}
 		}
 	},
@@ -470,7 +469,7 @@ gb.webgl =
 		}
 	},
 
-	render_draw_call: function (dc)
+	render_draw_call: function (dc, rt)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
@@ -481,15 +480,15 @@ gb.webgl =
 
 		//TODO: obvs do this before draw call list
 		
-		//gl.enable(gl.DEPTH_TEST);
-		if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
-		else gl.disable(gl.DEPTH_TEST);
+		gl.enable(gl.DEPTH_TEST);
+		//if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
+		//else gl.disable(gl.DEPTH_TEST);
 
-		if(dc.target.linked === false)
+		if(rt.linked === false)
 		{
-			_t.link_render_target(dc.target);
+			_t.link_render_target(rt);
 		}
-		_t.set_render_target(dc.target, dc.clear);
+		_t.set_render_target(rt, dc.clear);
 
 		if(shader.linked === false) 
 		{
@@ -501,6 +500,9 @@ gb.webgl =
 		{
 			mat.uniforms.proj_matrix = cam.projection;
 			mat.uniforms.view_matrix = cam.view;
+		}
+		if(shader.normals === true)
+		{
 			mat.uniforms.normal_matrix = cam.normal;
 		}
 
@@ -524,7 +526,6 @@ gb.webgl =
 			{
 				mat.uniforms.model_matrix = e.world_matrix;
 			}
-
 			if(shader.rig)
 			{
 				var rig = mat.uniforms['rig[0]'];

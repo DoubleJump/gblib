@@ -29,6 +29,7 @@ def compile_shader_file(name, src_file, writer):
 	read_state = 0
 	uniform_mvp = False
 	uniform_camera = False
+	uniform_normals = False
 	uniform_lights = False
 	uniform_rig = False
 	vertex_shader_found = False
@@ -44,6 +45,8 @@ def compile_shader_file(name, src_file, writer):
 				uniform_mvp = True
 			elif line == "#CAMERA\n":
 				uniform_camera = True
+			elif line == "#NORMALS\n":
+				uniform_normals = True
 			elif line == "#LIGHTS\n":
 				uniform_lights = True
 			elif line == "#RIG\n":
@@ -71,8 +74,9 @@ def compile_shader_file(name, src_file, writer):
 	uniform_mask = 0
 	if uniform_mvp: uniform_mask |= 1
 	if uniform_camera: uniform_mask |= 2
-	if uniform_lights: uniform_mask |= 4
-	if uniform_rig: uniform_mask |= 8
+	if uniform_normals: uniform_mask |= 4
+	if uniform_lights: uniform_mask |= 8
+	if uniform_rig: uniform_mask |= 16
 
 	write_str(writer, name)
 	write_int(writer, uniform_mask)

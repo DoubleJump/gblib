@@ -61,14 +61,16 @@ var construct;
 var pivot;
 var camera;
 var texture;
-var render_target;
 var sphere;
 var anim;
 var post;
 var h_angle = 0;
 var v_angle = 0;
 
-var draw_call;
+var depth_normal_target;
+var depth_normal_pass;
+var albedo_target;
+var albedo_pass;
 var post_call;
 
 function init()
@@ -114,10 +116,9 @@ function load_complete(asset_group)
 function link_complete()
 {
 	construct = gb.scene.new();
-	//var world_rotation = gb.quat.new();
-	//qt.euler(world_rotation, 0,0,90);
-	//m4.set_rotation(construct.world_matrix, world_rotation);
-	render_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
+
+	depth_normal_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
+	albedo_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
 
 	gb.scene.load_asset_group(construct, assets);
 
@@ -135,10 +136,12 @@ function link_complete()
 	anim.target = sphere.rig.joints;
 	anim.loops = -1;
 	anim.is_playing = true;
-	//light_position = v3.new(3,3,3);
 
 	// TODO: create draw calls automatically
-	draw_call = gb.draw_call.new(true, render_target, camera, assets.materials.material, construct.entities);
+	depth_normal_pass = gb.draw_call.new(true, camera, assets.materials.material, construct.entities);
+
+	var albedo_material = gb.material.new(assets.shaders.albedo);
+	albedo_pass = gb.draw_call.new(true, camera, albedo_material, construct.entities); 
 
 	//DEBUG
 	/*
@@ -149,8 +152,9 @@ function link_complete()
 	//END
 
 	post_call = gb.post_call.new(assets.shaders.screen, true);
-	post_call.material.uniforms.albedo = render_target.color;
-	post_call.material.uniforms.depth = render_target.depth;
+	post_call.material.uniforms.albedo = albedo_target.color;
+	post_call.material.uniforms.normal = depth_normal_target.color;
+	post_call.material.uniforms.depth = depth_normal_target.depth;
 
 	assets_loaded = true;
 }
@@ -184,7 +188,8 @@ function update(t)
 
 	gb.scene.update(construct);
 	gb.animation.update(anim, dt);
-	gb.webgl.render_draw_call(draw_call);
+	gb.webgl.render_draw_call(albedo_pass, albedo_target);
+	gb.webgl.render_draw_call(depth_normal_pass, depth_normal_target);
 	/*
 	gb.gl_draw.clear();
 	gb.gl_draw.rig_transforms(sphere.rig);

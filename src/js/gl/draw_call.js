@@ -15,11 +15,10 @@ gb.PostCall = function()
 
 gb.draw_call = 
 {
-	new: function(clear, target, camera, material, entities)
+	new: function(clear, camera, material, entities)
 	{
 		var r = new gb.DrawCall();
 		r.clear = clear;
-		r.target = target;
 		r.camera = camera;
 		r.material = material;
 		r.entities = entities;

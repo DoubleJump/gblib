@@ -1,5 +1,3 @@
-
-
 gb.Material = function()
 {
     this.shader;

@@ -16,13 +16,16 @@ precision highp float;
 varying vec2 _uv;
 
 uniform sampler2D albedo;
+uniform sampler2D normal;
 uniform sampler2D depth;
 
 void main()
 { 
-	vec4 depth_sample = texture2D(depth, _uv);
 	vec4 albedo_sample = texture2D(albedo, _uv);
+	vec4 normal_sample = texture2D(normal, _uv);
+	vec4 depth_sample = texture2D(depth, _uv);
 
 	gl_FragColor = albedo_sample;
+	//gl_FragColor = normal_sample;
 	//gl_FragColor = depth_sample;
 }

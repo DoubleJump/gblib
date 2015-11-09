@@ -3141,12 +3141,11 @@ gb.serialize.r_shader = function(br)
     shader.name = name;
     shader.mvp = gb.has_flag_set(uniform_mask, 1);
     shader.camera = gb.has_flag_set(uniform_mask, 2);
-    shader.lights = gb.has_flag_set(uniform_mask, 4);
-    shader.rig = gb.has_flag_set(uniform_mask, 8);
+    shader.normals = gb.has_flag_set(uniform_mask, 4);
+    shader.lights = gb.has_flag_set(uniform_mask, 8);
+    shader.rig = gb.has_flag_set(uniform_mask, 16);
     return shader;
 }
-
-
 gb.Material = function()
 {
     this.shader;
@@ -3362,11 +3361,10 @@ gb.PostCall = function()
 
 gb.draw_call = 
 {
-	new: function(clear, target, camera, material, entities)
+	new: function(clear, camera, material, entities)
 	{
 		var r = new gb.DrawCall();
 		r.clear = clear;
-		r.target = target;
 		r.camera = camera;
 		r.material = material;
 		r.entities = entities;
@@ -3425,7 +3423,6 @@ gb.webgl =
 		uint: null,
 	},
 	ctx: null,
-	//m_offsets: null,
 	view: null,
 	default_sampler: null,
     screen_mesh: null,
@@ -3609,7 +3606,6 @@ gb.webgl =
 	    }
 
 	    s.linked = true;
-
 	    return s;
 	},
 
@@ -3688,7 +3684,8 @@ gb.webgl =
 			_t.set_viewport(rt.bounds);
 			if(clear === true)
 			{
-				_t.clear(rt);
+				_t.ctx.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+				//_t.clear(rt);
 			}
 		}
 	},
@@ -3858,7 +3855,7 @@ gb.webgl =
 		}
 	},
 
-	render_draw_call: function (dc)
+	render_draw_call: function (dc, rt)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
@@ -3869,15 +3866,15 @@ gb.webgl =
 
 		//TODO: obvs do this before draw call list
 		
-		//gl.enable(gl.DEPTH_TEST);
-		if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
-		else gl.disable(gl.DEPTH_TEST);
+		gl.enable(gl.DEPTH_TEST);
+		//if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
+		//else gl.disable(gl.DEPTH_TEST);
 
-		if(dc.target.linked === false)
+		if(rt.linked === false)
 		{
-			_t.link_render_target(dc.target);
+			_t.link_render_target(rt);
 		}
-		_t.set_render_target(dc.target, dc.clear);
+		_t.set_render_target(rt, dc.clear);
 
 		if(shader.linked === false) 
 		{
@@ -3889,6 +3886,9 @@ gb.webgl =
 		{
 			mat.uniforms.proj_matrix = cam.projection;
 			mat.uniforms.view_matrix = cam.view;
+		}
+		if(shader.normals === true)
+		{
 			mat.uniforms.normal_matrix = cam.normal;
 		}
 
@@ -3912,7 +3912,6 @@ gb.webgl =
 			{
 				mat.uniforms.model_matrix = e.world_matrix;
 			}
-
 			if(shader.rig)
 			{
 				var rig = mat.uniforms['rig[0]'];
@@ -4559,14 +4558,16 @@ var construct;
 var pivot;
 var camera;
 var texture;
-var render_target;
 var sphere;
 var anim;
 var post;
 var h_angle = 0;
 var v_angle = 0;
 
-var draw_call;
+var depth_normal_target;
+var depth_normal_pass;
+var albedo_target;
+var albedo_pass;
 var post_call;
 
 function init()
@@ -4612,10 +4613,9 @@ function load_complete(asset_group)
 function link_complete()
 {
 	construct = gb.scene.new();
-	//var world_rotation = gb.quat.new();
-	//qt.euler(world_rotation, 0,0,90);
-	//m4.set_rotation(construct.world_matrix, world_rotation);
-	render_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
+
+	depth_normal_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
+	albedo_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
 
 	gb.scene.load_asset_group(construct, assets);
 
@@ -4633,10 +4633,12 @@ function link_complete()
 	anim.target = sphere.rig.joints;
 	anim.loops = -1;
 	anim.is_playing = true;
-	//light_position = v3.new(3,3,3);
 
 	// TODO: create draw calls automatically
-	draw_call = gb.draw_call.new(true, render_target, camera, assets.materials.material, construct.entities);
+	depth_normal_pass = gb.draw_call.new(true, camera, assets.materials.material, construct.entities);
+
+	var albedo_material = gb.material.new(assets.shaders.albedo);
+	albedo_pass = gb.draw_call.new(true, camera, albedo_material, construct.entities); 
 
 	//DEBUG
 	/*
@@ -4647,8 +4649,9 @@ function link_complete()
 	//END
 
 	post_call = gb.post_call.new(assets.shaders.screen, true);
-	post_call.material.uniforms.albedo = render_target.color;
-	post_call.material.uniforms.depth = render_target.depth;
+	post_call.material.uniforms.albedo = albedo_target.color;
+	post_call.material.uniforms.normal = depth_normal_target.color;
+	post_call.material.uniforms.depth = depth_normal_target.depth;
 
 	assets_loaded = true;
 }
@@ -4682,7 +4685,8 @@ function update(t)
 
 	gb.scene.update(construct);
 	gb.animation.update(anim, dt);
-	gb.webgl.render_draw_call(draw_call);
+	gb.webgl.render_draw_call(albedo_pass, albedo_target);
+	gb.webgl.render_draw_call(depth_normal_pass, depth_normal_target);
 	/*
 	gb.gl_draw.clear();
 	gb.gl_draw.rig_transforms(sphere.rig);

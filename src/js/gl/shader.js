@@ -47,7 +47,8 @@ gb.serialize.r_shader = function(br)
     shader.name = name;
     shader.mvp = gb.has_flag_set(uniform_mask, 1);
     shader.camera = gb.has_flag_set(uniform_mask, 2);
-    shader.lights = gb.has_flag_set(uniform_mask, 4);
-    shader.rig = gb.has_flag_set(uniform_mask, 8);
+    shader.normals = gb.has_flag_set(uniform_mask, 4);
+    shader.lights = gb.has_flag_set(uniform_mask, 8);
+    shader.rig = gb.has_flag_set(uniform_mask, 16);
     return shader;
 }

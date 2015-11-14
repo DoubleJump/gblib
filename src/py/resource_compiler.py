@@ -8,7 +8,6 @@ import os
 import argparse
 from struct import pack
 
-
 def compile_texture_file(name, ftype, src_file, writer):
 	b = src_file.read()
 	write_str(writer, name)

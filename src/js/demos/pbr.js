@@ -1,8 +1,8 @@
 /*
 TODO: 
+- antialiasing
+- shadow mapping
 - dds mipmaps
-- deferred rendering
-- PBR
 - basic sound
 - mesh gen
 - particles
@@ -21,7 +21,6 @@ TODO:
 //INCLUDE ray.js
 //INCLUDE intersect.js
 //INCLUDE color.js
-//INCLUDE random.js
 //INCLUDE input.js
 //INCLUDE animate.js
 //INCLUDE gl/entity.js
@@ -93,7 +92,7 @@ function init()
 		alpha: false,
 	    depth: true,
 	    stencil: false,
-	    antialias: true,
+	    antialias: false,
 	    premultipliedAlpha: false,
 	    preserveDrawingBuffer: false,
 	    preferLowPowerToHighPerformance: false,
@@ -117,7 +116,7 @@ function link_complete()
 {
 	construct = gb.scene.new();
 
-	depth_normal_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
+	//depth_normal_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
 	albedo_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
 
 	gb.scene.load_asset_group(construct, assets);
@@ -138,7 +137,7 @@ function link_complete()
 	anim.is_playing = true;
 
 	// TODO: create draw calls automatically
-	depth_normal_pass = gb.draw_call.new(true, camera, assets.materials.material, construct.entities);
+	//depth_normal_pass = gb.draw_call.new(true, camera, assets.materials.material, construct.entities);
 
 	var albedo_material = gb.material.new(assets.shaders.albedo);
 	albedo_pass = gb.draw_call.new(true, camera, albedo_material, construct.entities); 
@@ -151,10 +150,17 @@ function link_complete()
 	*/
 	//END
 
-	post_call = gb.post_call.new(assets.shaders.screen, true);
-	post_call.material.uniforms.albedo = albedo_target.color;
-	post_call.material.uniforms.normal = depth_normal_target.color;
-	post_call.material.uniforms.depth = depth_normal_target.depth;
+	var resolution = v3.tmp(albedo_target.color.width, albedo_target.color.height);
+	var inv_resolution = v3.tmp(1.0 / albedo_target.color.width, 1.0 / albedo_target.color.height);
+
+	post_call = gb.post_call.new(assets.shaders.fxaa, true);
+	post_call.material.uniforms.texture = albedo_target.color;
+	post_call.material.uniforms.resolution = resolution;
+	post_call.material.uniforms.inv_resolution = inv_resolution;
+
+	//post_call.material.uniforms.albedo = albedo_target.color;
+	//post_call.material.uniforms.normal = depth_normal_target.color;
+	//post_call.material.uniforms.depth = depth_normal_target.depth;
 
 	assets_loaded = true;
 }
@@ -189,7 +195,7 @@ function update(t)
 	gb.scene.update(construct);
 	gb.animation.update(anim, dt);
 	gb.webgl.render_draw_call(albedo_pass, albedo_target);
-	gb.webgl.render_draw_call(depth_normal_pass, depth_normal_target);
+	//gb.webgl.render_draw_call(depth_normal_pass, depth_normal_target);
 	/*
 	gb.gl_draw.clear();
 	gb.gl_draw.rig_transforms(sphere.rig);

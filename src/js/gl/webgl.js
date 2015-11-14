@@ -65,19 +65,8 @@ gb.webgl =
         canvas.height = height;
         _t.view = gb.rect.new(0,0,width,height);
 
-        try
-        {
-            gl = canvas.getContext('experimental-webgl', config);
-            if(gl == null)
-            {
-                gl = canvas.getContext('webgl', config);
-            }
-        }
-        catch(e)
-        {
-            console.error("Not WebGL compatible: " + e);
-            return;
-        }
+        gl = canvas.getContext('webgl', config);
+        //gl = canvas.getContext('experimental-webgl', config);
 
         //DEBUG
         ASSERT(gl != null, "Could not load WebGL");
@@ -583,7 +572,6 @@ gb.webgl =
         r[0] = point[0] / view.width;
         r[1] = 1.0 - (point[1] / view.height);
         r[2] = point[2];
-        return r;
     },
 
     screen_to_world: function(r, camera, point, view)

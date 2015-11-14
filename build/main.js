@@ -14,9 +14,9 @@
 ///INCLUDE demos/diamond.js
 /*
 TODO: 
+- antialiasing
+- shadow mapping
 - dds mipmaps
-- deferred rendering
-- PBR
 - basic sound
 - mesh gen
 - particles
@@ -1848,64 +1848,6 @@ gb.color =
 		r[3] = it * a[3] + t * b[3];
 	},
 }
-gb.random = 
-{
-	int: function(min, max)
-	{
-    	return Math.floor(Math.random() * (max - min + 1)) + min;
-	},
-	float: function(min, max)
-	{
-    	return Math.random() * (max - min) + min;
-	},
-	float_fuzzy: function(f, fuzz)
-	{
-		return gb.random.float(f-fuzz, f+fuzz);
-	},
-	vec2: function(r, min_x, max_x, min_y, max_y)
-	{
-		r[0] = Math.random() * (max_x - min_x) + min_x;
-		r[1] = Math.random() * (max_y - min_x) + min_y;
-	},
-	vec2_fuzzy: function(r, x,y, fuzz)
-	{
-		gb.random.vec2(r, x-fuzz, x+fuzz, y-fuzz, y+fuzz);
-	},
-	vec3: function(r, min_x, max_x, min_y, max_y, min_z, max_z)
-	{
-		r[0] = Math.random() * (max_x - min_x) + min_x;
-		r[1] = Math.random() * (max_y - min_x) + min_y;
-		r[2] = Math.random() * (max_z - min_x) + min_z;
-	},
-	rotation: function(r, min_x, max_x, min_y, max_y, min_z, max_z)
-	{
-		var x = Math.random() * (max_x - min_x) + min_x;
-		var y = Math.random() * (max_y - min_x) + min_y;
-		var z = Math.random() * (max_z - min_x) + min_z;
-		gb.quat.euler(r, x,y,z);
-	},
-	fill: function(r)
-	{
-		var n = r.length;
-		for(var i = 0; i < n; ++i)
-			r[i] = Math.random();
-	},
-	color: function(r, min_r, max_r, min_g, max_g, min_b, max_b, min_a, max_a)
-	{
-		r[0] = Math.random() * (max_r - min_r) + min_r;
-		r[1] = Math.random() * (max_g - min_g) + min_g;
-		r[2] = Math.random() * (max_b - min_b) + min_b;
-		r[3] = Math.random() * (max_a - min_a) + min_a;
-	},
-	unit_circle: function(r)
-	{
-		var x = gb.rand.float(-1,1);
-		var y = gb.rand.float(-1,1);
-		var l = 1 / gb.math.sqrt(x * x + y * y);
-		r[0] = x * l;
-		r[1] = y * l;
-	}
-}
 gb.Touch = function()
 {
 	this.id = -1;
@@ -3451,19 +3393,8 @@ gb.webgl =
         canvas.height = height;
         _t.view = gb.rect.new(0,0,width,height);
 
-        try
-        {
-            gl = canvas.getContext('experimental-webgl', config);
-            if(gl == null)
-            {
-                gl = canvas.getContext('webgl', config);
-            }
-        }
-        catch(e)
-        {
-            console.error("Not WebGL compatible: " + e);
-            return;
-        }
+        gl = canvas.getContext('webgl', config);
+        //gl = canvas.getContext('experimental-webgl', config);
 
         //DEBUG
         ASSERT(gl != null, "Could not load WebGL");
@@ -3969,7 +3900,6 @@ gb.webgl =
         r[0] = point[0] / view.width;
         r[1] = 1.0 - (point[1] / view.height);
         r[2] = point[2];
-        return r;
     },
 
     screen_to_world: function(r, camera, point, view)
@@ -4590,7 +4520,7 @@ function init()
 		alpha: false,
 	    depth: true,
 	    stencil: false,
-	    antialias: true,
+	    antialias: false,
 	    premultipliedAlpha: false,
 	    preserveDrawingBuffer: false,
 	    preferLowPowerToHighPerformance: false,
@@ -4614,7 +4544,7 @@ function link_complete()
 {
 	construct = gb.scene.new();
 
-	depth_normal_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
+	//depth_normal_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
 	albedo_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
 
 	gb.scene.load_asset_group(construct, assets);
@@ -4635,7 +4565,7 @@ function link_complete()
 	anim.is_playing = true;
 
 	// TODO: create draw calls automatically
-	depth_normal_pass = gb.draw_call.new(true, camera, assets.materials.material, construct.entities);
+	//depth_normal_pass = gb.draw_call.new(true, camera, assets.materials.material, construct.entities);
 
 	var albedo_material = gb.material.new(assets.shaders.albedo);
 	albedo_pass = gb.draw_call.new(true, camera, albedo_material, construct.entities); 
@@ -4648,10 +4578,17 @@ function link_complete()
 	*/
 	//END
 
-	post_call = gb.post_call.new(assets.shaders.screen, true);
-	post_call.material.uniforms.albedo = albedo_target.color;
-	post_call.material.uniforms.normal = depth_normal_target.color;
-	post_call.material.uniforms.depth = depth_normal_target.depth;
+	var resolution = v3.tmp(albedo_target.color.width, albedo_target.color.height);
+	var inv_resolution = v3.tmp(1.0 / albedo_target.color.width, 1.0 / albedo_target.color.height);
+
+	post_call = gb.post_call.new(assets.shaders.fxaa, true);
+	post_call.material.uniforms.texture = albedo_target.color;
+	post_call.material.uniforms.resolution = resolution;
+	post_call.material.uniforms.inv_resolution = inv_resolution;
+
+	//post_call.material.uniforms.albedo = albedo_target.color;
+	//post_call.material.uniforms.normal = depth_normal_target.color;
+	//post_call.material.uniforms.depth = depth_normal_target.depth;
 
 	assets_loaded = true;
 }
@@ -4686,7 +4623,7 @@ function update(t)
 	gb.scene.update(construct);
 	gb.animation.update(anim, dt);
 	gb.webgl.render_draw_call(albedo_pass, albedo_target);
-	gb.webgl.render_draw_call(depth_normal_pass, depth_normal_target);
+	//gb.webgl.render_draw_call(depth_normal_pass, depth_normal_target);
 	/*
 	gb.gl_draw.clear();
 	gb.gl_draw.rig_transforms(sphere.rig);

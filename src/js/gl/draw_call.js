@@ -1,8 +1,6 @@
 gb.DrawCall = function()
 {
-	this.clear = false;
 	this.depth_test = true;
-	this.target;
 	this.camera;
 	this.material;
 	this.entities = [];
@@ -15,10 +13,9 @@ gb.PostCall = function()
 
 gb.draw_call = 
 {
-	new: function(clear, camera, material, entities)
+	new: function(camera, material, entities)
 	{
 		var r = new gb.DrawCall();
-		r.clear = clear;
 		r.camera = camera;
 		r.material = material;
 		r.entities = entities;
@@ -30,6 +27,7 @@ gb.post_call =
 	new: function(shader, full_screen)
 	{
 		var r = new gb.PostCall();
+		full_screen = full_screen || true;
 		if(full_screen === true)
 		{
 			r.mesh = gb.mesh.generate.quad(2,2);

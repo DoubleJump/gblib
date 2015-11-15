@@ -108,12 +108,32 @@ def write_bytes(writer, val):
 	writer.target.write(val)
 	writer.offset += len(val)
 
+class AssetGroup:
+	shaders = []
+	textures = []
+	scenes = []
 
 class Asset:
 	path = None
 	name = None
 	file_type = None
 
+
+def find_assets(root, files, asset_group):
+	for f in files:
+		split = f.split(".")
+		asset = Asset()
+		asset.name = split[0]
+		asset.file_type = split[1]
+		asset.path = os.path.join(root, f)
+		if asset.file_type == "glsl":
+			asset_group.shaders.append(asset)
+		elif asset.file_type == "scene":
+			asset_group.scenes.append(asset)
+		elif asset.file_type == "dds":
+			asset_group.textures.append(asset)
+		elif asset.file_type == "pvr":
+			asset_group.textures.append(asset)	
 
 def main(argv = None):
 
@@ -126,64 +146,56 @@ def main(argv = None):
 	src_dir = args.src
 	target = args.target
 
+	print('###########################')
+	print('Compiling target: ' + target)
+	print('###########################')
+
 	writer = FileWriter()
 	writer.target = open(args.dest, "wb")
 	writer.offset = 0 
 
-	n_shaders = 0;
-	n_textures = 0;
-	n_scenes = 0;
+	asset_group = AssetGroup()
 
-	shaders = []
-	textures = []
-	scenes = []
-	
-	#count files
-	for root, dirs, files in os.walk(src_dir):
-		for f in files:
-			split = f.split(".")
-			asset = Asset()
-			asset.name = split[0]
-			asset.file_type = split[1]
-			asset.path = os.path.join(root, f)
-			if asset.file_type == "glsl":
-				shaders.append(asset)
-			elif asset.file_type == "scene":
-				scenes.append(asset)
-			elif asset.file_type == "dds":
-				textures.append(asset)
-			elif asset.file_type == "pvr":
-				textures.append(asset)
+	for root, dirs, files in os.walk(src_dir + 'common/'):
+		find_assets(root, files, asset_group);
 
-	write_int(writer, len(shaders))
-	write_int(writer, len(textures))
-	write_int(writer, len(scenes))
+	if target is 'IOS':
+		for root, dirs, files in os.walk(src_dir + 'ios/'):
+			find_assets(root, files, asset_group)
 
-	for s in shaders:
+	elif target is 'DESKTOP':
+		for root, dirs, files in os.walk(src_dir + 'desktop/'):
+			find_assets(root, files, asset_group)
+
+	write_int(writer, len(asset_group.shaders))
+	write_int(writer, len(asset_group.textures))
+	write_int(writer, len(asset_group.scenes))
+
+	for s in asset_group.shaders:
 		src = open(s.path, "r")
 		if not compile_shader_file(s.name, src, writer):
 			print "Error compiling shader: " + s.name + " ... exiting"
 			src.close()
 			break
-		print "Compiled shader: " + s.name
+		print "Shader: " + s.name
 		src.close()
 
-	for t in textures:
+	for t in asset_group.textures:
 		src = open(t.path, "rb")
 		if not compile_texture_file(t.name, t.file_type, src, writer):
 			print "Error compiling texture: " + t.name + " ... exiting"
 			src.close()
 			break
-		print "Compiled texture: " + t.name
+		print "Texture: " + t.name
 		src.close()
 
-	for s in scenes:
+	for s in asset_group.scenes:
 		src = open(s.path, "rb")
 		if not compile_scene_file(s.name, src, writer):
 			print "Error compiling scene: " + s.name + " ... exiting"
 			src.close()
 			break
-		print "Compiled scene: " + s.name
+		print "Scene: " + s.name
 		src.close()
 
 	writer.target.close()

@@ -30,7 +30,7 @@ gb.Entity = function()
 }
 gb.entity = 
 {
-	new: function()
+	new: function(type)
 	{
 		var e = new gb.Entity();
 		e.position = gb.vec3.new(0,0,0);
@@ -95,6 +95,11 @@ gb.entity =
 	{
 		gb.quat.euler(e.rotation, x,y,z);
 		e.dirty = true;
+	},
+	set_armature: function(e, a)
+	{
+		e.entity_type = gb.EntityType.RIG;
+		e.rig = a;
 	},
 
 	// TODO: needs updating to ensure components get updated on recursive calls

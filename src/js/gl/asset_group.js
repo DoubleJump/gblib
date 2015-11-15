@@ -69,7 +69,7 @@ gb.on_asset_load = function(e)
         for(var i = 0; i < n_scenes; ++i)
         {
             var name = s.r_string(br);
-            LOG("Loading: " + name);
+            LOG("Loading Scene: " + name);
 
             var scene_complete = false;
             while(scene_complete === false)
@@ -117,6 +117,7 @@ gb.on_asset_load = function(e)
                         var entity = s.r_entity(br, ag);
                         entity.material = ag.materials[s.r_string(br)];
                         entity.mesh = ag.meshes[s.r_string(br)];
+                        entity.entity_type = gb.EntityType.ENTITY;
                         ag.entities[entity.name] = entity;
                         LOG("Loaded Entity: " + entity.name);
                         break;

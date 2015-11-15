@@ -265,6 +265,15 @@ gb.webgl =
 		gl.scissor(v.x, v.y, v.width, v.height);
 	},
 
+	new_render_buffer: function(width, height)
+	{
+		var gl = gb.webgl.ctx;
+		var rb = gl.createRenderbuffer();
+		gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
+		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+		return rb;
+	},
+
 	set_render_target: function(rt, clear)
 	{
 		var _t = gb.webgl;
@@ -274,11 +283,7 @@ gb.webgl =
 			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 			gl.bindRenderbuffer(gl.RENDERBUFFER, null);
 			_t.set_viewport(_t.view);
-			if(clear === true)
-			{
-				//_t.ctx.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-				_t.ctx.clear(gl.COLOR_BUFFER_BIT);
-			}
+			if(clear === true) _t.ctx.clear(gl.COLOR_BUFFER_BIT);
 		}
 		else
 		{
@@ -287,8 +292,10 @@ gb.webgl =
 			_t.set_viewport(rt.bounds);
 			if(clear === true)
 			{
-				_t.ctx.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-				//_t.clear(rt);
+				var mode = 0;
+				if(rt.color) mode |= gl.COLOR_BUFFER_BIT;
+				if(rt.depth) mode |= gl.DEPTH_BUFFER_BIT;
+				gl.clear(mode);
 			}
 		}
 	},
@@ -298,15 +305,6 @@ gb.webgl =
 		var gl = gb.webgl.ctx;
 		gl.bindTexture(gl.TEXTURE_2D, texture.id);
 		gl.framebufferTexture2D(gl.FRAMEBUFFER, attachment, gl.TEXTURE_2D, texture.id, 0);
-	},
-
-	new_render_buffer: function(width, height)
-	{
-		var gl = gb.webgl.ctx;
-		var rb = gl.createRenderbuffer();
-		gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
-		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
-		return rb;
 	},
 
 	link_render_target: function(rt)
@@ -335,15 +333,6 @@ gb.webgl =
 		//END
 
 		rt.linked = true;
-	},
-
-	clear: function(rt)
-	{
-		var gl = gb.webgl.ctx;
-		var mode = 0;
-		if(rt.color) mode |= gl.COLOR_BUFFER_BIT;
-		if(rt.depth) mode |= gl.DEPTH_BUFFER_BIT;
-		gl.clear(mode);
 	},
 
 	draw_mesh_elements: function(mesh)
@@ -458,7 +447,7 @@ gb.webgl =
 		}
 	},
 
-	render_draw_call: function (dc, rt)
+	render_draw_call: function (dc, rt, clear)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
@@ -466,23 +455,14 @@ gb.webgl =
 		var shader = mat.shader;
 		var cam = dc.camera;
 		//var lights = dc.lights;
-
-		//TODO: obvs do this before draw call list
 		
-		gl.enable(gl.DEPTH_TEST);
-		//if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
-		//else gl.disable(gl.DEPTH_TEST);
+		if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
+		else gl.disable(gl.DEPTH_TEST);
 
-		if(rt.linked === false)
-		{
-			_t.link_render_target(rt);
-		}
-		_t.set_render_target(rt, dc.clear);
+		if(rt.linked === false) _t.link_render_target(rt);
+		_t.set_render_target(rt, clear);
 
-		if(shader.linked === false) 
-		{
-			_t.link_shader(shader);
-		}
+		if(shader.linked === false) _t.link_shader(shader);
 		_t.use_shader(shader);
 
 		if(shader.camera === true)
@@ -501,7 +481,11 @@ gb.webgl =
 		for(var i = 0; i < n; ++i)
 		{
 			var e = dc.entities[i];
-			if(e.entity_type !== gb.EntityType.ENTITY && e.entity_type !== gb.EntityType.RIG) continue;
+			// TODO: filter these out at draw call gen phase
+			if(e.entity_type === gb.EntityType.EMPTY) continue;
+			if(e.entity_type === gb.EntityType.CAMERA) continue;
+			if(e.entity_type === gb.EntityType.LAMP) continue;
+
 			ASSERT(e.mesh, "Cannot draw an entity with no mesh now can I?");
 			if(e.mesh.linked === false) _t.link_mesh(e.mesh);
 			if(e.mesh.dirty === true) _t.update_mesh(e.mesh);
@@ -538,7 +522,7 @@ gb.webgl =
 		}
 	},
 
-	render_post_call: function(pc)
+	render_post_call: function(pc, rt)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
@@ -552,7 +536,7 @@ gb.webgl =
 		if(mesh.dirty === true) _t.update_mesh(mesh);
 
 		gl.disable(gl.DEPTH_TEST);
-		_t.set_render_target(null);
+		_t.set_render_target(rt, true);
 		_t.use_shader(shader);
 		_t.link_attributes(shader, mesh);
 		_t.set_uniforms(shader, mat.uniforms);

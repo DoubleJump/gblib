@@ -14,7 +14,6 @@ gb.Camera = function()
 	this.fov;
 	return this;
 }
-
 gb.camera = 
 {
 	new: function(projection, near, far, fov, mask)
@@ -33,30 +32,14 @@ gb.camera =
 	update_projection: function(c, view)
 	{
 		c.aspect = view.width / view.height;
-
-		var m = c.projection;
-
 		if(c.projection_type === gb.Projection.ORTHO)
 		{
-			m[ 0] = 2.0 / view.width;
-			m[ 5] = 2.0 / view.height;
-			m[10] = -2.0 / (c.far - c.near);
-			m[14] = 0.0;
-			m[15] = 1.0;	
+			gb.mat4.ortho_projection(c.projection, view.width, view.height, c.far, c.near);
 		}
 		else
 		{
-			var h = 1.0 / gb.math.tan(c.fov * gb.math.PI_OVER_360);
-			var y = c.near - c.far;
-			
-			m[ 0] = h / c.aspect;
-			m[ 5] = h;
-			m[10] = (c.far + c.near) / y;
-			m[11] = -1.0;
-			m[14] = 2.0 * (c.near * c.far) / y;
-			m[15] = 0.0;
+			gb.mat4.perspective_projection(c.projection, c.far, c.near, c.aspect, c.fov);
 		}
-
 		c.dirty = false;
 	},
 

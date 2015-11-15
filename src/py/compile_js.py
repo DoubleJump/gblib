@@ -9,7 +9,7 @@ import argparse
 
 
 def read_file(name, directory, out_buffer, debug):
-	print "Reading file: " + name
+	print name
 	read_state = 0
 	src_file = open(directory + name, 'r')
 	for line in src_file:
@@ -49,11 +49,17 @@ def main(argv = None):
 
 	out_buffer = []
 
+	print('###########################')
+	print('Compiling Javasript')
+	print('###########################')
+
 	read_file(src_file, src_dir, out_buffer, args.debug)
 
 	out_file = open(args.dest, 'w')
 	for l in out_buffer:
 		out_file.write(l)
+
+	print('')
 
 
 if __name__ == "__main__":

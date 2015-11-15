@@ -16,11 +16,17 @@ gb.render_target =
     STENCIL: 4,
     DEPTH_STENCIL: 8,
 
-    new: function(view, mask, color)
+    new: function(view, mask)
     {
         var rt = new gb.Render_Target();
+
+        if(!view) view = gb.webgl.view;
+
         rt.bounds = gb.rect.new();
         gb.rect.eq(rt.bounds, view);
+
+        if(!mask) mask = gb.render_target.COLOR | gb.render_target.DEPTH;
+        
         if(gb.has_flag_set(mask, gb.render_target.COLOR) === true)
         {
             rt.color = gb.texture.rgba(view.width, view.height, null, gb.webgl.default_sampler, 0);

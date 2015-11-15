@@ -4,6 +4,7 @@ gb.Lamp = function()
 	this.type = gb.LampType.POINT;
 	this.energy = 1;
 	this.distance = 1;
+	this.projection = gb.mat4.new();
 }
 
 gb.lamp = 

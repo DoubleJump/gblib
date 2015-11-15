@@ -61,8 +61,8 @@ void main()
     float lumaSW = dot(rgbSW, luma);
     float lumaSE = dot(rgbSE, luma);
     float lumaM  = dot(rgba.xyz, luma);
-    float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));
-    float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));
+    float lumaMIN = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));
+    float lumaMAX = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));
     
     vec2 dir;
     dir.x = -((lumaNW + lumaNE) - (lumaSW + lumaSE));
@@ -81,7 +81,7 @@ void main()
         texture2D(texture, frag * inv_resolution + dir * 0.5).xyz);
 
     float lumaB = dot(rgbB, luma);
-    if ((lumaB < lumaMin) || (lumaB > lumaMax))
+    if ((lumaB < lumaMIN) || (lumaB > lumaMAX))
     {
         gl_FragColor = vec4(rgbA, rgba.a);
     }

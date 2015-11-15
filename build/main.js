@@ -14,7 +14,6 @@
 ///INCLUDE demos/diamond.js
 /*
 TODO: 
-- antialiasing
 - shadow mapping
 - dds mipmaps
 - basic sound
@@ -1349,6 +1348,27 @@ gb.mat4 =
 		var z = (m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]) * d;
 		r[0] = x; r[1] = y; r[2] = z;
 	},
+
+	ortho_projection: function(m, w,h,f,n)
+	{
+		m[ 0] = 2.0 / w;
+		m[ 5] = 2.0 / h;
+		m[10] = -2.0 / (f - n);
+		m[14] = 0.0;
+		m[15] = 1.0;
+	},
+	perspective_projection: function(m, f,n,aspect,fov)
+	{
+		var h = 1.0 / gb.math.tan(fov * gb.math.PI_OVER_360);
+		var y = n - f;
+		
+		m[ 0] = h / aspect;
+		m[ 5] = h;
+		m[10] = (f + n) / y;
+		m[11] = -1.0;
+		m[14] = 2.0 * (n * f) / y;
+		m[15] = 0.0;
+	},
 }
 gb.Rect = function()
 {
@@ -2411,7 +2431,7 @@ gb.Entity = function()
 }
 gb.entity = 
 {
-	new: function()
+	new: function(type)
 	{
 		var e = new gb.Entity();
 		e.position = gb.vec3.new(0,0,0);
@@ -2477,6 +2497,11 @@ gb.entity =
 		gb.quat.euler(e.rotation, x,y,z);
 		e.dirty = true;
 	},
+	set_armature: function(e, a)
+	{
+		e.entity_type = gb.EntityType.RIG;
+		e.rig = a;
+	},
 
 	// TODO: needs updating to ensure components get updated on recursive calls
 	update: function(e, scene)
@@ -2536,6 +2561,7 @@ gb.Lamp = function()
 	this.type = gb.LampType.POINT;
 	this.energy = 1;
 	this.distance = 1;
+	this.projection = gb.mat4.new();
 }
 
 gb.lamp = 
@@ -2587,7 +2613,6 @@ gb.Camera = function()
 	this.fov;
 	return this;
 }
-
 gb.camera = 
 {
 	new: function(projection, near, far, fov, mask)
@@ -2606,30 +2631,14 @@ gb.camera =
 	update_projection: function(c, view)
 	{
 		c.aspect = view.width / view.height;
-
-		var m = c.projection;
-
 		if(c.projection_type === gb.Projection.ORTHO)
 		{
-			m[ 0] = 2.0 / view.width;
-			m[ 5] = 2.0 / view.height;
-			m[10] = -2.0 / (c.far - c.near);
-			m[14] = 0.0;
-			m[15] = 1.0;	
+			gb.mat4.ortho_projection(c.projection, view.width, view.height, c.far, c.near);
 		}
 		else
 		{
-			var h = 1.0 / gb.math.tan(c.fov * gb.math.PI_OVER_360);
-			var y = c.near - c.far;
-			
-			m[ 0] = h / c.aspect;
-			m[ 5] = h;
-			m[10] = (c.far + c.near) / y;
-			m[11] = -1.0;
-			m[14] = 2.0 * (c.near * c.far) / y;
-			m[15] = 0.0;
+			gb.mat4.perspective_projection(c.projection, c.far, c.near, c.aspect, c.fov);
 		}
-
 		c.dirty = false;
 	},
 
@@ -3265,11 +3274,17 @@ gb.render_target =
     STENCIL: 4,
     DEPTH_STENCIL: 8,
 
-    new: function(view, mask, color)
+    new: function(view, mask)
     {
         var rt = new gb.Render_Target();
+
+        if(!view) view = gb.webgl.view;
+
         rt.bounds = gb.rect.new();
         gb.rect.eq(rt.bounds, view);
+
+        if(!mask) mask = gb.render_target.COLOR | gb.render_target.DEPTH;
+        
         if(gb.has_flag_set(mask, gb.render_target.COLOR) === true)
         {
             rt.color = gb.texture.rgba(view.width, view.height, null, gb.webgl.default_sampler, 0);
@@ -3288,9 +3303,7 @@ gb.render_target =
 
 gb.DrawCall = function()
 {
-	this.clear = false;
 	this.depth_test = true;
-	this.target;
 	this.camera;
 	this.material;
 	this.entities = [];
@@ -3303,10 +3316,9 @@ gb.PostCall = function()
 
 gb.draw_call = 
 {
-	new: function(clear, camera, material, entities)
+	new: function(camera, material, entities)
 	{
 		var r = new gb.DrawCall();
-		r.clear = clear;
 		r.camera = camera;
 		r.material = material;
 		r.entities = entities;
@@ -3318,6 +3330,7 @@ gb.post_call =
 	new: function(shader, full_screen)
 	{
 		var r = new gb.PostCall();
+		full_screen = full_screen || true;
 		if(full_screen === true)
 		{
 			r.mesh = gb.mesh.generate.quad(2,2);
@@ -3593,6 +3606,15 @@ gb.webgl =
 		gl.scissor(v.x, v.y, v.width, v.height);
 	},
 
+	new_render_buffer: function(width, height)
+	{
+		var gl = gb.webgl.ctx;
+		var rb = gl.createRenderbuffer();
+		gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
+		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+		return rb;
+	},
+
 	set_render_target: function(rt, clear)
 	{
 		var _t = gb.webgl;
@@ -3602,11 +3624,7 @@ gb.webgl =
 			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 			gl.bindRenderbuffer(gl.RENDERBUFFER, null);
 			_t.set_viewport(_t.view);
-			if(clear === true)
-			{
-				//_t.ctx.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-				_t.ctx.clear(gl.COLOR_BUFFER_BIT);
-			}
+			if(clear === true) _t.ctx.clear(gl.COLOR_BUFFER_BIT);
 		}
 		else
 		{
@@ -3615,8 +3633,10 @@ gb.webgl =
 			_t.set_viewport(rt.bounds);
 			if(clear === true)
 			{
-				_t.ctx.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-				//_t.clear(rt);
+				var mode = 0;
+				if(rt.color) mode |= gl.COLOR_BUFFER_BIT;
+				if(rt.depth) mode |= gl.DEPTH_BUFFER_BIT;
+				gl.clear(mode);
 			}
 		}
 	},
@@ -3626,15 +3646,6 @@ gb.webgl =
 		var gl = gb.webgl.ctx;
 		gl.bindTexture(gl.TEXTURE_2D, texture.id);
 		gl.framebufferTexture2D(gl.FRAMEBUFFER, attachment, gl.TEXTURE_2D, texture.id, 0);
-	},
-
-	new_render_buffer: function(width, height)
-	{
-		var gl = gb.webgl.ctx;
-		var rb = gl.createRenderbuffer();
-		gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
-		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
-		return rb;
 	},
 
 	link_render_target: function(rt)
@@ -3663,15 +3674,6 @@ gb.webgl =
 		//END
 
 		rt.linked = true;
-	},
-
-	clear: function(rt)
-	{
-		var gl = gb.webgl.ctx;
-		var mode = 0;
-		if(rt.color) mode |= gl.COLOR_BUFFER_BIT;
-		if(rt.depth) mode |= gl.DEPTH_BUFFER_BIT;
-		gl.clear(mode);
 	},
 
 	draw_mesh_elements: function(mesh)
@@ -3786,7 +3788,7 @@ gb.webgl =
 		}
 	},
 
-	render_draw_call: function (dc, rt)
+	render_draw_call: function (dc, rt, clear)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
@@ -3794,23 +3796,14 @@ gb.webgl =
 		var shader = mat.shader;
 		var cam = dc.camera;
 		//var lights = dc.lights;
-
-		//TODO: obvs do this before draw call list
 		
-		gl.enable(gl.DEPTH_TEST);
-		//if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
-		//else gl.disable(gl.DEPTH_TEST);
+		if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
+		else gl.disable(gl.DEPTH_TEST);
 
-		if(rt.linked === false)
-		{
-			_t.link_render_target(rt);
-		}
-		_t.set_render_target(rt, dc.clear);
+		if(rt.linked === false) _t.link_render_target(rt);
+		_t.set_render_target(rt, clear);
 
-		if(shader.linked === false) 
-		{
-			_t.link_shader(shader);
-		}
+		if(shader.linked === false) _t.link_shader(shader);
 		_t.use_shader(shader);
 
 		if(shader.camera === true)
@@ -3829,7 +3822,11 @@ gb.webgl =
 		for(var i = 0; i < n; ++i)
 		{
 			var e = dc.entities[i];
-			if(e.entity_type !== gb.EntityType.ENTITY && e.entity_type !== gb.EntityType.RIG) continue;
+			// TODO: filter these out at draw call gen phase
+			if(e.entity_type === gb.EntityType.EMPTY) continue;
+			if(e.entity_type === gb.EntityType.CAMERA) continue;
+			if(e.entity_type === gb.EntityType.LAMP) continue;
+
 			ASSERT(e.mesh, "Cannot draw an entity with no mesh now can I?");
 			if(e.mesh.linked === false) _t.link_mesh(e.mesh);
 			if(e.mesh.dirty === true) _t.update_mesh(e.mesh);
@@ -3866,7 +3863,7 @@ gb.webgl =
 		}
 	},
 
-	render_post_call: function(pc)
+	render_post_call: function(pc, rt)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
@@ -3880,7 +3877,7 @@ gb.webgl =
 		if(mesh.dirty === true) _t.update_mesh(mesh);
 
 		gl.disable(gl.DEPTH_TEST);
-		_t.set_render_target(null);
+		_t.set_render_target(rt, true);
 		_t.use_shader(shader);
 		_t.link_attributes(shader, mesh);
 		_t.set_uniforms(shader, mat.uniforms);
@@ -3985,7 +3982,7 @@ gb.on_asset_load = function(e)
         for(var i = 0; i < n_scenes; ++i)
         {
             var name = s.r_string(br);
-            LOG("Loading: " + name);
+            LOG("Loading Scene: " + name);
 
             var scene_complete = false;
             while(scene_complete === false)
@@ -4033,6 +4030,7 @@ gb.on_asset_load = function(e)
                         var entity = s.r_entity(br, ag);
                         entity.material = ag.materials[s.r_string(br)];
                         entity.mesh = ag.meshes[s.r_string(br)];
+                        entity.entity_type = gb.EntityType.ENTITY;
                         ag.entities[entity.name] = entity;
                         LOG("Loaded Entity: " + entity.name);
                         break;
@@ -4478,7 +4476,6 @@ var v2 = gb.vec2;
 var v3 = gb.vec3;
 var qt = gb.quat;
 var m4 = gb.mat4;
-var rand = gb.random;
 var math = gb.math;
 var gl = gb.webgl;
 var assets;
@@ -4487,6 +4484,7 @@ var assets_loaded;
 var construct;
 var pivot;
 var camera;
+var lamp;
 var texture;
 var sphere;
 var anim;
@@ -4494,11 +4492,14 @@ var post;
 var h_angle = 0;
 var v_angle = 0;
 
-var depth_normal_target;
-var depth_normal_pass;
+var shadow_target;
 var albedo_target;
+var final_target;
+
 var albedo_pass;
-var post_call;
+var lamp_pass;
+var lighting_pass;
+var fxaa_pass;
 
 function init()
 {
@@ -4544,8 +4545,9 @@ function link_complete()
 {
 	construct = gb.scene.new();
 
-	//depth_normal_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
-	albedo_target = gb.render_target.new(gl.view, gb.render_target.COLOR | gb.render_target.DEPTH);
+	albedo_target = gb.render_target.new();
+	shadow_target = gb.render_target.new();
+	final_target = gb.render_target.new();
 
 	gb.scene.load_asset_group(construct, assets);
 
@@ -4555,40 +4557,31 @@ function link_complete()
 	camera = gb.scene.find(construct, 'camera').camera;
 	gb.entity.set_parent(camera.entity, pivot);
 
-	sphere = gb.scene.find(construct, 'cube');
-	sphere.entity_type = gb.EntityType.RIG;
-	sphere.rig = assets.rigs['armature'];
-	
+	lamp = gb.camera.new().camera;
+	v3.set(lamp.entity.position, 0,3,1);
+	qt.euler(lamp.entity.rotation, 0,0,90);
+	gb.scene.add(construct, lamp.entity);
+
+	/*
 	anim = assets.animations.test;
 	anim.target = sphere.rig.joints;
 	anim.loops = -1;
 	anim.is_playing = true;
-
-	// TODO: create draw calls automatically
-	//depth_normal_pass = gb.draw_call.new(true, camera, assets.materials.material, construct.entities);
-
-	var albedo_material = gb.material.new(assets.shaders.albedo);
-	albedo_pass = gb.draw_call.new(true, camera, albedo_material, construct.entities); 
-
-	//DEBUG
-	/*
-	gb.gl_draw.init({buffer_size: 160000});
-	gb.gl_draw.draw_call.camera = camera;
-	gb.gl_draw.draw_call.target = render_target;
 	*/
-	//END
 
-	var resolution = v3.tmp(albedo_target.color.width, albedo_target.color.height);
-	var inv_resolution = v3.tmp(1.0 / albedo_target.color.width, 1.0 / albedo_target.color.height);
+	var albedo_material = gb.material.new(assets.shaders.surface);
+	albedo_pass = gb.draw_call.new(camera, albedo_material, construct.entities); 
+	lamp_pass = gb.draw_call.new(lamp, albedo_material, construct.entities);
 
-	post_call = gb.post_call.new(assets.shaders.fxaa, true);
-	post_call.material.uniforms.texture = albedo_target.color;
-	post_call.material.uniforms.resolution = resolution;
-	post_call.material.uniforms.inv_resolution = inv_resolution;
+	lighting_pass = gb.post_call.new(assets.shaders.vsm);
+	lighting_pass.material.uniforms.normal_tex = albedo_target.color;
+	lighting_pass.material.uniforms.camera_depth_tex = albedo_target.depth;
+	lighting_pass.material.uniforms.lamp_depth_tex = shadow_target.depth;
 
-	//post_call.material.uniforms.albedo = albedo_target.color;
-	//post_call.material.uniforms.normal = depth_normal_target.color;
-	//post_call.material.uniforms.depth = depth_normal_target.depth;
+	fxaa_pass = gb.post_call.new(assets.shaders.fxaa, true);
+	fxaa_pass.material.uniforms.texture = final_target.color;
+	fxaa_pass.material.uniforms.resolution = v3.tmp(gl.view.width, gl.view.height);
+	fxaa_pass.material.uniforms.inv_resolution = v3.tmp(1.0 / gl.view.width, 1.0 / gl.view.height);
 
 	assets_loaded = true;
 }
@@ -4618,17 +4611,15 @@ function update(t)
 		v_angle -= view_speed * dt;
 	}
 	gb.entity.set_rotation(pivot, v_angle, 0, h_angle);
-	sphere.dirty = true;
+	//sphere.dirty = true;
 
 	gb.scene.update(construct);
-	gb.animation.update(anim, dt);
-	gb.webgl.render_draw_call(albedo_pass, albedo_target);
-	//gb.webgl.render_draw_call(depth_normal_pass, depth_normal_target);
-	/*
-	gb.gl_draw.clear();
-	gb.gl_draw.rig_transforms(sphere.rig);
-	gb.webgl.render_draw_call(gb.gl_draw.draw_call);
-	*/
-	gl.render_post_call(post_call);
+	//gb.animation.update(anim, dt);
+
+	gb.webgl.render_draw_call(albedo_pass, albedo_target, true);
+	gb.webgl.render_draw_call(lamp_pass, shadow_target, true);
+
+	gl.render_post_call(lighting_pass, final_target);
+	gl.render_post_call(fxaa_pass, null);
 }
 

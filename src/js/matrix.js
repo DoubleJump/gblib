@@ -491,4 +491,25 @@ gb.mat4 =
 		var z = (m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]) * d;
 		r[0] = x; r[1] = y; r[2] = z;
 	},
+
+	ortho_projection: function(m, w,h,f,n)
+	{
+		m[ 0] = 2.0 / w;
+		m[ 5] = 2.0 / h;
+		m[10] = -2.0 / (f - n);
+		m[14] = 0.0;
+		m[15] = 1.0;
+	},
+	perspective_projection: function(m, f,n,aspect,fov)
+	{
+		var h = 1.0 / gb.math.tan(fov * gb.math.PI_OVER_360);
+		var y = n - f;
+		
+		m[ 0] = h / aspect;
+		m[ 5] = h;
+		m[10] = (f + n) / y;
+		m[11] = -1.0;
+		m[14] = 2.0 * (n * f) / y;
+		m[15] = 0.0;
+	},
 }

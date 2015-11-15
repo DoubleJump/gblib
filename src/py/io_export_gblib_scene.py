@@ -270,39 +270,40 @@ class FileWriter:
 																						  
 				index_buffer.append(vertex_count)
 
-				groups = mesh.vertices[v].groups
-				num_groups = len(groups)
-				if num_groups is 0:
-					vertex_buffer.append(0)
-					vertex_buffer.append(0.5)
-					vertex_buffer.append(0)
-					vertex_buffer.append(0.5)
-				elif num_groups is 1:
-					for g in groups:
-						group_index = 0
-						vertex_group = ob.vertex_groups[g.group]
-						for b in armature.pose.bones:
-							if b.name == vertex_group.name: 
-								vertex_buffer.append(group_index)
-								vertex_buffer.append(g.weight)
-								break
-							group_index += 1
+				if armature:
+					groups = mesh.vertices[v].groups
+					num_groups = len(groups)
+					if num_groups is 0:
+						vertex_buffer.append(0)
+						vertex_buffer.append(0.5)
+						vertex_buffer.append(0)
+						vertex_buffer.append(0.5)
+					elif num_groups is 1:
+						for g in groups:
+							group_index = 0
+							vertex_group = ob.vertex_groups[g.group]
+							for b in armature.pose.bones:
+								if b.name == vertex_group.name: 
+									vertex_buffer.append(group_index)
+									vertex_buffer.append(g.weight)
+									break
+								group_index += 1
 
-					vertex_buffer.append(0)
-					vertex_buffer.append(0)
-				else:
-					for g in groups:
-						group_index = 0
-						vertex_group = ob.vertex_groups[g.group]
-						for b in armature.pose.bones:
-							if b.name == vertex_group.name: 
-								vertex_buffer.append(group_index)
-								vertex_buffer.append(g.weight)
-								break
-							group_index += 1
+						vertex_buffer.append(0)
+						vertex_buffer.append(0)
+					else:
+						for g in groups:
+							group_index = 0
+							vertex_group = ob.vertex_groups[g.group]
+							for b in armature.pose.bones:
+								if b.name == vertex_group.name: 
+									vertex_buffer.append(group_index)
+									vertex_buffer.append(g.weight)
+									break
+								group_index += 1
 
-						vertex_buffer.append(group_index)
-						vertex_buffer.append(g.weight)
+							vertex_buffer.append(group_index)
+							vertex_buffer.append(g.weight)
 
 				vertex_count += 1
 
@@ -324,7 +325,7 @@ class FileWriter:
 
 		vertex_data_ln = len(vertex_buffer)
 		index_data_ln = len(index_buffer)
-		
+
 		self.i32(vertex_count)
 		self.i32(vertex_data_ln)
 		self.i32(index_data_ln)

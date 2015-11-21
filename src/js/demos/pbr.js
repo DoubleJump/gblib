@@ -130,10 +130,8 @@ function link_complete()
 	camera = gb.scene.find(construct, 'camera').camera;
 	gb.entity.set_parent(camera.entity, pivot);
 
-	lamp = gb.camera.new().camera;
-	v3.set(lamp.entity.position, 0,3,1);
-	qt.euler(lamp.entity.rotation, 0,0,90);
-	gb.scene.add(construct, lamp.entity);
+	lamp = gb.scene.find(construct, 'lamp').camera;
+	gb.entity.set_parent(lamp.entity, pivot);
 
 	/*
 	anim = assets.animations.test;
@@ -149,7 +147,7 @@ function link_complete()
 	lighting_pass = gb.post_call.new(assets.shaders.vsm);
 	lighting_pass.material.uniforms.normal_tex = albedo_target.color;
 	lighting_pass.material.uniforms.camera_depth_tex = albedo_target.depth;
-	lighting_pass.material.uniforms.lamp_depth_tex = shadow_target.depth;
+	lighting_pass.material.uniforms.lamp_depth_tex = shadow_target.color;
 
 	fxaa_pass = gb.post_call.new(assets.shaders.fxaa, true);
 	fxaa_pass.material.uniforms.texture = final_target.color;

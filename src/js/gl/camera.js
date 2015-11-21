@@ -12,6 +12,7 @@ gb.Camera = function()
 	this.near;
 	this.far;
 	this.fov;
+	this.scale;
 	return this;
 }
 gb.camera = 
@@ -25,6 +26,7 @@ gb.camera =
 	    c.far = far || 100;
 	    c.fov = fov || 60;
 	    c.mask = mask || 0;
+	    c.scale = 1;
 	    c.entity = e;
 	    e.camera = c;
 	    return e;
@@ -34,7 +36,7 @@ gb.camera =
 		c.aspect = view.width / view.height;
 		if(c.projection_type === gb.Projection.ORTHO)
 		{
-			gb.mat4.ortho_projection(c.projection, view.width, view.height, c.far, c.near);
+			gb.mat4.ortho_projection(c.projection, c.scale * c.aspect, c.scale, c.near, c.far);
 		}
 		else
 		{
@@ -78,11 +80,18 @@ gb.serialize.r_camera = function(br, ag)
     entity.entity_type = gb.EntityType.CAMERA;
     var c = new gb.Camera();
     var camera_type = s.r_i32(br);
+    if(camera_type === 0) 
+    {
+    	c.projection_type = gb.Projection.PERSPECTIVE;
+    }
+    else 
+    {
+    	c.projection_type = gb.Projection.ORTHO;
+    	c.scale = s.r_f32(br);
+    }
     c.near = s.r_f32(br);
     c.far = s.r_f32(br);
     c.fov = s.r_f32(br);
-    if(camera_type === 0) c.projection_type = gb.Projection.PERSPECTIVE;
-    else c.projection_type = gb.Projection.ORTHO;
     c.dirty = true;
     entity.camera = c;
     c.entity = entity;

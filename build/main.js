@@ -1349,12 +1349,22 @@ gb.mat4 =
 		r[0] = x; r[1] = y; r[2] = z;
 	},
 
+	/*
 	ortho_projection: function(m, w,h,f,n)
 	{
 		m[ 0] = 2.0 / w;
 		m[ 5] = 2.0 / h;
 		m[10] = -2.0 / (f - n);
 		m[14] = 0.0;
+		m[15] = 1.0;
+	},
+	*/
+	ortho_projection: function(m, w,h,n,f)
+	{
+		m[ 0] = 2.0 / w;
+		m[ 5] = 2.0 / h;
+		m[10] = -2.0 / (f - n);
+		m[11] = -n / (f - n);
 		m[15] = 1.0;
 	},
 	perspective_projection: function(m, f,n,aspect,fov)
@@ -2611,6 +2621,7 @@ gb.Camera = function()
 	this.near;
 	this.far;
 	this.fov;
+	this.scale;
 	return this;
 }
 gb.camera = 
@@ -2624,6 +2635,7 @@ gb.camera =
 	    c.far = far || 100;
 	    c.fov = fov || 60;
 	    c.mask = mask || 0;
+	    c.scale = 1;
 	    c.entity = e;
 	    e.camera = c;
 	    return e;
@@ -2633,7 +2645,7 @@ gb.camera =
 		c.aspect = view.width / view.height;
 		if(c.projection_type === gb.Projection.ORTHO)
 		{
-			gb.mat4.ortho_projection(c.projection, view.width, view.height, c.far, c.near);
+			gb.mat4.ortho_projection(c.projection, c.scale * c.aspect, c.scale, c.near, c.far);
 		}
 		else
 		{
@@ -2677,11 +2689,18 @@ gb.serialize.r_camera = function(br, ag)
     entity.entity_type = gb.EntityType.CAMERA;
     var c = new gb.Camera();
     var camera_type = s.r_i32(br);
+    if(camera_type === 0) 
+    {
+    	c.projection_type = gb.Projection.PERSPECTIVE;
+    }
+    else 
+    {
+    	c.projection_type = gb.Projection.ORTHO;
+    	c.scale = s.r_f32(br);
+    }
     c.near = s.r_f32(br);
     c.far = s.r_f32(br);
     c.fov = s.r_f32(br);
-    if(camera_type === 0) c.projection_type = gb.Projection.PERSPECTIVE;
-    else c.projection_type = gb.Projection.ORTHO;
     c.dirty = true;
     entity.camera = c;
     c.entity = entity;
@@ -3339,8 +3358,6 @@ gb.post_call =
 		return r;
 	},
 }
-
-
 gb.webgl = 
 {
 	shader_types:
@@ -3380,8 +3397,6 @@ gb.webgl =
 	ctx: null,
 	view: null,
 	default_sampler: null,
-    screen_mesh: null,
-    screen_shader: null,
 
 	init: function(container, config)
 	{
@@ -4557,10 +4572,8 @@ function link_complete()
 	camera = gb.scene.find(construct, 'camera').camera;
 	gb.entity.set_parent(camera.entity, pivot);
 
-	lamp = gb.camera.new().camera;
-	v3.set(lamp.entity.position, 0,3,1);
-	qt.euler(lamp.entity.rotation, 0,0,90);
-	gb.scene.add(construct, lamp.entity);
+	lamp = gb.scene.find(construct, 'lamp').camera;
+	gb.entity.set_parent(lamp.entity, pivot);
 
 	/*
 	anim = assets.animations.test;
@@ -4576,7 +4589,7 @@ function link_complete()
 	lighting_pass = gb.post_call.new(assets.shaders.vsm);
 	lighting_pass.material.uniforms.normal_tex = albedo_target.color;
 	lighting_pass.material.uniforms.camera_depth_tex = albedo_target.depth;
-	lighting_pass.material.uniforms.lamp_depth_tex = shadow_target.depth;
+	lighting_pass.material.uniforms.lamp_depth_tex = shadow_target.color;
 
 	fxaa_pass = gb.post_call.new(assets.shaders.fxaa, true);
 	fxaa_pass.material.uniforms.texture = final_target.color;

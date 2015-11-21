@@ -23,9 +23,9 @@ uniform sampler2D lamp_depth_tex;
 
 void main() 
 {
-    float cam_depth_sample = texture2D(camera_depth_tex, _uv).r;
-    float lamp_depth_sample = texture2D(lamp_depth_tex, _uv).r;
+    vec4 cam_depth_sample = texture2D(camera_depth_tex, _uv);
+    vec4 lamp_depth_sample = texture2D(lamp_depth_tex, _uv);
     vec4 normal_sample = texture2D(normal_tex, _uv);
 
-    gl_FragColor = vec4(pow(cam_depth_sample, 4.0));
+    gl_FragColor = vec4(lamp_depth_sample);
 }

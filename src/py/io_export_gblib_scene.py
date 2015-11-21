@@ -164,8 +164,11 @@ class FileWriter:
 		self.i32(OB_TYPE_CAMERA)
 		self.string(ob.name)
 		self.transform(ob)
-		if camera.type == 'PERSP': self.i32(0)
-		else: self.i32(1)
+		if camera.type == 'PERSP': 
+			self.i32(0)
+		else: 
+			self.i32(1)
+			self.f32(camera.ortho_scale)
 		self.f32(camera.clip_start)
 		self.f32(camera.clip_end)
 		self.f32(camera.lens)

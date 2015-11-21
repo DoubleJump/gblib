@@ -492,12 +492,22 @@ gb.mat4 =
 		r[0] = x; r[1] = y; r[2] = z;
 	},
 
+	/*
 	ortho_projection: function(m, w,h,f,n)
 	{
 		m[ 0] = 2.0 / w;
 		m[ 5] = 2.0 / h;
 		m[10] = -2.0 / (f - n);
 		m[14] = 0.0;
+		m[15] = 1.0;
+	},
+	*/
+	ortho_projection: function(m, w,h,n,f)
+	{
+		m[ 0] = 2.0 / w;
+		m[ 5] = 2.0 / h;
+		m[10] = -2.0 / (f - n);
+		m[11] = -n / (f - n);
 		m[15] = 1.0;
 	},
 	perspective_projection: function(m, f,n,aspect,fov)

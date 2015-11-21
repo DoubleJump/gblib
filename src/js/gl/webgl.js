@@ -1,5 +1,3 @@
-
-
 gb.webgl = 
 {
 	shader_types:
@@ -39,8 +37,6 @@ gb.webgl =
 	ctx: null,
 	view: null,
 	default_sampler: null,
-    screen_mesh: null,
-    screen_shader: null,
 
 	init: function(container, config)
 	{

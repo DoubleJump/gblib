@@ -364,7 +364,6 @@ gb.webgl =
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
-		var sampler_index = 0;
 		for(var key in uniforms)
 		{
 			var uniform = shader.uniforms[key];
@@ -451,6 +450,8 @@ gb.webgl =
 		var shader = mat.shader;
 		var cam = dc.camera;
 		//var lights = dc.lights;
+
+		// TODO: all linking to occur at scene add phase
 		
 		if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
 		else gl.disable(gl.DEPTH_TEST);

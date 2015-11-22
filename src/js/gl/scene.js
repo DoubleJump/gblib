@@ -6,19 +6,26 @@ gb.Scene = function()
 }
 gb.scene = 
 {
-	new: function()
+	current: null,
+
+	new: function(assets)
 	{
-		return new gb.Scene();
+		var scene = new gb.Scene();
+		if(assets)
+			gb.scene.load_asset_group(assets, scene);
+		return scene;
 	},
-	load_asset_group: function(s, ag)
+	load_asset_group: function(ag, s)
 	{
+		s = s || gb.scene.current;
 	    for(var entity in ag.entities)
 	    {
-	        gb.scene.add(s, ag.entities[entity]);
+	        gb.scene.add(ag.entities[entity], s);
 	    }
 	},	
-	find: function(s, name)
+	find: function(name, s)
 	{
+		s = s || gb.scene.current;
 		var n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
 		{
@@ -27,13 +34,15 @@ gb.scene =
 		}
 		return null;
 	},
-	add: function(s, e)
+	add: function(e, s)
 	{
+		s = s || gb.scene.current;
 		s.entities.push(e);
 		s.num_entities++;
 	},
 	update: function(s)
 	{
+		s = s || gb.scene.current;
 		var n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
 		{

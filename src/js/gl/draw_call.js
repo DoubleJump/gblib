@@ -31,6 +31,7 @@ gb.post_call =
 		if(full_screen === true)
 		{
 			r.mesh = gb.mesh.generate.quad(2,2);
+			gb.webgl.link_mesh(r.mesh);
 		}
 		r.material = gb.material.new(shader);
 		return r;

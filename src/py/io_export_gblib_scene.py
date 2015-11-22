@@ -344,7 +344,7 @@ class FileWriter:
 		if not has_triangulate:
 			modifiers.remove(modifiers[len(modifiers)-1])
 
-	def write_action(self, action, ob, scene):
+	def action(self, action, ob, scene):
 		print("Exporting Action: " + action.name)
 
 		self.i32(OB_TYPE_ACTION)
@@ -378,11 +378,11 @@ class FileWriter:
 			
 			self.i32(len(curve.keyframe_points))
 			for keyframe in curve.keyframe_points:
+				self.f32(keyframe.handle_left[0] / scene.render.fps)
+				self.f32(keyframe.handle_left[1])
 				self.f32(keyframe.co[0] / scene.render.fps)
 				self.f32(keyframe.co[1])
-				self.f32(keyframe.handle_left[0])
-				self.f32(keyframe.handle_left[1])
-				self.f32(keyframe.handle_right[0])
+				self.f32(keyframe.handle_right[0] / scene.render.fps)
 				self.f32(keyframe.handle_right[1])
 
 
@@ -424,11 +424,11 @@ class FileWriter:
 
 			self.i32(len(curve.keyframe_points))
 			for keyframe in curve.keyframe_points:
+				self.f32(keyframe.handle_left[0] / scene.render.fps)
+				self.f32(keyframe.handle_left[1])
 				self.f32(keyframe.co[0] / scene.render.fps)
 				self.f32(keyframe.co[1])
-				self.f32(keyframe.handle_left[0])
-				self.f32(keyframe.handle_left[1])
-				self.f32(keyframe.handle_right[0])
+				self.f32(keyframe.handle_right[0] / scene.render.fps)
 				self.f32(keyframe.handle_right[1])
 
 class ExportTest(bpy.types.Operator, ExportHelper):

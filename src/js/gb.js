@@ -59,7 +59,7 @@ var gb =
 			return;
 		}
 		gb.stack.clear_all();
-		gb.update(t);
+		gb.update(gb.time.dt);
 		gb.input.update();
 		requestAnimationFrame(gb._update);
 	},

@@ -3,6 +3,7 @@ gb.Scene = function()
 	this.world_matrix = gb.mat4.new();
 	this.num_entities = 0;
 	this.entities = [];
+	this.animations = [];
 }
 gb.scene = 
 {
@@ -18,9 +19,15 @@ gb.scene =
 	load_asset_group: function(ag, s)
 	{
 		s = s || gb.scene.current;
-	    for(var entity in ag.entities)
+	    for(var e in ag.entities)
 	    {
-	        gb.scene.add(ag.entities[entity], s);
+	        gb.scene.add(ag.entities[e], s);
+	    }
+	    for(var a in ag.animations)
+	    {
+	    	var anim = ag.animations[a];
+	    	anim.target = gb.scene.find(anim.target, s);
+	    	s.animations.push(anim);
 	    }
 	},	
 	find: function(name, s)
@@ -40,10 +47,21 @@ gb.scene =
 		s.entities.push(e);
 		s.num_entities++;
 	},
-	update: function(s)
+	update: function(s, dt)
 	{
 		s = s || gb.scene.current;
-		var n = s.num_entities;
+
+		var n = s.animations.length;
+		for(var i = 0; i < n; ++i) 
+		{
+			var anim = s.animations[i];
+			if(anim.is_playing)
+			{
+				gb.animation.update(anim, dt);
+			}
+		}
+
+		n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
 		{
 			var e = s.entities[i];

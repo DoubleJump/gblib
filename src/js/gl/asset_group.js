@@ -17,7 +17,7 @@ gb.assets =
         var request = new XMLHttpRequest();
         request.open('GET', url, true);
         request.onload = gb.assets.event_asset_load;
-        request.onprogress = on_progress;
+        request.onprogress = on_progress || gb.event_load_progress;
         request.responseType = 'arraybuffer';
         request.upload.asset_group = asset_group;
         request.upload.callback = on_load;

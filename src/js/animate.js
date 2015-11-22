@@ -30,12 +30,57 @@ gb.animation =
 		var a = new gb.Animation();
 		return a;
 	},
-	tween: function(property, index, frames)
+	/*
+	from_to: function(target, property, from, to, duration, easing, components)
+	{
+		var a = new gb.Animation();
+		a.target = target;
+		if(components)
+		{
+			for(var i = 0; i < components; ++i)
+			{
+				var t = new gb.Tween();
+				t.num_frames = 2;
+				t.property = property;
+				t.index = i;
+				t.curve = new Float32Array(12);
+				t.curve[3] = from[i];
+				t.curve[8] = to[i];
+				t.curve[9] = duration;
+				a.tweens.push(t);
+			}
+		}
+		else
+		{
+			var t = new gb.Tween();
+			t.num_frames = 2;
+			t.property = property;
+			t.curve = new Float32Array(12);
+			t.curve[3] = from;
+			t.curve[8] = to;
+			t.curve[9] = duration;
+			a.tweens.push(t);
+		}
+	},
+	*/
+	play: function(anim, loops)
+	{
+		anim.is_playing = true;
+		anim.t = 0;
+		anim.loops = loops || 1;
+		anim.loop_count = 0;
+	},
+	add_keyframe: function(tween, value, t, easing)
+	{
+		tween.curve.push([0, 0, t, value, 0, 0]);
+		tween.num_frames++;
+	},
+	tween: function(property, index, curve)
 	{
 		var t = new gb.Tween();
 		t.property = property;
 		t.index = index;
-		t.keyframes = frames;
+		t.curve = curve;
 		return t;
 	},
 	get_start_time: function(animation)
@@ -165,7 +210,8 @@ gb.serialize.r_action = function(br)
     var s = gb.serialize;
     var animation = new gb.Animation();
     animation.name = s.r_string(br);
-   
+    animation.target = s.r_string(br);
+
     var num_curves = s.r_i32(br);
     for(var i = 0; i < num_curves; ++i)
     {
@@ -186,7 +232,7 @@ gb.serialize.r_rig_action = function(br)
 	var s = gb.serialize;
     var animation = new gb.Animation();
     animation.name = s.r_string(br);
-   
+
     var num_curves = s.r_i32(br);
     for(var i = 0; i < num_curves; ++i)
     {

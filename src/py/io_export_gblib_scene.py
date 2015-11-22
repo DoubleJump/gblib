@@ -349,6 +349,7 @@ class FileWriter:
 
 		self.i32(OB_TYPE_ACTION)
 		self.string(action.name)
+		self.string(ob.name)
 		self.i32(len(action.fcurves))
 
 		for curve in action.fcurves:

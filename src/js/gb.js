@@ -68,6 +68,11 @@ var gb =
 	{
 	    return (flag & mask) === flag;
 	},
+	event_load_progress: function(e)
+	{
+		var percent = e.loaded / e.total;
+		LOG('Loaded: ' + e.loaded + ' / ' + e.total + ' bytes');
+	},
 }
 window.addEventListener('load', gb._init, false);
 window.onfocus = gb.focus;

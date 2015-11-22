@@ -37,13 +37,7 @@ function init()
 
 	//if(gl.extensions.dds !== null)
 	assets = new gb.Asset_Group();
-	gb.assets.load("assets.gl", assets, load_complete, load_progress);
-}
-
-function load_progress(e)
-{
-	var percent = e.loaded / e.total;
-	LOG('Loaded: ' + e.loaded + ' / ' + e.total + ' bytes');
+	gb.assets.load("assets.gl", assets, load_complete);
 }
 function load_complete(asset_group)
 {
@@ -51,11 +45,7 @@ function load_complete(asset_group)
 	scene.current = construct;
 	scene_target = gb.render_target.new();
 
-	anim = assets.animations.shift;
-	anim.target = scene.find('cube');
-	anim.loops = -1;
-	//anim.time_scale = 4.0;
-	anim.is_playing = true;
+	gb.animation.play(assets.animations.shift, -1);
 
 	// TODO: scene context for things like find and add
 	surface_pass = gb.draw_call.new(scene.find('camera').camera, assets.materials.material, construct.entities); 
@@ -73,8 +63,7 @@ function update(dt)
 {
 	if(assets_loaded === false) return;
 
-	gb.scene.update(construct);
-	gb.animation.update(anim, dt);
+	gb.scene.update(construct, dt);
 
 	gb.webgl.render_draw_call(surface_pass, scene_target, true);
 	gl.render_post_call(fxaa_pass, null);

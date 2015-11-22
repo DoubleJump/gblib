@@ -70,6 +70,11 @@ var gb =
 	{
 	    return (flag & mask) === flag;
 	},
+	event_load_progress: function(e)
+	{
+		var percent = e.loaded / e.total;
+		LOG('Loaded: ' + e.loaded + ' / ' + e.total + ' bytes');
+	},
 }
 window.addEventListener('load', gb._init, false);
 window.onfocus = gb.focus;
@@ -2181,12 +2186,57 @@ gb.animation =
 		var a = new gb.Animation();
 		return a;
 	},
-	tween: function(property, index, frames)
+	/*
+	from_to: function(target, property, from, to, duration, easing, components)
+	{
+		var a = new gb.Animation();
+		a.target = target;
+		if(components)
+		{
+			for(var i = 0; i < components; ++i)
+			{
+				var t = new gb.Tween();
+				t.num_frames = 2;
+				t.property = property;
+				t.index = i;
+				t.curve = new Float32Array(12);
+				t.curve[3] = from[i];
+				t.curve[8] = to[i];
+				t.curve[9] = duration;
+				a.tweens.push(t);
+			}
+		}
+		else
+		{
+			var t = new gb.Tween();
+			t.num_frames = 2;
+			t.property = property;
+			t.curve = new Float32Array(12);
+			t.curve[3] = from;
+			t.curve[8] = to;
+			t.curve[9] = duration;
+			a.tweens.push(t);
+		}
+	},
+	*/
+	play: function(anim, loops)
+	{
+		anim.is_playing = true;
+		anim.t = 0;
+		anim.loops = loops || 1;
+		anim.loop_count = 0;
+	},
+	add_keyframe: function(tween, value, t, easing)
+	{
+		tween.curve.push([0, 0, t, value, 0, 0]);
+		tween.num_frames++;
+	},
+	tween: function(property, index, curve)
 	{
 		var t = new gb.Tween();
 		t.property = property;
 		t.index = index;
-		t.keyframes = frames;
+		t.curve = curve;
 		return t;
 	},
 	get_start_time: function(animation)
@@ -2316,7 +2366,8 @@ gb.serialize.r_action = function(br)
     var s = gb.serialize;
     var animation = new gb.Animation();
     animation.name = s.r_string(br);
-   
+    animation.target = s.r_string(br);
+
     var num_curves = s.r_i32(br);
     for(var i = 0; i < num_curves; ++i)
     {
@@ -2337,7 +2388,7 @@ gb.serialize.r_rig_action = function(br)
 	var s = gb.serialize;
     var animation = new gb.Animation();
     animation.name = s.r_string(br);
-   
+
     var num_curves = s.r_i32(br);
     for(var i = 0; i < num_curves; ++i)
     {
@@ -2654,6 +2705,7 @@ gb.Scene = function()
 	this.world_matrix = gb.mat4.new();
 	this.num_entities = 0;
 	this.entities = [];
+	this.animations = [];
 }
 gb.scene = 
 {
@@ -2669,9 +2721,15 @@ gb.scene =
 	load_asset_group: function(ag, s)
 	{
 		s = s || gb.scene.current;
-	    for(var entity in ag.entities)
+	    for(var e in ag.entities)
 	    {
-	        gb.scene.add(ag.entities[entity], s);
+	        gb.scene.add(ag.entities[e], s);
+	    }
+	    for(var a in ag.animations)
+	    {
+	    	var anim = ag.animations[a];
+	    	anim.target = gb.scene.find(anim.target, s);
+	    	s.animations.push(anim);
 	    }
 	},	
 	find: function(name, s)
@@ -2691,10 +2749,21 @@ gb.scene =
 		s.entities.push(e);
 		s.num_entities++;
 	},
-	update: function(s)
+	update: function(s, dt)
 	{
 		s = s || gb.scene.current;
-		var n = s.num_entities;
+
+		var n = s.animations.length;
+		for(var i = 0; i < n; ++i) 
+		{
+			var anim = s.animations[i];
+			if(anim.is_playing)
+			{
+				gb.animation.update(anim, dt);
+			}
+		}
+
+		n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
 		{
 			var e = s.entities[i];
@@ -3924,7 +3993,7 @@ gb.assets =
         var request = new XMLHttpRequest();
         request.open('GET', url, true);
         request.onload = gb.assets.event_asset_load;
-        request.onprogress = on_progress;
+        request.onprogress = on_progress || gb.event_load_progress;
         request.responseType = 'arraybuffer';
         request.upload.asset_group = asset_group;
         request.upload.callback = on_load;
@@ -4495,13 +4564,7 @@ function init()
 
 	//if(gl.extensions.dds !== null)
 	assets = new gb.Asset_Group();
-	gb.assets.load("assets.gl", assets, load_complete, load_progress);
-}
-
-function load_progress(e)
-{
-	var percent = e.loaded / e.total;
-	LOG('Loaded: ' + e.loaded + ' / ' + e.total + ' bytes');
+	gb.assets.load("assets.gl", assets, load_complete);
 }
 function load_complete(asset_group)
 {
@@ -4509,11 +4572,7 @@ function load_complete(asset_group)
 	scene.current = construct;
 	scene_target = gb.render_target.new();
 
-	anim = assets.animations.shift;
-	anim.target = scene.find('cube');
-	anim.loops = -1;
-	//anim.time_scale = 4.0;
-	anim.is_playing = true;
+	gb.animation.play(assets.animations.shift, -1);
 
 	// TODO: scene context for things like find and add
 	surface_pass = gb.draw_call.new(scene.find('camera').camera, assets.materials.material, construct.entities); 
@@ -4531,8 +4590,7 @@ function update(dt)
 {
 	if(assets_loaded === false) return;
 
-	gb.scene.update(construct);
-	gb.animation.update(anim, dt);
+	gb.scene.update(construct, dt);
 
 	gb.webgl.render_draw_call(surface_pass, scene_target, true);
 	gl.render_post_call(fxaa_pass, null);

@@ -209,6 +209,7 @@ gb.serialize.r_action = function(br)
 {
     var s = gb.serialize;
     var animation = new gb.Animation();
+    animation.target_type = s.r_i32(br);
     animation.name = s.r_string(br);
     animation.target = s.r_string(br);
 

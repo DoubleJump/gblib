@@ -18,10 +18,12 @@ void main()
 #FRAGMENT
 precision highp float;
 
+uniform float alpha;
+
 varying vec3 _normal;
 
 void main()
 { 
 	vec3 N = (_normal / 2.0) + 0.5;
-    gl_FragColor = vec4(N, 1.0);
+    gl_FragColor = vec4(N, alpha);
 }

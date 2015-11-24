@@ -45,15 +45,17 @@ function load_complete(asset_group)
 	scene.current = construct;
 	scene_target = gb.render_target.new();
 
-	gb.animation.play(assets.animations.shift, -1);
+	
+	assets.materials.material.alpha = 1.0;
+	//gb.animation.play(assets.animations.matanim, -1);
 
 	// TODO: scene context for things like find and add
 	surface_pass = gb.draw_call.new(scene.find('camera').camera, assets.materials.material, construct.entities); 
 
 	fxaa_pass = gb.post_call.new(assets.shaders.fxaa, true);
-	fxaa_pass.material.uniforms.texture = scene_target.color;
-	fxaa_pass.material.uniforms.resolution = v3.tmp(gl.view.width, gl.view.height);
-	fxaa_pass.material.uniforms.inv_resolution = v3.tmp(1.0 / gl.view.width, 1.0 / gl.view.height);
+	fxaa_pass.material.texture = scene_target.color;
+	fxaa_pass.material.resolution = v3.tmp(gl.view.width, gl.view.height);
+	fxaa_pass.material.inv_resolution = v3.tmp(1.0 / gl.view.width, 1.0 / gl.view.height);
 
 	assets_loaded = true;
 }
@@ -64,6 +66,13 @@ function update(dt)
 	if(assets_loaded === false) return;
 
 	gb.scene.update(construct, dt);
+	//console.log(assets.materials.material.alpha);
+
+	if(gb.input.down(gb.Keys.left))
+	{
+		//gb.animation.play(assets.animations.shift, 1);
+		gb.animation.play(assets.animations.matanim, 1);
+	}
 
 	gb.webgl.render_draw_call(surface_pass, scene_target, true);
 	gl.render_post_call(fxaa_pass, null);

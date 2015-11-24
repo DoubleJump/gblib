@@ -394,17 +394,23 @@ gb.webgl =
 		}
 	},
 
-	set_uniforms: function(shader, uniforms)
+	set_uniforms: function(shader, material)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
-		for(var key in uniforms)
+		for(var key in shader.uniforms)
 		{
 			var uniform = shader.uniforms[key];
 			var loc = uniform.location;
-			var val = uniforms[key];
+			var val = material[key];
+			ASSERT(val !== null, "Could not find shader uniform " + key + " in material " + material.name);
 			switch(uniform.type)
 			{
+				case 'FLOAT': 
+		        {
+					gl.uniform1f(loc, val);
+					break;
+				}
 				case 'FLOAT_VEC2':
 				{
 					gl.uniform2f(loc, val[0], val[1]);
@@ -459,15 +465,10 @@ gb.webgl =
 		        //case 'UNSIGNED_SHORT':
 		        case 'INT':
 		        {
-					ctx.uniformi(loc, val);
+					gl.uniformi(loc, val);
 					break;
 				}
 		        //case 'UNSIGNED_INT':
-		        case 'FLOAT': 
-		        {
-					ctx.uniformf(loc, val);
-					break;
-				}
 				default:
 				{
 					ASSERT(false, uniform.type + ' is an unsupported uniform type');
@@ -495,12 +496,12 @@ gb.webgl =
 
 		if(shader.camera === true)
 		{
-			mat.uniforms.proj_matrix = cam.projection;
-			mat.uniforms.view_matrix = cam.view;
+			mat.proj_matrix = cam.projection;
+			mat.view_matrix = cam.view;
 		}
 		if(shader.normals === true)
 		{
-			mat.uniforms.normal_matrix = cam.normal;
+			mat.normal_matrix = cam.normal;
 		}
 
 		//if(shader.lights)
@@ -519,15 +520,15 @@ gb.webgl =
 
 			if(shader.mvp === true)
 			{
-				gb.mat4.mul(mat.uniforms.mvp, e.world_matrix, cam.view_projection);
+				gb.mat4.mul(mat.mvp, e.world_matrix, cam.view_projection);
 			}
 			else
 			{
-				mat.uniforms.model_matrix = e.world_matrix;
+				mat.model_matrix = e.world_matrix;
 			}
 			if(shader.rig)
 			{
-				var rig = mat.uniforms['rig[0]'];
+				var rig = mat['rig[0]'];
 				var n = e.rig.joints.length;
 				var t = 0;
 				for(var i = 0; i < n; ++i)
@@ -541,7 +542,7 @@ gb.webgl =
 				}
 			}
 
-			_t.set_uniforms(shader, mat.uniforms);
+			_t.set_uniforms(shader, mat);
 
 			if(e.mesh.index_buffer) _t.draw_mesh_elements(e.mesh);
 			else _t.draw_mesh_arrays(e.mesh);
@@ -561,7 +562,7 @@ gb.webgl =
 		_t.set_render_target(rt, false);
 		_t.use_shader(shader);
 		_t.link_attributes(shader, mesh);
-		_t.set_uniforms(shader, mat.uniforms);
+		_t.set_uniforms(shader, mat);
 		_t.draw_mesh_elements(mesh);
 	},
 

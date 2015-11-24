@@ -2365,6 +2365,7 @@ gb.serialize.r_action = function(br)
 {
     var s = gb.serialize;
     var animation = new gb.Animation();
+    animation.target_type = s.r_i32(br);
     animation.name = s.r_string(br);
     animation.target = s.r_string(br);
 
@@ -2728,7 +2729,14 @@ gb.scene =
 	    for(var a in ag.animations)
 	    {
 	    	var anim = ag.animations[a];
-	    	anim.target = gb.scene.find(anim.target, s);
+	    	if(anim.target_type === 0)
+	    	{
+	    		anim.target = gb.scene.find(anim.target, s);
+	    	}
+	    	else if(anim.target_type === 1)
+	    	{
+	    		anim.target = gb.scene.find(anim.target, s).material;
+	    	}
 	    	s.animations.push(anim);
 	    }
 	},	
@@ -3140,7 +3148,10 @@ gb.serialize.r_shader = function(br)
 gb.Material = function()
 {
     this.shader;
-    this.uniforms;
+    this.mvp;
+    this.proj_matrix;
+    this.view_matrix;
+    this.normal_matrix;
 }
 gb.material = 
 {
@@ -3148,19 +3159,20 @@ gb.material =
     {
         var m = new gb.Material();
         m.shader = shader;
-        m.uniforms = {};
         for(var key in shader.uniforms)
         {
-            m.uniforms[key] = null;
+            m[key] = null;
         }
         if(shader.mvp === true)
         {
-            m.uniforms.mvp = gb.mat4.new();
+            m.mvp = gb.mat4.new();
         }
+        /*
         if(shader.rig === true)
         {
             m.uniforms['rig[0]'] = new Float32Array(gb.rig.MAX_JOINTS * 16);
         }
+        */
         return m;
     },
 }
@@ -3180,9 +3192,9 @@ gb.serialize.r_material = function(br, ag)
     {
         var tex_name = s.r_string(br);
         var sampler_name = s.r_string(br);
-        ASSERT(material.uniforms[sampler_name], 'Cannot find sampler ' + sampler_name + ' in shader ' + shader_name);
+        ASSERT(material[sampler_name], 'Cannot find sampler ' + sampler_name + ' in shader ' + shader_name);
         ASSERT(ag.textures[tex_name], 'Cannot find texture ' + tex_name + ' in asset group');
-        material.uniforms[sampler_name] = ag.textures[tex_name];
+        material[sampler_name] = ag.textures[tex_name];
     }
     return material;
 }
@@ -3776,17 +3788,23 @@ gb.webgl =
 		}
 	},
 
-	set_uniforms: function(shader, uniforms)
+	set_uniforms: function(shader, material)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
-		for(var key in uniforms)
+		for(var key in shader.uniforms)
 		{
 			var uniform = shader.uniforms[key];
 			var loc = uniform.location;
-			var val = uniforms[key];
+			var val = material[key];
+			ASSERT(val !== null, "Could not find shader uniform " + key + " in material " + material.name);
 			switch(uniform.type)
 			{
+				case 'FLOAT': 
+		        {
+					gl.uniform1f(loc, val);
+					break;
+				}
 				case 'FLOAT_VEC2':
 				{
 					gl.uniform2f(loc, val[0], val[1]);
@@ -3841,15 +3859,10 @@ gb.webgl =
 		        //case 'UNSIGNED_SHORT':
 		        case 'INT':
 		        {
-					ctx.uniformi(loc, val);
+					gl.uniformi(loc, val);
 					break;
 				}
 		        //case 'UNSIGNED_INT':
-		        case 'FLOAT': 
-		        {
-					ctx.uniformf(loc, val);
-					break;
-				}
 				default:
 				{
 					ASSERT(false, uniform.type + ' is an unsupported uniform type');
@@ -3877,12 +3890,12 @@ gb.webgl =
 
 		if(shader.camera === true)
 		{
-			mat.uniforms.proj_matrix = cam.projection;
-			mat.uniforms.view_matrix = cam.view;
+			mat.proj_matrix = cam.projection;
+			mat.view_matrix = cam.view;
 		}
 		if(shader.normals === true)
 		{
-			mat.uniforms.normal_matrix = cam.normal;
+			mat.normal_matrix = cam.normal;
 		}
 
 		//if(shader.lights)
@@ -3901,15 +3914,15 @@ gb.webgl =
 
 			if(shader.mvp === true)
 			{
-				gb.mat4.mul(mat.uniforms.mvp, e.world_matrix, cam.view_projection);
+				gb.mat4.mul(mat.mvp, e.world_matrix, cam.view_projection);
 			}
 			else
 			{
-				mat.uniforms.model_matrix = e.world_matrix;
+				mat.model_matrix = e.world_matrix;
 			}
 			if(shader.rig)
 			{
-				var rig = mat.uniforms['rig[0]'];
+				var rig = mat['rig[0]'];
 				var n = e.rig.joints.length;
 				var t = 0;
 				for(var i = 0; i < n; ++i)
@@ -3923,7 +3936,7 @@ gb.webgl =
 				}
 			}
 
-			_t.set_uniforms(shader, mat.uniforms);
+			_t.set_uniforms(shader, mat);
 
 			if(e.mesh.index_buffer) _t.draw_mesh_elements(e.mesh);
 			else _t.draw_mesh_arrays(e.mesh);
@@ -3943,7 +3956,7 @@ gb.webgl =
 		_t.set_render_target(rt, false);
 		_t.use_shader(shader);
 		_t.link_attributes(shader, mesh);
-		_t.set_uniforms(shader, mat.uniforms);
+		_t.set_uniforms(shader, mat);
 		_t.draw_mesh_elements(mesh);
 	},
 
@@ -4572,15 +4585,17 @@ function load_complete(asset_group)
 	scene.current = construct;
 	scene_target = gb.render_target.new();
 
-	gb.animation.play(assets.animations.shift, -1);
+	
+	assets.materials.material.alpha = 1.0;
+	//gb.animation.play(assets.animations.matanim, -1);
 
 	// TODO: scene context for things like find and add
 	surface_pass = gb.draw_call.new(scene.find('camera').camera, assets.materials.material, construct.entities); 
 
 	fxaa_pass = gb.post_call.new(assets.shaders.fxaa, true);
-	fxaa_pass.material.uniforms.texture = scene_target.color;
-	fxaa_pass.material.uniforms.resolution = v3.tmp(gl.view.width, gl.view.height);
-	fxaa_pass.material.uniforms.inv_resolution = v3.tmp(1.0 / gl.view.width, 1.0 / gl.view.height);
+	fxaa_pass.material.texture = scene_target.color;
+	fxaa_pass.material.resolution = v3.tmp(gl.view.width, gl.view.height);
+	fxaa_pass.material.inv_resolution = v3.tmp(1.0 / gl.view.width, 1.0 / gl.view.height);
 
 	assets_loaded = true;
 }
@@ -4591,6 +4606,13 @@ function update(dt)
 	if(assets_loaded === false) return;
 
 	gb.scene.update(construct, dt);
+	//console.log(assets.materials.material.alpha);
+
+	if(gb.input.down(gb.Keys.left))
+	{
+		//gb.animation.play(assets.animations.shift, 1);
+		gb.animation.play(assets.animations.matanim, 1);
+	}
 
 	gb.webgl.render_draw_call(surface_pass, scene_target, true);
 	gl.render_post_call(fxaa_pass, null);

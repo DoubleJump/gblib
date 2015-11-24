@@ -26,7 +26,14 @@ gb.scene =
 	    for(var a in ag.animations)
 	    {
 	    	var anim = ag.animations[a];
-	    	anim.target = gb.scene.find(anim.target, s);
+	    	if(anim.target_type === 0)
+	    	{
+	    		anim.target = gb.scene.find(anim.target, s);
+	    	}
+	    	else if(anim.target_type === 1)
+	    	{
+	    		anim.target = gb.scene.find(anim.target, s).material;
+	    	}
 	    	s.animations.push(anim);
 	    }
 	},	

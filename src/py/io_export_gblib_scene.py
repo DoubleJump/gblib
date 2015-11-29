@@ -50,6 +50,7 @@ OB_TYPE_FILE_END = -101
 
 ANIM_TYPE_ENTITY = 0
 ANIM_TYPE_MATERIAL = 1
+ANIM_TYPE_ARMATURE = 2
 
 GB_MATRIX = mathutils.Matrix.Rotation(radians(-90.0), 4, 'X')
 

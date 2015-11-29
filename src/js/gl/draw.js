@@ -1,6 +1,6 @@
 gb.gl_draw = 
 {
-	entity: null,
+	entities: [],
 	mesh: null,
 	offset: null,
 	color: null,
@@ -12,13 +12,13 @@ gb.gl_draw =
 		var _t = gb.gl_draw;
 		var wgl = gb.webgl;
 
-		_t.draw_call = new gb.DrawCall();
-		_t.draw_call.clear = false;
-		_t.draw_call.depth_test = false;
-		_t.entity = gb.entity.new();
-		_t.draw_call.entities.push(_t.entity);
-		_t.matrix = _t.entity.world_matrix;
-		_t.entity.entity_type = gb.EntityType.ENTITY;
+		//_t.draw_call = new gb.DrawCall();
+		//_t.draw_call.clear = false;
+		//_t.draw_call.depth_test = false;
+		var entity = gb.entity.new();
+		//_t.draw_call.entities.push(_t.entity);
+		_t.matrix = entity.world_matrix;
+		entity.entity_type = gb.EntityType.ENTITY;
 
 		_t.offset = 0;
 		_t.color = gb.color.new(1,1,1,1);
@@ -33,10 +33,34 @@ gb.gl_draw =
 	    m.vertex_count = 0;
 	    m.dirty = true;
 	    gb.mesh.update_vertex_buffer(vb);
-	    _t.entity.mesh = m;
+	    wgl.link_mesh(m);
+
+	    entity.mesh = m;
 	    _t.mesh = m;
 
-        _t.draw_call.material = gb.material.new(assets.shaders.debug); 
+	    _t.entities.push(entity);
+
+	    
+
+        //_t.draw_call.material = gb.material.new(assets.shaders.debug); 
+	},
+	clear: function()
+	{
+		var _t = gb.gl_draw;
+		gb.mat4.identity(_t.matrix);
+		gb.color.set(_t.color, 1,1,1,1);
+		_t.offset = 0;
+		_t.mesh.vertex_count = 0;
+		var n = _t.mesh.vertex_buffer.data.length;
+		for(var i = 0; i < n; ++i)
+		{
+			_t.mesh.vertex_buffer.data[i] = 0;
+		}
+	},
+	update: function()
+	{
+		var _t = gb.gl_draw;
+		gb.webgl.update_mesh(_t.mesh);
 	},
 	set_position_f: function(x,y,z)
 	{
@@ -275,19 +299,7 @@ gb.gl_draw =
 		}
 		v3.pop(stack);
 	},
-	clear: function()
-	{
-		var _t = gb.gl_draw;
-		gb.mat4.identity(_t.matrix);
-		gb.color.set(_t.color, 1,1,1,1);
-		_t.offset = 0;
-		_t.mesh.vertex_count = 0;
-		var n = _t.mesh.vertex_buffer.data.length;
-		for(var i = 0; i < n; ++i)
-		{
-			_t.mesh.vertex_buffer.data[i] = 0;
-		}	
-	},
+	
 
 	rig: function(r)
 	{

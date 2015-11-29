@@ -32,7 +32,7 @@ void main()
     
 	float diff = depth - (depth - lamp_depth);
     float illuminated = 1.0;
-    if(depth < lamp_depth - 0.0002) illuminated = pow(uv.z, 2.0);
+    if(depth < lamp_depth - 0.002) illuminated = pow(uv.z, 2.0);
 
     gl_FragColor = vec4(illuminated);
 }

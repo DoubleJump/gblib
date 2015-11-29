@@ -1,5 +1,4 @@
 #VERTEX
-precision mediump float;
 
 attribute vec3 position;
 attribute vec2 uv;
@@ -28,7 +27,7 @@ void main(void)
 }
 
 #FRAGMENT
-precision mediump float;
+precision highp float;
 
 #define FXAA_REDUCE_MIN (1.0/ 128.0)
 #define FXAA_REDUCE_MUL (1.0 / 8.0)

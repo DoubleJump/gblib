@@ -27,13 +27,22 @@ gb.scene =
 	    for(var a in ag.animations)
 	    {
 	    	var anim = ag.animations[a];
-	    	if(anim.target_type === 0)
+	    	switch(anim.target_type)
 	    	{
-	    		anim.target = gb.scene.find(anim.target, s);
-	    	}
-	    	else if(anim.target_type === 1)
-	    	{
-	    		anim.target = gb.scene.find(anim.target, s).material;
+	    		case 0: // entity transform
+	    		{
+	    			anim.target = gb.scene.find(anim.target, s);
+	    			break;
+	    		}
+	    		case 1: // material
+	    		{
+	    			anim.target = gb.scene.find(anim.target, s).material;
+	    			break;
+	    		}
+	    		case 2: // armature
+	    		{
+	    			break;
+	    		}
 	    	}
 	    	s.animations.push(anim);
 	    }
@@ -63,6 +72,7 @@ gb.scene =
 	{
 		s = s || gb.scene.current;
 
+		/*
 		var n = s.animations.length;
 		for(var i = 0; i < n; ++i) 
 		{
@@ -72,8 +82,9 @@ gb.scene =
 				gb.animation.update(anim, dt);
 			}
 		}
+		*/
 
-		n = s.num_entities;
+		var n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
 		{
 			var e = s.entities[i];

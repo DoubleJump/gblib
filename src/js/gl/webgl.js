@@ -52,7 +52,7 @@ gb.webgl =
 	view: null,
 	default_sampler: null,
 
-	init: function(container, config)
+	init: function(config)
 	{
 		var _t = gb.webgl;
 		var gl;
@@ -64,8 +64,8 @@ gb.webgl =
 		var height = 0;
 		if(_t.config.fill_container === true)
 		{
-			width = container.offsetWidth * _t.config.resolution;
-        	height = container.offsetHeight * _t.config.resolution;
+			width = config.container.offsetWidth * _t.config.resolution;
+        	height = config.container.offsetHeight * _t.config.resolution;
 		}
 		else
 		{
@@ -74,7 +74,7 @@ gb.webgl =
 		}
 
 		var canvas = document.createElement('canvas');
-        container.appendChild(canvas);
+        config.container.appendChild(canvas);
         canvas.width = width;
         canvas.height = height;
         _t.view = gb.rect.new(0,0,width,height);
@@ -234,6 +234,11 @@ gb.webgl =
 	use_shader: function(s)
 	{
 		gb.webgl.ctx.useProgram(s.id);
+	},
+	set_state: function(val, state)
+	{
+		if(state === true) gb.webgl.ctx.enable(val);
+		else gb.webgl.ctx.disable(val);
 	},
 	
 	link_texture: function(t)
@@ -478,13 +483,13 @@ gb.webgl =
 		}
 	},
 
-	render_draw_call: function(dc, clear)
+	render_draw_call: function(camera, dc, clear)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
 		var n = dc.entities.length;
 		
-		gl.enable(gl.DEPTH_TEST);
+		_t.set_state(gl.DEPTH_TEST, dc.depth_test);
 
 		_t.set_render_target(dc.target, clear);
 
@@ -493,11 +498,11 @@ gb.webgl =
 		if(dc.material)
 		{
 			_t.use_shader(dc.material.shader);
-			gb.material.set_camera_uniforms(dc.material, dc.camera);
+			gb.material.set_camera_uniforms(dc.material, camera);
 			for(var i = 0; i < n; ++i)
 			{
 				var e = dc.entities[i];
-				gb.material.set_entity_uniforms(dc.material, e, dc.camera);
+				gb.material.set_entity_uniforms(dc.material, e, camera);
 				_t.link_attributes(dc.material.shader, e.mesh);
 				_t.set_uniforms(dc.material);
 				_t.draw_mesh(e.mesh);
@@ -510,8 +515,8 @@ gb.webgl =
 				var e = dc.entities[i];
 				var material = e.material;
 				_t.use_shader(material.shader);
-				gb.material.set_camera_uniforms(material, dc.camera);
-				gb.material.set_entity_uniforms(material, e, dc.camera);
+				gb.material.set_camera_uniforms(material, camera);
+				gb.material.set_entity_uniforms(material, e, camera);
 				_t.link_attributes(material.shader, e.mesh);
 				_t.set_uniforms(material);
 				_t.draw_mesh(e.mesh);

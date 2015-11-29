@@ -18,7 +18,7 @@ gb.Joint = function()
 gb.rig = 
 {
 	MAX_JOINTS: 18,
-	//TODO rig copy from src
+
 	new: function()
 	{
 		var r = new gb.Rig();

@@ -129,20 +129,20 @@ gb.animation =
 		for(var i = 0; i < num_tweens; ++i)
 		{
 			var tween = animation.tweens[i];
-			for(var j = 0; j < tween.num_frames; ++j)
+			for(var j = 0; j < tween.num_frames-1; ++j)
 			{
 				var index = j * 6;
 				ax = tween.curve[index + 2];
+				ay = tween.curve[index + 3];
+				bx = tween.curve[index + 4];
+				by = tween.curve[index + 5];
+				cx = tween.curve[index + 6];
+				cy = tween.curve[index + 7];
 				dx = tween.curve[index + 8];
+				dy = tween.curve[index + 9];
 
 				if(animation.t <= dx && animation.t >= ax)
 				{
-					ay = tween.curve[index + 3];
-					bx = tween.curve[index + 4];
-					by = tween.curve[index + 5];
-					cx = tween.curve[index + 6];
-					cy = tween.curve[index + 7];
-					dy = tween.curve[index + 9];
 					in_range = true;
 					break;
 				}
@@ -232,6 +232,7 @@ gb.serialize.r_rig_action = function(br)
 {
 	var s = gb.serialize;
     var animation = new gb.Animation();
+    animation.target_type = 2;
     animation.name = s.r_string(br);
 
     var num_curves = s.r_i32(br);

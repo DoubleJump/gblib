@@ -15,12 +15,34 @@ function EXISTS(val)
 
 var gb = 
 {
+	config:
+	{
+		frame_skip: false,
+		update: null,
+		render: null,
+		gl:
+		{
+			container: document.querySelector('.webgl'),
+			width: 512,
+			height: 512,
+		},
+		gl_draw:
+		{
+			buffer_size: 160000,
+		},
+		input:
+		{
+			root: document,
+			keycodes: ['mouse_left', 'up', 'down', 'left', 'right'],
+		},
+	},
+
+	loading: true,
 	has_focus: true,
-	frame_skip: false,
 	do_skip_this_frame: false,
 
-	init: function(){},
 	update: function(t){},
+	render: function(){},
 
 	focus: function(e)
 	{
@@ -32,19 +54,46 @@ var gb =
 		gb.has_focus = false;
 		LOG('blur');
 	},
-	_init: function(e)
+	init: function(config)
 	{
-		if(gb.init) gb.init();
+		for(var config_key in config)
+			gb.config[config_key] = config[config_key];
+
+		/*
+		for(var config_key in config.gl)
+			gb.config.gl[config_key] = config.gl[config_key];
+
+		for(var config_key in config.input)
+			gb.config.input[config_key] = config.input[config_key];
+
+		//DEBUG
+		for(var config_key in config.gl_draw)
+			gb.config.gl_draw[config_key] = config.gl_draw[config_key];
+		//END
+		*/
+
+		gb.input.init(gb.config.input);
+		gb.webgl.init(gb.config.gl);
+		//DEBUG
+		gb.gl_draw.init(gb.config.gl_draw);
+		//END
+
+		if(gb.config.update) gb.update = config.update;
+		if(gb.config.render) gb.render = config.render;
+
+		window.onfocus = gb.focus;
+		window.onblur = gb.blur;
+
 		requestAnimationFrame(gb._init_time);
 	},
 	_init_time: function(t)
 	{
 		gb.time.init(t);
-		if(gb.update) requestAnimationFrame(gb._update);
+		requestAnimationFrame(gb._update);
 	},
 	_update: function(t)
 	{
-		if(gb.frame_skip === true)
+		if(gb.config.frame_skip === true)
 		{
 			if(gb.do_skip_this_frame === true)
 			{
@@ -56,15 +105,23 @@ var gb =
 		}
 		
 		gb.time.update(t);
-		if(gb.time.paused || gb.has_focus === false)
+		if(gb.time.paused || gb.has_focus === false || gb.loading === true)
 		{
 			gb.input.update();
 			requestAnimationFrame(gb._update);
 			return;
 		}
 		gb.stack.clear_all();
+		//DEBUG
+		gb.gl_draw.clear();
+		//END
+		//gb.scene.update(gb.scene.current, gb.time.dt);
 		gb.update(gb.time.dt);
+		//DEBUG
+		gb.gl_draw.update();
+		//END
 		gb.input.update();
+		gb.render();
 		requestAnimationFrame(gb._update);
 	},
 
@@ -78,6 +135,3 @@ var gb =
 		LOG('Loaded: ' + e.loaded + ' / ' + e.total + ' bytes');
 	},
 }
-window.addEventListener('load', gb._init, false);
-window.onfocus = gb.focus;
-window.onblur = gb.blur;

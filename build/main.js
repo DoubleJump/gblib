@@ -17,12 +17,34 @@ function EXISTS(val)
 
 var gb = 
 {
+	config:
+	{
+		frame_skip: false,
+		update: null,
+		render: null,
+		gl:
+		{
+			container: document.querySelector('.webgl'),
+			width: 512,
+			height: 512,
+		},
+		gl_draw:
+		{
+			buffer_size: 160000,
+		},
+		input:
+		{
+			root: document,
+			keycodes: ['mouse_left', 'up', 'down', 'left', 'right'],
+		},
+	},
+
+	loading: true,
 	has_focus: true,
-	frame_skip: false,
 	do_skip_this_frame: false,
 
-	init: function(){},
 	update: function(t){},
+	render: function(){},
 
 	focus: function(e)
 	{
@@ -34,19 +56,46 @@ var gb =
 		gb.has_focus = false;
 		LOG('blur');
 	},
-	_init: function(e)
+	init: function(config)
 	{
-		if(gb.init) gb.init();
+		for(var config_key in config)
+			gb.config[config_key] = config[config_key];
+
+		/*
+		for(var config_key in config.gl)
+			gb.config.gl[config_key] = config.gl[config_key];
+
+		for(var config_key in config.input)
+			gb.config.input[config_key] = config.input[config_key];
+
+		//DEBUG
+		for(var config_key in config.gl_draw)
+			gb.config.gl_draw[config_key] = config.gl_draw[config_key];
+		//END
+		*/
+
+		gb.input.init(gb.config.input);
+		gb.webgl.init(gb.config.gl);
+		//DEBUG
+		gb.gl_draw.init(gb.config.gl_draw);
+		//END
+
+		if(gb.config.update) gb.update = config.update;
+		if(gb.config.render) gb.render = config.render;
+
+		window.onfocus = gb.focus;
+		window.onblur = gb.blur;
+
 		requestAnimationFrame(gb._init_time);
 	},
 	_init_time: function(t)
 	{
 		gb.time.init(t);
-		if(gb.update) requestAnimationFrame(gb._update);
+		requestAnimationFrame(gb._update);
 	},
 	_update: function(t)
 	{
-		if(gb.frame_skip === true)
+		if(gb.config.frame_skip === true)
 		{
 			if(gb.do_skip_this_frame === true)
 			{
@@ -58,15 +107,23 @@ var gb =
 		}
 		
 		gb.time.update(t);
-		if(gb.time.paused || gb.has_focus === false)
+		if(gb.time.paused || gb.has_focus === false || gb.loading === true)
 		{
 			gb.input.update();
 			requestAnimationFrame(gb._update);
 			return;
 		}
 		gb.stack.clear_all();
+		//DEBUG
+		gb.gl_draw.clear();
+		//END
+		//gb.scene.update(gb.scene.current, gb.time.dt);
 		gb.update(gb.time.dt);
+		//DEBUG
+		gb.gl_draw.update();
+		//END
 		gb.input.update();
+		gb.render();
 		requestAnimationFrame(gb._update);
 	},
 
@@ -80,9 +137,7 @@ var gb =
 		LOG('Loaded: ' + e.loaded + ' / ' + e.total + ' bytes');
 	},
 }
-window.addEventListener('load', gb._init, false);
-window.onfocus = gb.focus;
-window.onblur = gb.blur;
+
 gb.stack_array = [];
 gb.Stack = function(type, count)
 {
@@ -1957,15 +2012,16 @@ gb.input =
 
 	keys: new Uint8Array(256),
 
-	init: function(root, config)
+	init: function(config)
 	{
+		var root = config.root;
+
 		var _t = gb.input;
 		root.onkeydown 	 = _t.key_down;
 		root.onkeyup 	 = _t.key_up;
 		root.onmousedown = _t.key_down;
 		root.onmouseup   = _t.key_up;
 		root.onmousemove = _t.mouse_move;
-
 		root.addEventListener("wheel", _t.mouse_wheel, false);
 
 		for(var i = 0; i < 256; ++i)
@@ -1977,7 +2033,8 @@ gb.input =
 		var n = keycodes.length;
 		for(var i = 0; i < n; ++i)
 		{
-			_t.keys[keycodes[i]] = gb.KeyState.RELEASED;
+			var code = gb.Keys[keycodes[i]];
+			_t.keys[code] = gb.KeyState.RELEASED;
 		}
 
 		for(var i = 0; i < _t.MAX_TOUCHES; ++i)
@@ -1987,7 +2044,6 @@ gb.input =
 
 		window.addEventListener('devicemotion', _t.device_motion);
 		window.addEventListener('deviceorientation', _t.device_rotation);
-
 		window.addEventListener("touchstart", _t.touch_start, false);
 	  	window.addEventListener("touchmove", _t.touch_move, false);
 	  	window.addEventListener("touchend", _t.touch_end, false);
@@ -2289,20 +2345,20 @@ gb.animation =
 		for(var i = 0; i < num_tweens; ++i)
 		{
 			var tween = animation.tweens[i];
-			for(var j = 0; j < tween.num_frames; ++j)
+			for(var j = 0; j < tween.num_frames-1; ++j)
 			{
 				var index = j * 6;
 				ax = tween.curve[index + 2];
+				ay = tween.curve[index + 3];
+				bx = tween.curve[index + 4];
+				by = tween.curve[index + 5];
+				cx = tween.curve[index + 6];
+				cy = tween.curve[index + 7];
 				dx = tween.curve[index + 8];
+				dy = tween.curve[index + 9];
 
 				if(animation.t <= dx && animation.t >= ax)
 				{
-					ay = tween.curve[index + 3];
-					bx = tween.curve[index + 4];
-					by = tween.curve[index + 5];
-					cx = tween.curve[index + 6];
-					cy = tween.curve[index + 7];
-					dy = tween.curve[index + 9];
 					in_range = true;
 					break;
 				}
@@ -2392,6 +2448,7 @@ gb.serialize.r_rig_action = function(br)
 {
 	var s = gb.serialize;
     var animation = new gb.Animation();
+    animation.target_type = 2;
     animation.name = s.r_string(br);
 
     var num_curves = s.r_i32(br);
@@ -2734,13 +2791,22 @@ gb.scene =
 	    for(var a in ag.animations)
 	    {
 	    	var anim = ag.animations[a];
-	    	if(anim.target_type === 0)
+	    	switch(anim.target_type)
 	    	{
-	    		anim.target = gb.scene.find(anim.target, s);
-	    	}
-	    	else if(anim.target_type === 1)
-	    	{
-	    		anim.target = gb.scene.find(anim.target, s).material;
+	    		case 0: // entity transform
+	    		{
+	    			anim.target = gb.scene.find(anim.target, s);
+	    			break;
+	    		}
+	    		case 1: // material
+	    		{
+	    			anim.target = gb.scene.find(anim.target, s).material;
+	    			break;
+	    		}
+	    		case 2: // armature
+	    		{
+	    			break;
+	    		}
 	    	}
 	    	s.animations.push(anim);
 	    }
@@ -2770,6 +2836,7 @@ gb.scene =
 	{
 		s = s || gb.scene.current;
 
+		/*
 		var n = s.animations.length;
 		for(var i = 0; i < n; ++i) 
 		{
@@ -2779,8 +2846,9 @@ gb.scene =
 				gb.animation.update(anim, dt);
 			}
 		}
+		*/
 
-		n = s.num_entities;
+		var n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
 		{
 			var e = s.entities[i];
@@ -3217,14 +3285,12 @@ gb.material =
                     ASSERT(false, uniform.type + ' is an unsupported uniform type');
                 }
             }
+            if(key === 'rig[0]') 
+            {
+                val = new Float32Array(gb.rig.MAX_JOINTS * 16);
+            }
             m[key] = val
         }
-        /*
-        if(shader.rig === true)
-        {
-            m.uniforms['rig[0]'] = new Float32Array(gb.rig.MAX_JOINTS * 16);
-        }
-        */
         return m;
     },
     set_camera_uniforms: function(material, camera)
@@ -3241,7 +3307,7 @@ gb.material =
         {
             materia.view_proj_matrix = camera.view_projection;
         }
-        if(material.normals !== undefined)
+        if(material.normal_matrix !== undefined)
         {
             material.normal_matrix = camera.normal;
         }
@@ -3256,7 +3322,7 @@ gb.material =
         {
             material.model_matrix = entity.world_matrix;
         }
-        if(material.rig !== undefined)
+        if(material['rig[0]'] !== undefined)
         {
             var rig = material['rig[0]'];
             var n = entity.rig.joints.length;
@@ -3315,7 +3381,7 @@ gb.Joint = function()
 gb.rig = 
 {
 	MAX_JOINTS: 18,
-	//TODO rig copy from src
+
 	new: function()
 	{
 		var r = new gb.Rig();
@@ -3453,7 +3519,7 @@ gb.render_target =
 gb.DrawCall = function()
 {
 	this.depth_test = true;
-	this.camera;
+	//this.camera;
 	this.entities = [];
 	this.material;
 	this.target;
@@ -3467,10 +3533,10 @@ gb.PostCall = function()
 
 gb.draw_call = 
 {
-	new: function(camera, entities, material, target)
+	new: function(entities, material, target)
 	{
 		var r = new gb.DrawCall();
-		r.camera = camera;
+		//r.camera = camera;
 		r.entities = entities;
 		r.material = material;
 		r.target = target;
@@ -3543,7 +3609,7 @@ gb.webgl =
 	view: null,
 	default_sampler: null,
 
-	init: function(container, config)
+	init: function(config)
 	{
 		var _t = gb.webgl;
 		var gl;
@@ -3555,8 +3621,8 @@ gb.webgl =
 		var height = 0;
 		if(_t.config.fill_container === true)
 		{
-			width = container.offsetWidth * _t.config.resolution;
-        	height = container.offsetHeight * _t.config.resolution;
+			width = config.container.offsetWidth * _t.config.resolution;
+        	height = config.container.offsetHeight * _t.config.resolution;
 		}
 		else
 		{
@@ -3565,7 +3631,7 @@ gb.webgl =
 		}
 
 		var canvas = document.createElement('canvas');
-        container.appendChild(canvas);
+        config.container.appendChild(canvas);
         canvas.width = width;
         canvas.height = height;
         _t.view = gb.rect.new(0,0,width,height);
@@ -3725,6 +3791,11 @@ gb.webgl =
 	use_shader: function(s)
 	{
 		gb.webgl.ctx.useProgram(s.id);
+	},
+	set_state: function(val, state)
+	{
+		if(state === true) gb.webgl.ctx.enable(val);
+		else gb.webgl.ctx.disable(val);
 	},
 	
 	link_texture: function(t)
@@ -3969,13 +4040,13 @@ gb.webgl =
 		}
 	},
 
-	render_draw_call: function(dc, clear)
+	render_draw_call: function(camera, dc, clear)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
 		var n = dc.entities.length;
 		
-		gl.enable(gl.DEPTH_TEST);
+		_t.set_state(gl.DEPTH_TEST, dc.depth_test);
 
 		_t.set_render_target(dc.target, clear);
 
@@ -3984,11 +4055,11 @@ gb.webgl =
 		if(dc.material)
 		{
 			_t.use_shader(dc.material.shader);
-			gb.material.set_camera_uniforms(dc.material, dc.camera);
+			gb.material.set_camera_uniforms(dc.material, camera);
 			for(var i = 0; i < n; ++i)
 			{
 				var e = dc.entities[i];
-				gb.material.set_entity_uniforms(dc.material, e, dc.camera);
+				gb.material.set_entity_uniforms(dc.material, e, camera);
 				_t.link_attributes(dc.material.shader, e.mesh);
 				_t.set_uniforms(dc.material);
 				_t.draw_mesh(e.mesh);
@@ -4001,8 +4072,8 @@ gb.webgl =
 				var e = dc.entities[i];
 				var material = e.material;
 				_t.use_shader(material.shader);
-				gb.material.set_camera_uniforms(material, dc.camera);
-				gb.material.set_entity_uniforms(material, e, dc.camera);
+				gb.material.set_camera_uniforms(material, camera);
+				gb.material.set_entity_uniforms(material, e, camera);
 				_t.link_attributes(material.shader, e.mesh);
 				_t.set_uniforms(material);
 				_t.draw_mesh(e.mesh);
@@ -4222,7 +4293,7 @@ gb.assets =
 //DEBUG
 gb.gl_draw = 
 {
-	entity: null,
+	entities: [],
 	mesh: null,
 	offset: null,
 	color: null,
@@ -4234,13 +4305,13 @@ gb.gl_draw =
 		var _t = gb.gl_draw;
 		var wgl = gb.webgl;
 
-		_t.draw_call = new gb.DrawCall();
-		_t.draw_call.clear = false;
-		_t.draw_call.depth_test = false;
-		_t.entity = gb.entity.new();
-		_t.draw_call.entities.push(_t.entity);
-		_t.matrix = _t.entity.world_matrix;
-		_t.entity.entity_type = gb.EntityType.ENTITY;
+		//_t.draw_call = new gb.DrawCall();
+		//_t.draw_call.clear = false;
+		//_t.draw_call.depth_test = false;
+		var entity = gb.entity.new();
+		//_t.draw_call.entities.push(_t.entity);
+		_t.matrix = entity.world_matrix;
+		entity.entity_type = gb.EntityType.ENTITY;
 
 		_t.offset = 0;
 		_t.color = gb.color.new(1,1,1,1);
@@ -4255,10 +4326,34 @@ gb.gl_draw =
 	    m.vertex_count = 0;
 	    m.dirty = true;
 	    gb.mesh.update_vertex_buffer(vb);
-	    _t.entity.mesh = m;
+	    wgl.link_mesh(m);
+
+	    entity.mesh = m;
 	    _t.mesh = m;
 
-        _t.draw_call.material = gb.material.new(assets.shaders.debug); 
+	    _t.entities.push(entity);
+
+	    
+
+        //_t.draw_call.material = gb.material.new(assets.shaders.debug); 
+	},
+	clear: function()
+	{
+		var _t = gb.gl_draw;
+		gb.mat4.identity(_t.matrix);
+		gb.color.set(_t.color, 1,1,1,1);
+		_t.offset = 0;
+		_t.mesh.vertex_count = 0;
+		var n = _t.mesh.vertex_buffer.data.length;
+		for(var i = 0; i < n; ++i)
+		{
+			_t.mesh.vertex_buffer.data[i] = 0;
+		}
+	},
+	update: function()
+	{
+		var _t = gb.gl_draw;
+		gb.webgl.update_mesh(_t.mesh);
 	},
 	set_position_f: function(x,y,z)
 	{
@@ -4497,19 +4592,7 @@ gb.gl_draw =
 		}
 		v3.pop(stack);
 	},
-	clear: function()
-	{
-		var _t = gb.gl_draw;
-		gb.mat4.identity(_t.matrix);
-		gb.color.set(_t.color, 1,1,1,1);
-		_t.offset = 0;
-		_t.mesh.vertex_count = 0;
-		var n = _t.mesh.vertex_buffer.data.length;
-		for(var i = 0; i < n; ++i)
-		{
-			_t.mesh.vertex_buffer.data[i] = 0;
-		}	
-	},
+	
 
 	rig: function(r)
 	{
@@ -4602,9 +4685,6 @@ gb.debug =
 }
 //END
 
-gb.init = init;
-gb.update = update;
-
 var v2 = gb.vec2;
 var v3 = gb.vec3;
 var qt = gb.quat;
@@ -4620,6 +4700,7 @@ var construct;
 var anim;
 
 var surface_pass;
+var debug_pass;
 var lamp_pass;
 var shadow_pass;
 var lighting_pass;
@@ -4627,45 +4708,48 @@ var fxaa_pass;
 var final_pass;
 var antialias = false;
 
+var camera;
+var lamp;
+
+var bob;
+
 function init()
 {
-	assets_loaded = false;
-
-	gb.frame_skip = true;
-
-	var k = gb.Keys;
-	input.init(document,
+	gb.init(
 	{
-		keycodes: [k.mouse_left, k.a, k.x, k.z, k.one, k.two, k.three, k.up, k.down, k.left, k.right],
-	});
-
-	gl.init(document.querySelector('.container'),
-	{
-		width: 512,
-		height: 512,
+		frame_skip: false, 
+		update: update, 
+		render: render,
 	});
 
 	assets = new gb.Asset_Group();
+	gb.loading = true;
 	gb.assets.load("assets.gl", assets, load_complete);
 }
+
+
 function load_complete(asset_group)
 {
 	construct = scene.new(assets);
 	scene.current = construct;
 	
-	assets.materials.material.alpha = 1.0;
-	gb.animation.play(assets.animations.shift, -1);
+	bob = scene.find('cube');
+	bob.rig = assets.rigs['armature'];
+	//assets.materials.material.alpha = 1.0;
+	//gb.animation.play(assets.animations.shift, -1);
 	//gb.animation.play(assets.animations.matanim, -1);
+	gb.animation.play(assets.animations.test, -1);
+	assets.animations.test.target = bob.rig.joints;
 
-	var camera = scene.find('camera').camera;
-	var lamp = scene.find('shadowcam').camera;
+	camera = scene.find('camera').camera;
+	lamp = scene.find('shadowcam').camera;
 
-	scene.find('plane').material.alpha = 1.0;
+	//scene.find('plane').material.alpha = 1.0;
 
 
 	// draw color and alpha
 	var surface_target = gb.render_target.new();
-	surface_pass = gb.draw_call.new(camera, construct.draw_items, null, surface_target);
+	surface_pass = gb.draw_call.new(construct.draw_items, null, surface_target);
 
 	// draw normals and depth
 	/*
@@ -4674,18 +4758,20 @@ function load_complete(asset_group)
 										 construct.draw_items, 
 										 gb.material.new(assets.shaders.depth_normal, 'depth_normal'), 
 										 depth_normal_target);
+
+
 	*/
 
+	// debug draw
+	debug_pass = gb.draw_call.new(gb.gl_draw.entities, gb.material.new(assets.shaders.debug), surface_target);
+	debug_pass.depth_test = false;
+	
 	// draw shadows
 	var lamp_target = gb.render_target.new();
-	lamp_pass = gb.draw_call.new(lamp, 
-								 construct.draw_items, 
-								 gb.material.new(assets.shaders.surface), 
-								 lamp_target);
-
+	lamp_pass = gb.draw_call.new(construct.draw_items, null, lamp_target);
 
 	var shadow_target = gb.render_target.new();
-	shadow_pass = gb.draw_call.new(camera, construct.draw_items, gb.material.new(assets.shaders.shadow), shadow_target); 
+	shadow_pass = gb.draw_call.new(construct.draw_items, gb.material.new(assets.shaders.shadow), shadow_target); 
 	shadow_pass.material.lamp_depth_map = lamp_target.depth;
 	shadow_pass.material.lamp_matrix = lamp.view_projection;
 
@@ -4693,44 +4779,56 @@ function load_complete(asset_group)
 	lighting_pass = gb.post_call.new(gb.material.new(assets.shaders.lighting), lighting_target);
 	lighting_pass.material.surface_map = surface_target.color;
 	lighting_pass.material.shadow_map = shadow_target.color;
-	
+
 	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
-	fxaa_pass.material.texture = lighting_target.color;
+	fxaa_pass.material.texture = surface_target.color;
 	fxaa_pass.material.resolution = v3.tmp(gl.view.width, gl.view.height);
 	fxaa_pass.material.inv_resolution = v3.tmp(1.0 / gl.view.width, 1.0 / gl.view.height);
 
 	final_pass = gb.post_call.new(gb.material.new(assets.shaders.final), null);
-	final_pass.material.texture = lamp_target.depth;
-	//final_pass.material.texture = lighting_target.color;
+	//final_pass.material.texture = surface_target.color;
+	final_pass.material.texture = lighting_target.color;
 
-	assets_loaded = true;
+	gb.loading = false;
 }
 
 
 function update(dt)
 {
-	if(assets_loaded === false) return;
-
-	scene.update(construct, dt);
+	// TODO: cant rely on this
+	bob.dirty = true;
 
 	if(input.down(gb.Keys.left))
 	{
 		//gb.animation.play(assets.animations.shift, -1);
 		//gb.animation.play(assets.animations.matanim, -1);
+		//gb.animation.play(assets.animations.test, 1);
 		antialias = !antialias;
 	}
+	gb.animation.update(assets.animations.test, dt);
 
-	gl.render_draw_call(surface_pass, true);
-	gl.render_draw_call(lamp_pass, true);
-	gl.render_draw_call(shadow_pass, true)
+	gb.scene.update(gb.scene.current, dt);
+
+	gb.gl_draw.rig_transforms(bob.rig);
+}
+
+function render()
+{
+	gl.render_draw_call(camera, surface_pass, true);
+	//gl.render_draw_call(camera, debug_pass, false);
+	gl.render_draw_call(lamp, lamp_pass, true);
+	gl.render_draw_call(camera, shadow_pass, true)
 	gl.render_post_call(lighting_pass);
+	
 	if(antialias === true)
 	{
 		gl.render_post_call(fxaa_pass);
 	}
 	else
 	{
-		gl 	.render_post_call(final_pass);
+		gl.render_post_call(final_pass);
 	}
 }
+
+window.addEventListener('load', init, false);
 

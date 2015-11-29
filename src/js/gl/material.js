@@ -70,14 +70,12 @@ gb.material =
                     ASSERT(false, uniform.type + ' is an unsupported uniform type');
                 }
             }
+            if(key === 'rig[0]') 
+            {
+                val = new Float32Array(gb.rig.MAX_JOINTS * 16);
+            }
             m[key] = val
         }
-        /*
-        if(shader.rig === true)
-        {
-            m.uniforms['rig[0]'] = new Float32Array(gb.rig.MAX_JOINTS * 16);
-        }
-        */
         return m;
     },
     set_camera_uniforms: function(material, camera)
@@ -94,7 +92,7 @@ gb.material =
         {
             materia.view_proj_matrix = camera.view_projection;
         }
-        if(material.normals !== undefined)
+        if(material.normal_matrix !== undefined)
         {
             material.normal_matrix = camera.normal;
         }
@@ -109,7 +107,7 @@ gb.material =
         {
             material.model_matrix = entity.world_matrix;
         }
-        if(material.rig !== undefined)
+        if(material['rig[0]'] !== undefined)
         {
             var rig = material['rig[0]'];
             var n = entity.rig.joints.length;

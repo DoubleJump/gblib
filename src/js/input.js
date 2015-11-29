@@ -89,15 +89,16 @@ gb.input =
 
 	keys: new Uint8Array(256),
 
-	init: function(root, config)
+	init: function(config)
 	{
+		var root = config.root;
+
 		var _t = gb.input;
 		root.onkeydown 	 = _t.key_down;
 		root.onkeyup 	 = _t.key_up;
 		root.onmousedown = _t.key_down;
 		root.onmouseup   = _t.key_up;
 		root.onmousemove = _t.mouse_move;
-
 		root.addEventListener("wheel", _t.mouse_wheel, false);
 
 		for(var i = 0; i < 256; ++i)
@@ -109,7 +110,8 @@ gb.input =
 		var n = keycodes.length;
 		for(var i = 0; i < n; ++i)
 		{
-			_t.keys[keycodes[i]] = gb.KeyState.RELEASED;
+			var code = gb.Keys[keycodes[i]];
+			_t.keys[code] = gb.KeyState.RELEASED;
 		}
 
 		for(var i = 0; i < _t.MAX_TOUCHES; ++i)
@@ -119,7 +121,6 @@ gb.input =
 
 		window.addEventListener('devicemotion', _t.device_motion);
 		window.addEventListener('deviceorientation', _t.device_rotation);
-
 		window.addEventListener("touchstart", _t.touch_start, false);
 	  	window.addEventListener("touchmove", _t.touch_move, false);
 	  	window.addEventListener("touchend", _t.touch_end, false);

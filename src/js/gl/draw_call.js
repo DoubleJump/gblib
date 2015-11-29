@@ -1,7 +1,7 @@
 gb.DrawCall = function()
 {
 	this.depth_test = true;
-	this.camera;
+	//this.camera;
 	this.entities = [];
 	this.material;
 	this.target;
@@ -15,10 +15,10 @@ gb.PostCall = function()
 
 gb.draw_call = 
 {
-	new: function(camera, entities, material, target)
+	new: function(entities, material, target)
 	{
 		var r = new gb.DrawCall();
-		r.camera = camera;
+		//r.camera = camera;
 		r.entities = entities;
 		r.material = material;
 		r.target = target;

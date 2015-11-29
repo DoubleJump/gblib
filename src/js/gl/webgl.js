@@ -1,6 +1,6 @@
 gb.webgl = 
 {
-	shader_types:
+	types:
 	{
         0x8B50: 'FLOAT_VEC2',
         0x8B51: 'FLOAT_VEC3',
@@ -23,9 +23,23 @@ gb.webgl =
         0x1403: 'UNSIGNED_SHORT',
         0x1404: 'INT',
         0x1405: 'UNSIGNED_INT',
-        0x1406: 'FLOAT'
+        0x1406: 'FLOAT',
     },
-
+    config: 
+    {
+    	fill_container: false,
+		width: 512,
+		height: 512,
+		resolution: 1,
+		alpha: false,
+	    depth: true,
+	    stencil: false,
+	    antialias: false,
+	    premultipliedAlpha: false,
+	    preserveDrawingBuffer: false,
+	    preferLowPowerToHighPerformance: false,
+	    failIfMajorPerformanceCaveat: false,
+	},
 	extensions: 
 	{
 		depth_texture: null,
@@ -43,29 +57,33 @@ gb.webgl =
 		var _t = gb.webgl;
 		var gl;
 
+		for(var config_key in config)
+			_t.config[config_key] = config[config_key];
+
 		var width = 0;
 		var height = 0;
-		if(config.width)
+		if(_t.config.fill_container === true)
 		{
-			width = config.width * config.resolution;
-			height = config.height * config.resolution;
+			width = container.offsetWidth * _t.config.resolution;
+        	height = container.offsetHeight * _t.config.resolution;
 		}
 		else
 		{
-			width = container.offsetWidth * config.resolution;
-        	height = container.offsetHeight * config.resolution;	
+        	width = _t.config.width * _t.config.resolution;
+			height = _t.config.height * _t.config.resolution;
 		}
+
 		var canvas = document.createElement('canvas');
         container.appendChild(canvas);
         canvas.width = width;
         canvas.height = height;
         _t.view = gb.rect.new(0,0,width,height);
 
-        gl = canvas.getContext('webgl', config);
+        gl = canvas.getContext('webgl', _t.config);
         //gl = canvas.getContext('experimental-webgl', config);
 
         //DEBUG
-        ASSERT(gl != null, "Could not load WebGL");
+        ASSERT(EXISTS(gl), "Could not load WebGL");
         //gb.debug.get_context_info(gl);
         //END
 
@@ -85,12 +103,12 @@ gb.webgl =
 		
 		_t.set_viewport(_t.view);
 
-        gl.clearColor(0.0,0.0,0.0,0.0);
+        //gl.clearColor(0.0,0.0,0.0,0.0);
         //gl.colorMask(true, true, true, false);
     	//gl.clearStencil(0);
     	//gl.depthMask(true);
 		//gl.depthRange(-100, 100); // znear zfar
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		//gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         _t.default_sampler = gb.texture.sampler(gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE, gl.NEAREST, gl.NEAREST);
 
@@ -140,6 +158,11 @@ gb.webgl =
 
 	link_shader: function(s)
 	{
+		if(s.linked === true)
+		{
+			LOG('Shader is already linked');
+			return;
+		}
 		var _t = gb.webgl;
 		var gl = _t.ctx;
 		var vs = gl.createShader(gl.VERTEX_SHADER);
@@ -194,7 +217,7 @@ gb.webgl =
 	        var uniform = gl.getActiveUniform(id, i);
 	        var su = new gb.ShaderUniform();
 	        su.location = gl.getUniformLocation(id, uniform.name);
-	        su.type = _t.shader_types[uniform.type];
+	        su.type = _t.types[uniform.type];
 	        if(su.type === 'SAMPLER_2D')
 	        {
 	        	su.sampler_index = sampler_index;
@@ -215,6 +238,11 @@ gb.webgl =
 	
 	link_texture: function(t)
 	{
+		if(t.linked === true)
+		{
+			LOG('Texture is already linked');
+			return;
+		}
 		var _t = gb.webgl;
 		var gl = _t.ctx;
 		ASSERT(t.id === 0, "Texture is already bound to id " + t.id);
@@ -305,12 +333,17 @@ gb.webgl =
 
 	link_render_target: function(rt)
 	{
+		if(rt.linked === true)
+		{
+			LOG('Render target already linked');
+			return;
+		}
+
 		var _t = gb.webgl;
 		var gl = _t.ctx;
 		rt.frame_buffer = gl.createFramebuffer();
 		gl.bindFramebuffer(gl.FRAMEBUFFER, rt.frame_buffer);
 
-		// TODO: just do an attachment array
 		if(rt.color !== null)
 		{
 			_t.set_render_target_attachment(gl.COLOR_ATTACHMENT0, rt.color);
@@ -331,19 +364,20 @@ gb.webgl =
 		rt.linked = true;
 	},
 
-	draw_mesh_elements: function(mesh)
+	draw_mesh: function(mesh)
 	{
 		var gl = gb.webgl.ctx;
-        ASSERT(mesh.indices !== null, "Mesh has no index buffer");
-    	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.index_buffer.id);
-        gl.drawElements(mesh.layout, mesh.index_count, gl.UNSIGNED_INT, 0);
+		if(mesh.index_buffer)
+		{
+    		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.index_buffer.id);
+        	gl.drawElements(mesh.layout, mesh.index_count, gl.UNSIGNED_INT, 0);
+		}
+		else
+		{
+			gb.webgl.ctx.drawArrays(mesh.layout, 0, mesh.vertex_count);
+		}
 	},
 
-	draw_mesh_arrays: function(mesh)
-	{
-		gb.webgl.ctx.drawArrays(mesh.layout, 0, mesh.vertex_count);
-	},
-	
 	link_attributes: function(shader, mesh)
 	{
 		var _t = gb.webgl;
@@ -360,17 +394,24 @@ gb.webgl =
 		}
 	},
 
-	set_uniforms: function(shader, uniforms)
+	set_uniforms: function(material)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
-		for(var key in uniforms)
+		var shader = material.shader;
+		for(var key in shader.uniforms)
 		{
 			var uniform = shader.uniforms[key];
 			var loc = uniform.location;
-			var val = uniforms[key];
+			var val = material[key];
+			ASSERT(EXISTS(val), "Could not find shader uniform " + key + " in material " + material.name);
 			switch(uniform.type)
 			{
+				case 'FLOAT': 
+		        {
+					gl.uniform1f(loc, val);
+					break;
+				}
 				case 'FLOAT_VEC2':
 				{
 					gl.uniform2f(loc, val[0], val[1]);
@@ -425,15 +466,10 @@ gb.webgl =
 		        //case 'UNSIGNED_SHORT':
 		        case 'INT':
 		        {
-					ctx.uniformi(loc, val);
+					gl.uniformi(loc, val);
 					break;
 				}
 		        //case 'UNSIGNED_INT':
-		        case 'FLOAT': 
-		        {
-					ctx.uniformf(loc, val);
-					break;
-				}
 				default:
 				{
 					ASSERT(false, uniform.type + ' is an unsupported uniform type');
@@ -442,102 +478,59 @@ gb.webgl =
 		}
 	},
 
-	render_draw_call: function (dc, rt, clear)
+	render_draw_call: function(dc, clear)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
-		var mat = dc.material;
-		var shader = mat.shader;
-		var cam = dc.camera;
-		//var lights = dc.lights;
-
-		// TODO: all linking to occur at scene add phase
-		
-		if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
-		else gl.disable(gl.DEPTH_TEST);
-
-		if(rt.linked === false) _t.link_render_target(rt);
-		_t.set_render_target(rt, clear);
-
-		if(shader.linked === false) _t.link_shader(shader);
-		_t.use_shader(shader);
-
-		if(shader.camera === true)
-		{
-			mat.uniforms.proj_matrix = cam.projection;
-			mat.uniforms.view_matrix = cam.view;
-		}
-		if(shader.normals === true)
-		{
-			mat.uniforms.normal_matrix = cam.normal;
-		}
-
-		//if(shader.lights)
-		
 		var n = dc.entities.length;
-		for(var i = 0; i < n; ++i)
+		
+		gl.enable(gl.DEPTH_TEST);
+
+		_t.set_render_target(dc.target, clear);
+
+		//gl.depthRange(0, dc.camera.far);
+
+		if(dc.material)
 		{
-			var e = dc.entities[i];
-			// TODO: filter these out at draw call gen phase
-			if(e.entity_type === gb.EntityType.EMPTY) continue;
-			if(e.entity_type === gb.EntityType.CAMERA) continue;
-			if(e.entity_type === gb.EntityType.LAMP) continue;
-
-			ASSERT(e.mesh, "Cannot draw an entity with no mesh now can I?");
-			if(e.mesh.linked === false) _t.link_mesh(e.mesh);
-			if(e.mesh.dirty === true) _t.update_mesh(e.mesh);
-			_t.link_attributes(shader, e.mesh);
-
-			if(shader.mvp === true)
+			_t.use_shader(dc.material.shader);
+			gb.material.set_camera_uniforms(dc.material, dc.camera);
+			for(var i = 0; i < n; ++i)
 			{
-				gb.mat4.mul(mat.uniforms.mvp, e.world_matrix, cam.view_projection);
+				var e = dc.entities[i];
+				gb.material.set_entity_uniforms(dc.material, e, dc.camera);
+				_t.link_attributes(dc.material.shader, e.mesh);
+				_t.set_uniforms(dc.material);
+				_t.draw_mesh(e.mesh);
 			}
-			else
+		}
+		else
+		{
+			for(var i = 0; i < n; ++i)
 			{
-				mat.uniforms.model_matrix = e.world_matrix;
+				var e = dc.entities[i];
+				var material = e.material;
+				_t.use_shader(material.shader);
+				gb.material.set_camera_uniforms(material, dc.camera);
+				gb.material.set_entity_uniforms(material, e, dc.camera);
+				_t.link_attributes(material.shader, e.mesh);
+				_t.set_uniforms(material);
+				_t.draw_mesh(e.mesh);
 			}
-			if(shader.rig)
-			{
-				var rig = mat.uniforms['rig[0]'];
-				var n = e.rig.joints.length;
-				var t = 0;
-				for(var i = 0; i < n; ++i)
-				{
-					var joint = e.rig.joints[i];
-					for(var j = 0; j < 16; ++j)
-					{
-						rig[t+j] = joint.offset_matrix[j];
-					}
-					t += 16;
-				}
-			}
-
-			_t.set_uniforms(shader, mat.uniforms);
-
-			if(e.mesh.index_buffer) _t.draw_mesh_elements(e.mesh);
-			else _t.draw_mesh_arrays(e.mesh);
 		}
 	},
 
-	render_post_call: function(pc, rt)
+	render_post_call: function(pc)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
 
-		var mesh = pc.mesh;
-		var mat = pc.material;
-		var shader = mat.shader;
-
-		if(shader.linked === false) _t.link_shader(shader);
-		if(mesh.linked === false) _t.link_mesh(mesh);
-		if(mesh.dirty === true) _t.update_mesh(mesh);
+		_t.set_render_target(pc.target, true);
 
 		gl.disable(gl.DEPTH_TEST);
-		_t.set_render_target(rt, true);
-		_t.use_shader(shader);
-		_t.link_attributes(shader, mesh);
-		_t.set_uniforms(shader, mat.uniforms);
-		_t.draw_mesh_elements(mesh);
+		_t.use_shader(pc.material.shader);
+		_t.link_attributes(pc.material.shader, pc.mesh);
+		_t.set_uniforms(pc.material);
+		_t.draw_mesh(pc.mesh);
 	},
 
 	world_to_screen: function(r, camera, world, view)

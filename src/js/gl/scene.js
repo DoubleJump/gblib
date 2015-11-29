@@ -3,22 +3,44 @@ gb.Scene = function()
 	this.world_matrix = gb.mat4.new();
 	this.num_entities = 0;
 	this.entities = [];
+	this.draw_items = [];
+	this.animations = [];
 }
 gb.scene = 
 {
-	new: function()
+	current: null,
+
+	new: function(assets)
 	{
-		return new gb.Scene();
+		var scene = new gb.Scene();
+		if(assets)
+			gb.scene.load_asset_group(assets, scene);
+		return scene;
 	},
-	load_asset_group: function(s, ag)
+	load_asset_group: function(ag, s)
 	{
-	    for(var entity in ag.entities)
+		s = s || gb.scene.current;
+	    for(var e in ag.entities)
 	    {
-	        gb.scene.add(s, ag.entities[entity]);
+	        gb.scene.add(ag.entities[e], s);
+	    }
+	    for(var a in ag.animations)
+	    {
+	    	var anim = ag.animations[a];
+	    	if(anim.target_type === 0)
+	    	{
+	    		anim.target = gb.scene.find(anim.target, s);
+	    	}
+	    	else if(anim.target_type === 1)
+	    	{
+	    		anim.target = gb.scene.find(anim.target, s).material;
+	    	}
+	    	s.animations.push(anim);
 	    }
 	},	
-	find: function(s, name)
+	find: function(name, s)
 	{
+		s = s || gb.scene.current;
 		var n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
 		{
@@ -27,14 +49,31 @@ gb.scene =
 		}
 		return null;
 	},
-	add: function(s, e)
+	add: function(e, s)
 	{
+		s = s || gb.scene.current;
 		s.entities.push(e);
 		s.num_entities++;
+		if(e.entity_type === gb.EntityType.ENTITY && e.mesh && e.material)
+		{
+			s.draw_items.push(e);
+		}
 	},
-	update: function(s)
+	update: function(s, dt)
 	{
-		var n = s.num_entities;
+		s = s || gb.scene.current;
+
+		var n = s.animations.length;
+		for(var i = 0; i < n; ++i) 
+		{
+			var anim = s.animations[i];
+			if(anim.is_playing)
+			{
+				gb.animation.update(anim, dt);
+			}
+		}
+
+		n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
 		{
 			var e = s.entities[i];

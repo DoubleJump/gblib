@@ -7,6 +7,10 @@ function LOG(message)
 {
 	console.log(message);
 }
+function EXISTS(val)
+{
+	return val !== null && val !== undefined;
+}
 //END
 
 var gb = 
@@ -59,7 +63,7 @@ var gb =
 			return;
 		}
 		gb.stack.clear_all();
-		gb.update(t);
+		gb.update(gb.time.dt);
 		gb.input.update();
 		requestAnimationFrame(gb._update);
 	},
@@ -67,6 +71,11 @@ var gb =
 	has_flag_set: function(mask, flag)
 	{
 	    return (flag & mask) === flag;
+	},
+	event_load_progress: function(e)
+	{
+		var percent = e.loaded / e.total;
+		LOG('Loaded: ' + e.loaded + ' / ' + e.total + ' bytes');
 	},
 }
 window.addEventListener('load', gb._init, false);

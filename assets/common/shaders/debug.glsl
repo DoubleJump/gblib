@@ -1,4 +1,3 @@
-#MVP
 #VERTEX
 
 attribute vec3 position;

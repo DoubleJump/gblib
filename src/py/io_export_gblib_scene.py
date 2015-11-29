@@ -48,6 +48,9 @@ OB_TYPE_ARMATURE = 7
 OB_TYPE_ARMATURE_ACTION = 8
 OB_TYPE_FILE_END = -101
 
+ANIM_TYPE_ENTITY = 0
+ANIM_TYPE_MATERIAL = 1
+
 GB_MATRIX = mathutils.Matrix.Rotation(radians(-90.0), 4, 'X')
 
 def round_vec3(v):
@@ -344,16 +347,28 @@ class FileWriter:
 		if not has_triangulate:
 			modifiers.remove(modifiers[len(modifiers)-1])
 
-	def write_action(self, action, ob, scene):
+	def animation_curve(self, curve, fps):
+		self.i32(len(curve.keyframe_points))
+		for keyframe in curve.keyframe_points:
+			self.f32(keyframe.handle_left[0] / fps)
+			self.f32(keyframe.handle_left[1])
+			self.f32(keyframe.co[0] / fps)
+			self.f32(keyframe.co[1])
+			self.f32(keyframe.handle_right[0] / fps)
+			self.f32(keyframe.handle_right[1])
+
+	def action(self, action, ob, owner, scene, anim_type):
 		print("Exporting Action: " + action.name)
 
 		self.i32(OB_TYPE_ACTION)
+		self.i32(anim_type)
 		self.string(action.name)
+		self.string(ob.name) #target
 		self.i32(len(action.fcurves))
 
 		for curve in action.fcurves:
 			prop = curve.data_path
-			data_type = ob.path_resolve(prop)
+			data_type = owner.path_resolve(prop)
 			
 			value_mode = 0
 			if prop == 'location': prop = 'position'
@@ -375,16 +390,8 @@ class FileWriter:
 					elif index == 2: index = 1
 					elif index == 3: index = 2
 				self.i32(index)
-			
-			self.i32(len(curve.keyframe_points))
-			for keyframe in curve.keyframe_points:
-				self.f32(keyframe.co[0] / scene.render.fps)
-				self.f32(keyframe.co[1])
-				self.f32(keyframe.handle_left[0])
-				self.f32(keyframe.handle_left[1])
-				self.f32(keyframe.handle_right[0])
-				self.f32(keyframe.handle_right[1])
 
+			self.animation_curve(curve, scene.render.fps)
 
 	def armature_action(self, action, ob, scene):
 		print("Exporting Rig Action: " + action.name)
@@ -422,14 +429,7 @@ class FileWriter:
 				elif index == 3: index = 2 
 			self.i32(index)
 
-			self.i32(len(curve.keyframe_points))
-			for keyframe in curve.keyframe_points:
-				self.f32(keyframe.co[0] / scene.render.fps)
-				self.f32(keyframe.co[1])
-				self.f32(keyframe.handle_left[0])
-				self.f32(keyframe.handle_left[1])
-				self.f32(keyframe.handle_right[0])
-				self.f32(keyframe.handle_right[1])
+			self.animation_curve(curve, scene.render.fps)
 
 class ExportTest(bpy.types.Operator, ExportHelper):
 	bl_idname = "export_gblib.test"
@@ -479,7 +479,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 				action = ob.animation_data.action
 				if not action is None:
 					if not action in exported_actions:
-						writer.action(action, ob, scene)
+						writer.action(action, ob, ob, scene, ANIM_TYPE_ENTITY)
 						exported_actions.append(action)
 
 			if ob.type == 'CAMERA': 
@@ -489,7 +489,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 						action = camera.animation_data.action
 						if not action is None:
 							if not action in exported_actions:
-								writer.action(action, ob, scene)
+								writer.action(action, ob, ob, scene, ANIM_TYPE_ENTITY)
 								exported_actions.append(action)
 
 					writer.camera(ob, camera)
@@ -502,7 +502,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 						action = lamp.animation_data.action
 						if not action is None:
 							if not action in exported_actions:
-								writer.action(action, ob, scene)
+								writer.action(action, ob, ob, scene, ANIM_TYPE_ENTITY)
 								exported_actions.append(action)
 				
 					writer.lamp(ob, lamp)
@@ -516,7 +516,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 							action = material.animation_data.action
 							if not action is None:
 								if not action in exported_actions:
-									writer.action(action, ob, scene)
+									writer.action(action, ob, material, scene, ANIM_TYPE_MATERIAL)
 									exported_actions.append(action)
 
 						writer.material(material)

@@ -83,7 +83,7 @@ gb.webgl =
         //gl = canvas.getContext('experimental-webgl', config);
 
         //DEBUG
-        ASSERT(gl != null, "Could not load WebGL");
+        ASSERT(EXISTS(gl), "Could not load WebGL");
         //gb.debug.get_context_info(gl);
         //END
 
@@ -344,7 +344,6 @@ gb.webgl =
 		rt.frame_buffer = gl.createFramebuffer();
 		gl.bindFramebuffer(gl.FRAMEBUFFER, rt.frame_buffer);
 
-		// TODO: just do an attachment array
 		if(rt.color !== null)
 		{
 			_t.set_render_target_attachment(gl.COLOR_ATTACHMENT0, rt.color);
@@ -365,19 +364,20 @@ gb.webgl =
 		rt.linked = true;
 	},
 
-	draw_mesh_elements: function(mesh)
+	draw_mesh: function(mesh)
 	{
 		var gl = gb.webgl.ctx;
-        ASSERT(mesh.indices !== null, "Mesh has no index buffer");
-    	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.index_buffer.id);
-        gl.drawElements(mesh.layout, mesh.index_count, gl.UNSIGNED_INT, 0);
+		if(mesh.index_buffer)
+		{
+    		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.index_buffer.id);
+        	gl.drawElements(mesh.layout, mesh.index_count, gl.UNSIGNED_INT, 0);
+		}
+		else
+		{
+			gb.webgl.ctx.drawArrays(mesh.layout, 0, mesh.vertex_count);
+		}
 	},
 
-	draw_mesh_arrays: function(mesh)
-	{
-		gb.webgl.ctx.drawArrays(mesh.layout, 0, mesh.vertex_count);
-	},
-	
 	link_attributes: function(shader, mesh)
 	{
 		var _t = gb.webgl;
@@ -394,16 +394,17 @@ gb.webgl =
 		}
 	},
 
-	set_uniforms: function(shader, material)
+	set_uniforms: function(material)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
+		var shader = material.shader;
 		for(var key in shader.uniforms)
 		{
 			var uniform = shader.uniforms[key];
 			var loc = uniform.location;
 			var val = material[key];
-			ASSERT(val !== null, "Could not find shader uniform " + key + " in material " + material.name);
+			ASSERT(EXISTS(val), "Could not find shader uniform " + key + " in material " + material.name);
 			switch(uniform.type)
 			{
 				case 'FLOAT': 
@@ -477,93 +478,59 @@ gb.webgl =
 		}
 	},
 
-	render_draw_call: function (dc, rt, clear)
+	render_draw_call: function(dc, clear)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
-		var mat = dc.material;
-		var shader = mat.shader;
-		var cam = dc.camera;
-		//var lights = dc.lights;
-
-		// TODO: all linking to occur at scene add phase
-		
-		if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
-		else gl.disable(gl.DEPTH_TEST);
-
-		_t.set_render_target(rt, clear);
-		_t.use_shader(shader);
-
-		if(shader.camera === true)
-		{
-			mat.proj_matrix = cam.projection;
-			mat.view_matrix = cam.view;
-		}
-		if(shader.normals === true)
-		{
-			mat.normal_matrix = cam.normal;
-		}
-
-		//if(shader.lights)
-		
 		var n = dc.entities.length;
-		for(var i = 0; i < n; ++i)
+		
+		gl.enable(gl.DEPTH_TEST);
+
+		_t.set_render_target(dc.target, clear);
+
+		//gl.depthRange(0, dc.camera.far);
+
+		if(dc.material)
 		{
-			var e = dc.entities[i];
-			// TODO: filter these out at draw call gen phase
-			if(e.entity_type === gb.EntityType.EMPTY) continue;
-			if(e.entity_type === gb.EntityType.CAMERA) continue;
-			if(e.entity_type === gb.EntityType.LAMP) continue;
-
-			ASSERT(e.mesh, "Cannot draw an entity with no mesh now can I?");
-			_t.link_attributes(shader, e.mesh);
-
-			if(shader.mvp === true)
+			_t.use_shader(dc.material.shader);
+			gb.material.set_camera_uniforms(dc.material, dc.camera);
+			for(var i = 0; i < n; ++i)
 			{
-				gb.mat4.mul(mat.mvp, e.world_matrix, cam.view_projection);
+				var e = dc.entities[i];
+				gb.material.set_entity_uniforms(dc.material, e, dc.camera);
+				_t.link_attributes(dc.material.shader, e.mesh);
+				_t.set_uniforms(dc.material);
+				_t.draw_mesh(e.mesh);
 			}
-			else
+		}
+		else
+		{
+			for(var i = 0; i < n; ++i)
 			{
-				mat.model_matrix = e.world_matrix;
+				var e = dc.entities[i];
+				var material = e.material;
+				_t.use_shader(material.shader);
+				gb.material.set_camera_uniforms(material, dc.camera);
+				gb.material.set_entity_uniforms(material, e, dc.camera);
+				_t.link_attributes(material.shader, e.mesh);
+				_t.set_uniforms(material);
+				_t.draw_mesh(e.mesh);
 			}
-			if(shader.rig)
-			{
-				var rig = mat['rig[0]'];
-				var n = e.rig.joints.length;
-				var t = 0;
-				for(var i = 0; i < n; ++i)
-				{
-					var joint = e.rig.joints[i];
-					for(var j = 0; j < 16; ++j)
-					{
-						rig[t+j] = joint.offset_matrix[j];
-					}
-					t += 16;
-				}
-			}
-
-			_t.set_uniforms(shader, mat);
-
-			if(e.mesh.index_buffer) _t.draw_mesh_elements(e.mesh);
-			else _t.draw_mesh_arrays(e.mesh);
 		}
 	},
 
-	render_post_call: function(pc, rt)
+	render_post_call: function(pc)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
 
-		var mesh = pc.mesh;
-		var mat = pc.material;
-		var shader = mat.shader;
+		_t.set_render_target(pc.target, true);
 
 		gl.disable(gl.DEPTH_TEST);
-		_t.set_render_target(rt, false);
-		_t.use_shader(shader);
-		_t.link_attributes(shader, mesh);
-		_t.set_uniforms(shader, mat);
-		_t.draw_mesh_elements(mesh);
+		_t.use_shader(pc.material.shader);
+		_t.link_attributes(pc.material.shader, pc.mesh);
+		_t.set_uniforms(pc.material);
+		_t.draw_mesh(pc.mesh);
 	},
 
 	world_to_screen: function(r, camera, world, view)

@@ -9,8 +9,8 @@ gb.Animation = function()
 	this.tweens = [];
 	this.loops = 1;
 	this.loop_count = 0;
-	this.start_time;
-	this.duration;
+	this.start_time = null;
+	this.duration = null;
 	this.callback;
 	this.next;
 }
@@ -85,11 +85,11 @@ gb.animation =
 	},
 	get_start_time: function(animation)
 	{
-		if(animation.start_time) return animation.start_time;
+		if(animation.start_time !== null) return animation.start_time;
 
-		var result = animation.tweens[0].curve[3];
+		var result = gb.math.MAX_F32;
 		var num_tweens = animation.tweens.length;
-		for(var i = 1; i < num_tweens; ++i)
+		for(var i = 0; i < num_tweens; ++i)
 		{
 			var t = animation.tweens[i].curve[2];
 			if(t < result) result = t;
@@ -99,7 +99,7 @@ gb.animation =
 	},
 	get_duration: function(animation)
 	{
-		if(animation.duration) return animation.duration;
+		if(animation.duration !== null) return animation.duration;
 
 		var result = 0;
 		var num_tweens = animation.tweens.length;

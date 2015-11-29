@@ -7,6 +7,10 @@ function LOG(message)
 {
 	console.log(message);
 }
+function EXISTS(val)
+{
+	return val !== null && val !== undefined;
+}
 //END
 
 var gb = 

@@ -3,6 +3,7 @@ gb.Scene = function()
 	this.world_matrix = gb.mat4.new();
 	this.num_entities = 0;
 	this.entities = [];
+	this.draw_items = [];
 	this.animations = [];
 }
 gb.scene = 
@@ -53,6 +54,10 @@ gb.scene =
 		s = s || gb.scene.current;
 		s.entities.push(e);
 		s.num_entities++;
+		if(e.entity_type === gb.EntityType.ENTITY && e.mesh && e.material)
+		{
+			s.draw_items.push(e);
+		}
 	},
 	update: function(s, dt)
 	{

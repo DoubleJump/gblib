@@ -9,6 +9,10 @@ function LOG(message)
 {
 	console.log(message);
 }
+function EXISTS(val)
+{
+	return val !== null && val !== undefined;
+}
 //END
 
 var gb = 
@@ -2165,8 +2169,8 @@ gb.Animation = function()
 	this.tweens = [];
 	this.loops = 1;
 	this.loop_count = 0;
-	this.start_time;
-	this.duration;
+	this.start_time = null;
+	this.duration = null;
 	this.callback;
 	this.next;
 }
@@ -2241,11 +2245,11 @@ gb.animation =
 	},
 	get_start_time: function(animation)
 	{
-		if(animation.start_time) return animation.start_time;
+		if(animation.start_time !== null) return animation.start_time;
 
-		var result = animation.tweens[0].curve[3];
+		var result = gb.math.MAX_F32;
 		var num_tweens = animation.tweens.length;
-		for(var i = 1; i < num_tweens; ++i)
+		for(var i = 0; i < num_tweens; ++i)
 		{
 			var t = animation.tweens[i].curve[2];
 			if(t < result) result = t;
@@ -2255,7 +2259,7 @@ gb.animation =
 	},
 	get_duration: function(animation)
 	{
-		if(animation.duration) return animation.duration;
+		if(animation.duration !== null) return animation.duration;
 
 		var result = 0;
 		var num_tweens = animation.tweens.length;
@@ -2706,6 +2710,7 @@ gb.Scene = function()
 	this.world_matrix = gb.mat4.new();
 	this.num_entities = 0;
 	this.entities = [];
+	this.draw_items = [];
 	this.animations = [];
 }
 gb.scene = 
@@ -2756,6 +2761,10 @@ gb.scene =
 		s = s || gb.scene.current;
 		s.entities.push(e);
 		s.num_entities++;
+		if(e.entity_type === gb.EntityType.ENTITY && e.mesh && e.material)
+		{
+			s.draw_items.push(e);
+		}
 	},
 	update: function(s, dt)
 	{
@@ -3113,9 +3122,6 @@ gb.Shader = function()
     this.num_attributes;
     this.num_uniforms;
     this.attributes = [null, null, null, null, null];
-    this.mvp = false;
-    this.camera = false;
-    this.lights = false;
     this.uniforms = {};
     this.linked = false;
 }
@@ -3133,20 +3139,15 @@ gb.serialize.r_shader = function(br)
 {
 	var s = gb.serialize;
     var name = s.r_string(br);
-    var uniform_mask = s.r_i32(br);
    	var vs = s.r_string(br);
    	var fs = s.r_string(br);
     var shader = gb.shader.new(vs, fs);
     shader.name = name;
-    shader.mvp = gb.has_flag_set(uniform_mask, 1);
-    shader.camera = gb.has_flag_set(uniform_mask, 2);
-    shader.normals = gb.has_flag_set(uniform_mask, 4);
-    shader.lights = gb.has_flag_set(uniform_mask, 8);
-    shader.rig = gb.has_flag_set(uniform_mask, 16);
     return shader;
 }
 gb.Material = function()
 {
+    this.name;
     this.shader;
     this.mvp;
     this.proj_matrix;
@@ -3155,17 +3156,68 @@ gb.Material = function()
 }
 gb.material = 
 {
-    new: function(shader)
+    new: function(shader, name)
     {
         var m = new gb.Material();
+        m.name = name || shader.name;
         m.shader = shader;
         for(var key in shader.uniforms)
         {
-            m[key] = null;
-        }
-        if(shader.mvp === true)
-        {
-            m.mvp = gb.mat4.new();
+            var uniform = shader.uniforms[key];
+            var val;
+            switch(uniform.type)
+            {
+                case 'FLOAT': 
+                {
+                    val = 0.0;
+                    break;
+                }
+                case 'FLOAT_VEC2':
+                {
+                    val = gb.vec2.new(0,0);
+                    break;
+                }
+                case 'FLOAT_VEC3':
+                {
+                    val = gb.vec3.new(0,0,0);
+                    break;
+                }
+                case 'FLOAT_VEC4':
+                {
+                    val = gb.quat.new(0,0,0,1);
+                    break;
+                }
+                case 'BOOL':
+                {
+                    val = true;
+                    break;
+                }
+                case 'FLOAT_MAT3':
+                {
+                    val = gb.mat3.new();
+                    break;
+                }
+                case 'FLOAT_MAT4':
+                {
+                    val = gb.mat4.new();
+                    break;
+                }
+                case 'SAMPLER_2D':
+                {
+                    val = null;
+                    break;
+                }
+                case 'INT':
+                {
+                    val = 0;
+                    break;
+                }
+                default:
+                {
+                    ASSERT(false, uniform.type + ' is an unsupported uniform type');
+                }
+            }
+            m[key] = val
         }
         /*
         if(shader.rig === true)
@@ -3174,6 +3226,51 @@ gb.material =
         }
         */
         return m;
+    },
+    set_camera_uniforms: function(material, camera)
+    {
+        if(material.proj_matrix !== undefined)
+        {
+            material.proj_matrix = camera.projection;
+        }
+        if(material.view_matrix !== undefined)
+        {
+            material.view_matrix = camera.view;
+        }
+        if(material.view_proj_matrix !== undefined)
+        {
+            materia.view_proj_matrix = camera.view_projection;
+        }
+        if(material.normals !== undefined)
+        {
+            material.normal_matrix = camera.normal;
+        }
+    },
+    set_entity_uniforms: function(material, entity, camera)
+    {
+        if(material.mvp !== undefined)
+        {
+            gb.mat4.mul(material.mvp, entity.world_matrix, camera.view_projection);
+        }
+        if(material.model_matrix !== undefined)
+        {
+            material.model_matrix = entity.world_matrix;
+        }
+        if(material.rig !== undefined)
+        {
+            var rig = material['rig[0]'];
+            var n = entity.rig.joints.length;
+            var t = 0;
+            for(var i = 0; i < n; ++i)
+            {
+                var joint = entity.rig.joints[i];
+                for(var j = 0; j < 16; ++j)
+                {
+                    rig[t+j] = joint.offset_matrix[j];
+                }
+                t += 16;
+            }
+        }
     },
 }
 gb.serialize.r_material = function(br, ag)
@@ -3357,38 +3454,38 @@ gb.DrawCall = function()
 {
 	this.depth_test = true;
 	this.camera;
-	this.material;
 	this.entities = [];
+	this.material;
+	this.target;
 }
 gb.PostCall = function()
 {
 	this.mesh;
 	this.material;
+	this.target;
 }
 
 gb.draw_call = 
 {
-	new: function(camera, material, entities)
+	new: function(camera, entities, material, target)
 	{
 		var r = new gb.DrawCall();
 		r.camera = camera;
-		r.material = material;
 		r.entities = entities;
+		r.material = material;
+		r.target = target;
 		return r;
 	},
 }
 gb.post_call = 
 {
-	new: function(shader, full_screen)
+	new: function(material, target)
 	{
 		var r = new gb.PostCall();
-		full_screen = full_screen || true;
-		if(full_screen === true)
-		{
-			r.mesh = gb.mesh.generate.quad(2,2);
-			gb.webgl.link_mesh(r.mesh);
-		}
-		r.material = gb.material.new(shader);
+		r.mesh = gb.mesh.generate.quad(2,2);
+		gb.webgl.link_mesh(r.mesh);
+		r.material = material;
+		r.target = target;
 		return r;
 	},
 }
@@ -3477,7 +3574,7 @@ gb.webgl =
         //gl = canvas.getContext('experimental-webgl', config);
 
         //DEBUG
-        ASSERT(gl != null, "Could not load WebGL");
+        ASSERT(EXISTS(gl), "Could not load WebGL");
         //gb.debug.get_context_info(gl);
         //END
 
@@ -3738,7 +3835,6 @@ gb.webgl =
 		rt.frame_buffer = gl.createFramebuffer();
 		gl.bindFramebuffer(gl.FRAMEBUFFER, rt.frame_buffer);
 
-		// TODO: just do an attachment array
 		if(rt.color !== null)
 		{
 			_t.set_render_target_attachment(gl.COLOR_ATTACHMENT0, rt.color);
@@ -3759,19 +3855,20 @@ gb.webgl =
 		rt.linked = true;
 	},
 
-	draw_mesh_elements: function(mesh)
+	draw_mesh: function(mesh)
 	{
 		var gl = gb.webgl.ctx;
-        ASSERT(mesh.indices !== null, "Mesh has no index buffer");
-    	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.index_buffer.id);
-        gl.drawElements(mesh.layout, mesh.index_count, gl.UNSIGNED_INT, 0);
+		if(mesh.index_buffer)
+		{
+    		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.index_buffer.id);
+        	gl.drawElements(mesh.layout, mesh.index_count, gl.UNSIGNED_INT, 0);
+		}
+		else
+		{
+			gb.webgl.ctx.drawArrays(mesh.layout, 0, mesh.vertex_count);
+		}
 	},
 
-	draw_mesh_arrays: function(mesh)
-	{
-		gb.webgl.ctx.drawArrays(mesh.layout, 0, mesh.vertex_count);
-	},
-	
 	link_attributes: function(shader, mesh)
 	{
 		var _t = gb.webgl;
@@ -3788,16 +3885,17 @@ gb.webgl =
 		}
 	},
 
-	set_uniforms: function(shader, material)
+	set_uniforms: function(material)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
+		var shader = material.shader;
 		for(var key in shader.uniforms)
 		{
 			var uniform = shader.uniforms[key];
 			var loc = uniform.location;
 			var val = material[key];
-			ASSERT(val !== null, "Could not find shader uniform " + key + " in material " + material.name);
+			ASSERT(EXISTS(val), "Could not find shader uniform " + key + " in material " + material.name);
 			switch(uniform.type)
 			{
 				case 'FLOAT': 
@@ -3871,93 +3969,59 @@ gb.webgl =
 		}
 	},
 
-	render_draw_call: function (dc, rt, clear)
+	render_draw_call: function(dc, clear)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
-		var mat = dc.material;
-		var shader = mat.shader;
-		var cam = dc.camera;
-		//var lights = dc.lights;
-
-		// TODO: all linking to occur at scene add phase
-		
-		if(dc.depth_test === true) gl.enable(gl.DEPTH_TEST);
-		else gl.disable(gl.DEPTH_TEST);
-
-		_t.set_render_target(rt, clear);
-		_t.use_shader(shader);
-
-		if(shader.camera === true)
-		{
-			mat.proj_matrix = cam.projection;
-			mat.view_matrix = cam.view;
-		}
-		if(shader.normals === true)
-		{
-			mat.normal_matrix = cam.normal;
-		}
-
-		//if(shader.lights)
-		
 		var n = dc.entities.length;
-		for(var i = 0; i < n; ++i)
+		
+		gl.enable(gl.DEPTH_TEST);
+
+		_t.set_render_target(dc.target, clear);
+
+		//gl.depthRange(0, dc.camera.far);
+
+		if(dc.material)
 		{
-			var e = dc.entities[i];
-			// TODO: filter these out at draw call gen phase
-			if(e.entity_type === gb.EntityType.EMPTY) continue;
-			if(e.entity_type === gb.EntityType.CAMERA) continue;
-			if(e.entity_type === gb.EntityType.LAMP) continue;
-
-			ASSERT(e.mesh, "Cannot draw an entity with no mesh now can I?");
-			_t.link_attributes(shader, e.mesh);
-
-			if(shader.mvp === true)
+			_t.use_shader(dc.material.shader);
+			gb.material.set_camera_uniforms(dc.material, dc.camera);
+			for(var i = 0; i < n; ++i)
 			{
-				gb.mat4.mul(mat.mvp, e.world_matrix, cam.view_projection);
+				var e = dc.entities[i];
+				gb.material.set_entity_uniforms(dc.material, e, dc.camera);
+				_t.link_attributes(dc.material.shader, e.mesh);
+				_t.set_uniforms(dc.material);
+				_t.draw_mesh(e.mesh);
 			}
-			else
+		}
+		else
+		{
+			for(var i = 0; i < n; ++i)
 			{
-				mat.model_matrix = e.world_matrix;
+				var e = dc.entities[i];
+				var material = e.material;
+				_t.use_shader(material.shader);
+				gb.material.set_camera_uniforms(material, dc.camera);
+				gb.material.set_entity_uniforms(material, e, dc.camera);
+				_t.link_attributes(material.shader, e.mesh);
+				_t.set_uniforms(material);
+				_t.draw_mesh(e.mesh);
 			}
-			if(shader.rig)
-			{
-				var rig = mat['rig[0]'];
-				var n = e.rig.joints.length;
-				var t = 0;
-				for(var i = 0; i < n; ++i)
-				{
-					var joint = e.rig.joints[i];
-					for(var j = 0; j < 16; ++j)
-					{
-						rig[t+j] = joint.offset_matrix[j];
-					}
-					t += 16;
-				}
-			}
-
-			_t.set_uniforms(shader, mat);
-
-			if(e.mesh.index_buffer) _t.draw_mesh_elements(e.mesh);
-			else _t.draw_mesh_arrays(e.mesh);
 		}
 	},
 
-	render_post_call: function(pc, rt)
+	render_post_call: function(pc)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
 
-		var mesh = pc.mesh;
-		var mat = pc.material;
-		var shader = mat.shader;
+		_t.set_render_target(pc.target, true);
 
 		gl.disable(gl.DEPTH_TEST);
-		_t.set_render_target(rt, false);
-		_t.use_shader(shader);
-		_t.link_attributes(shader, mesh);
-		_t.set_uniforms(shader, mat);
-		_t.draw_mesh_elements(mesh);
+		_t.use_shader(pc.material.shader);
+		_t.link_attributes(pc.material.shader, pc.mesh);
+		_t.set_uniforms(pc.material);
+		_t.draw_mesh(pc.mesh);
 	},
 
 	world_to_screen: function(r, camera, world, view)
@@ -4547,15 +4611,21 @@ var qt = gb.quat;
 var m4 = gb.mat4;
 var math = gb.math;
 var gl = gb.webgl;
+var input = gb.input;
 var scene = gb.scene;
 var assets;
 var assets_loaded;
 
 var construct;
 var anim;
+
 var surface_pass;
-var scene_target;
+var lamp_pass;
+var shadow_pass;
+var lighting_pass;
 var fxaa_pass;
+var final_pass;
+var antialias = false;
 
 function init()
 {
@@ -4564,7 +4634,7 @@ function init()
 	gb.frame_skip = true;
 
 	var k = gb.Keys;
-	gb.input.init(document,
+	input.init(document,
 	{
 		keycodes: [k.mouse_left, k.a, k.x, k.z, k.one, k.two, k.three, k.up, k.down, k.left, k.right],
 	});
@@ -4575,7 +4645,6 @@ function init()
 		height: 512,
 	});
 
-	//if(gl.extensions.dds !== null)
 	assets = new gb.Asset_Group();
 	gb.assets.load("assets.gl", assets, load_complete);
 }
@@ -4583,19 +4652,56 @@ function load_complete(asset_group)
 {
 	construct = scene.new(assets);
 	scene.current = construct;
-	scene_target = gb.render_target.new();
-
 	
 	assets.materials.material.alpha = 1.0;
+	gb.animation.play(assets.animations.shift, -1);
 	//gb.animation.play(assets.animations.matanim, -1);
 
-	// TODO: scene context for things like find and add
-	surface_pass = gb.draw_call.new(scene.find('camera').camera, assets.materials.material, construct.entities); 
+	var camera = scene.find('camera').camera;
+	var lamp = scene.find('shadowcam').camera;
 
-	fxaa_pass = gb.post_call.new(assets.shaders.fxaa, true);
-	fxaa_pass.material.texture = scene_target.color;
+	scene.find('plane').material.alpha = 1.0;
+
+
+	// draw color and alpha
+	var surface_target = gb.render_target.new();
+	surface_pass = gb.draw_call.new(camera, construct.draw_items, null, surface_target);
+
+	// draw normals and depth
+	/*
+	depth_normal_target = gb.render_target.new();
+	depth_normal_pass = gb.draw_call.new(camera, 
+										 construct.draw_items, 
+										 gb.material.new(assets.shaders.depth_normal, 'depth_normal'), 
+										 depth_normal_target);
+	*/
+
+	// draw shadows
+	var lamp_target = gb.render_target.new();
+	lamp_pass = gb.draw_call.new(lamp, 
+								 construct.draw_items, 
+								 gb.material.new(assets.shaders.surface), 
+								 lamp_target);
+
+
+	var shadow_target = gb.render_target.new();
+	shadow_pass = gb.draw_call.new(camera, construct.draw_items, gb.material.new(assets.shaders.shadow), shadow_target); 
+	shadow_pass.material.lamp_depth_map = lamp_target.depth;
+	shadow_pass.material.lamp_matrix = lamp.view_projection;
+
+	var lighting_target = gb.render_target.new();
+	lighting_pass = gb.post_call.new(gb.material.new(assets.shaders.lighting), lighting_target);
+	lighting_pass.material.surface_map = surface_target.color;
+	lighting_pass.material.shadow_map = shadow_target.color;
+	
+	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
+	fxaa_pass.material.texture = lighting_target.color;
 	fxaa_pass.material.resolution = v3.tmp(gl.view.width, gl.view.height);
 	fxaa_pass.material.inv_resolution = v3.tmp(1.0 / gl.view.width, 1.0 / gl.view.height);
+
+	final_pass = gb.post_call.new(gb.material.new(assets.shaders.final), null);
+	final_pass.material.texture = lamp_target.depth;
+	//final_pass.material.texture = lighting_target.color;
 
 	assets_loaded = true;
 }
@@ -4605,16 +4711,26 @@ function update(dt)
 {
 	if(assets_loaded === false) return;
 
-	gb.scene.update(construct, dt);
-	//console.log(assets.materials.material.alpha);
+	scene.update(construct, dt);
 
-	if(gb.input.down(gb.Keys.left))
+	if(input.down(gb.Keys.left))
 	{
-		//gb.animation.play(assets.animations.shift, 1);
-		gb.animation.play(assets.animations.matanim, 1);
+		//gb.animation.play(assets.animations.shift, -1);
+		//gb.animation.play(assets.animations.matanim, -1);
+		antialias = !antialias;
 	}
 
-	gb.webgl.render_draw_call(surface_pass, scene_target, true);
-	gl.render_post_call(fxaa_pass, null);
+	gl.render_draw_call(surface_pass, true);
+	gl.render_draw_call(lamp_pass, true);
+	gl.render_draw_call(shadow_pass, true)
+	gl.render_post_call(lighting_pass);
+	if(antialias === true)
+	{
+		gl.render_post_call(fxaa_pass);
+	}
+	else
+	{
+		gl 	.render_post_call(final_pass);
+	}
 }
 

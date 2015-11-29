@@ -2,38 +2,38 @@ gb.DrawCall = function()
 {
 	this.depth_test = true;
 	this.camera;
-	this.material;
 	this.entities = [];
+	this.material;
+	this.target;
 }
 gb.PostCall = function()
 {
 	this.mesh;
 	this.material;
+	this.target;
 }
 
 gb.draw_call = 
 {
-	new: function(camera, material, entities)
+	new: function(camera, entities, material, target)
 	{
 		var r = new gb.DrawCall();
 		r.camera = camera;
-		r.material = material;
 		r.entities = entities;
+		r.material = material;
+		r.target = target;
 		return r;
 	},
 }
 gb.post_call = 
 {
-	new: function(shader, full_screen)
+	new: function(material, target)
 	{
 		var r = new gb.PostCall();
-		full_screen = full_screen || true;
-		if(full_screen === true)
-		{
-			r.mesh = gb.mesh.generate.quad(2,2);
-			gb.webgl.link_mesh(r.mesh);
-		}
-		r.material = gb.material.new(shader);
+		r.mesh = gb.mesh.generate.quad(2,2);
+		gb.webgl.link_mesh(r.mesh);
+		r.material = material;
+		r.target = target;
 		return r;
 	},
 }

@@ -1,5 +1,6 @@
 gb.Material = function()
 {
+    this.name;
     this.shader;
     this.mvp;
     this.proj_matrix;
@@ -8,17 +9,68 @@ gb.Material = function()
 }
 gb.material = 
 {
-    new: function(shader)
+    new: function(shader, name)
     {
         var m = new gb.Material();
+        m.name = name || shader.name;
         m.shader = shader;
         for(var key in shader.uniforms)
         {
-            m[key] = null;
-        }
-        if(shader.mvp === true)
-        {
-            m.mvp = gb.mat4.new();
+            var uniform = shader.uniforms[key];
+            var val;
+            switch(uniform.type)
+            {
+                case 'FLOAT': 
+                {
+                    val = 0.0;
+                    break;
+                }
+                case 'FLOAT_VEC2':
+                {
+                    val = gb.vec2.new(0,0);
+                    break;
+                }
+                case 'FLOAT_VEC3':
+                {
+                    val = gb.vec3.new(0,0,0);
+                    break;
+                }
+                case 'FLOAT_VEC4':
+                {
+                    val = gb.quat.new(0,0,0,1);
+                    break;
+                }
+                case 'BOOL':
+                {
+                    val = true;
+                    break;
+                }
+                case 'FLOAT_MAT3':
+                {
+                    val = gb.mat3.new();
+                    break;
+                }
+                case 'FLOAT_MAT4':
+                {
+                    val = gb.mat4.new();
+                    break;
+                }
+                case 'SAMPLER_2D':
+                {
+                    val = null;
+                    break;
+                }
+                case 'INT':
+                {
+                    val = 0;
+                    break;
+                }
+                default:
+                {
+                    ASSERT(false, uniform.type + ' is an unsupported uniform type');
+                }
+            }
+            m[key] = val
         }
         /*
         if(shader.rig === true)
@@ -27,6 +79,51 @@ gb.material =
         }
         */
         return m;
+    },
+    set_camera_uniforms: function(material, camera)
+    {
+        if(material.proj_matrix !== undefined)
+        {
+            material.proj_matrix = camera.projection;
+        }
+        if(material.view_matrix !== undefined)
+        {
+            material.view_matrix = camera.view;
+        }
+        if(material.view_proj_matrix !== undefined)
+        {
+            materia.view_proj_matrix = camera.view_projection;
+        }
+        if(material.normals !== undefined)
+        {
+            material.normal_matrix = camera.normal;
+        }
+    },
+    set_entity_uniforms: function(material, entity, camera)
+    {
+        if(material.mvp !== undefined)
+        {
+            gb.mat4.mul(material.mvp, entity.world_matrix, camera.view_projection);
+        }
+        if(material.model_matrix !== undefined)
+        {
+            material.model_matrix = entity.world_matrix;
+        }
+        if(material.rig !== undefined)
+        {
+            var rig = material['rig[0]'];
+            var n = entity.rig.joints.length;
+            var t = 0;
+            for(var i = 0; i < n; ++i)
+            {
+                var joint = entity.rig.joints[i];
+                for(var j = 0; j < 16; ++j)
+                {
+                    rig[t+j] = joint.offset_matrix[j];
+                }
+                t += 16;
+            }
+        }
     },
 }
 gb.serialize.r_material = function(br, ag)

@@ -36,7 +36,7 @@ var gb =
 		input:
 		{
 			root: document,
-			keycodes: ['mouse_left', 'up', 'down', 'left', 'right'],
+			keycodes: ['mouse_left', 'up', 'down', 'left', 'right', 'w', 'a', 's', 'd', 'f'],
 		},
 	},
 
@@ -725,10 +725,11 @@ gb.quat =
 	},
 	mul: function(r, a,b)
 	{
-		r[0] = a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2];
-		r[1] = a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1];
-		r[2] = a[3] * b[1] + a[1] * b[3] + a[2] * b[0] - a[0] * b[2];
-		r[3] = a[3] * b[2] + a[2] * b[3] + a[0] * b[1] - a[1] * b[0];
+		var x = a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1];
+		var y = a[3] * b[1] + a[1] * b[3] + a[2] * b[0] - a[0] * b[2];
+		var z = a[3] * b[2] + a[2] * b[3] + a[0] * b[1] - a[1] * b[0];
+		var w = a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2];
+		gb.quat.set(r, x,y,z,w);
 	},
 	mulf: function(r, q,f)
 	{
@@ -1386,6 +1387,14 @@ gb.mat4 =
 		r[0] = x; r[1] = y; r[2] = z;
 	},
 
+	mul_dir: function(r, m, p)
+	{
+		var x = m[0] * p[0] + m[4] * p[1] + m[ 8] * p[2];
+		var y = m[1] * p[0] + m[5] * p[1] + m[ 9] * p[2];
+		var z = m[2] * p[0] + m[6] * p[1] + m[10] * p[2];
+		r[0] = x; r[1] = y; r[2] = z;
+	},
+
 	mul_projection: function(r, m, p)
 	{
 		var d = 1 / (m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]);
@@ -1395,16 +1404,6 @@ gb.mat4 =
 		r[0] = x; r[1] = y; r[2] = z;
 	},
 
-	/*
-	ortho_projection: function(m, w,h,f,n)
-	{
-		m[ 0] = 2.0 / w;
-		m[ 5] = 2.0 / h;
-		m[10] = -2.0 / (f - n);
-		m[14] = 0.0;
-		m[15] = 1.0;
-	},
-	*/
 	ortho_projection: function(m, w,h,n,f)
 	{
 		m[ 0] = 2.0 / w;
@@ -1784,10 +1783,13 @@ gb.input =
 			_t._ldy = _t._mdy;
 		}
 
+		/*
 		var dx = _t.last_mouse_position[0] - _t.mouse_position[0];
 		var dy = _t.last_mouse_position[1] - _t.mouse_position[1];
 		gb.vec3.eq(_t.last_mouse_position, _t.mouse_position);
 		gb.vec3.set(_t.mouse_delta, dx, dy, 0);
+		*/
+		gb.vec3.set(_t.mouse_delta, 0, 0, 0);
 	},
 
 	up: function(code)
@@ -1835,7 +1837,10 @@ gb.input =
 		var _t = gb.input;
 		var x = e.clientX;
 		var y = e.clientY;
+		var dx = e.movementX;
+		var dy = e.movementY;
 		gb.vec3.set(_t.mouse_position, x, y, 0);
+		gb.vec3.set(_t.mouse_delta, dx, dy, 0);
 	},
 	mouse_wheel: function(e)
 	{
@@ -2271,6 +2276,20 @@ gb.entity =
 		ASSERT(index == undefined, "Cannot remove child - not found!");
 		e.children.splice(index, 1);
 	},
+	move_f: function(e, x,y,z)
+	{
+		e.position[0] += x;
+		e.position[1] += y;
+		e.position[2] += z;
+		e.dirty = true;
+	},
+	rotate_f: function(e, x,y,z)
+	{
+		var rotation = gb.quat.tmp();
+		gb.quat.euler(rotation, x, y, z);
+		gb.quat.mul(e.rotation, rotation, e.rotation);
+		e.dirty = true;
+	},
 	set_position: function(e, x,y,z)
 	{
 		gb.vec3.set(e.position, x,y,z);
@@ -2412,6 +2431,37 @@ gb.camera =
 		gb.mat3.inverse(c.normal, c.normal);
 		gb.mat3.transposed(c.normal, c.normal);
 	},
+
+	//DEBUG
+	fly: function(c, dt)
+	{
+		var m_delta = gb.input.mouse_delta;
+		var ROTATE_SPEED = 10.0;
+		gb.entity.rotate_f(c, -m_delta[1] * ROTATE_SPEED * dt, -m_delta[0] * ROTATE_SPEED * dt, 0);
+
+		var move = gb.vec3.tmp();
+		var MOVE_SPEED = 1.0;
+		if(gb.input.held(gb.Keys.a))
+		{
+			move[0] = -MOVE_SPEED * dt;
+		}
+		else if(gb.input.held(gb.Keys.d))
+		{
+			move[0] = MOVE_SPEED * dt;
+		}
+		if(gb.input.held(gb.Keys.w))
+		{
+			move[2] = -MOVE_SPEED * dt;
+		}
+		else if(gb.input.held(gb.Keys.s))
+		{
+			move[2] = MOVE_SPEED * dt;
+		}
+
+		gb.mat4.mul_dir(move, c.world_matrix, move);
+		gb.vec3.add(c.position, move, c.position);
+	}
+	//END
 }
 
 gb.Projection = 
@@ -2447,11 +2497,15 @@ gb.serialize.r_camera = function(br, ag)
 gb.Scene = function()
 {
 	this.name;
+	this.active_camera = null;
 	this.world_matrix = gb.mat4.new();
 	this.num_entities = 0;
 	this.entities = [];
 	this.draw_items = [];
 	this.animations = [];
+	//DEBUG
+	this.fly_mode = false;
+	//END
 }
 gb.scene = 
 {
@@ -2531,6 +2585,17 @@ gb.scene =
 			}
 		}
 
+		//DEBUG
+		if(gb.input.down(gb.Keys.f))
+		{
+			s.fly_mode = !s.fly_mode;
+		}
+		if(s.active_camera && s.fly_mode === true)
+		{
+			gb.camera.fly(s.active_camera, dt);
+		}
+		//END
+
 		var n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
 		{
@@ -2554,6 +2619,7 @@ gb.scene =
 }
 gb.serialize.r_scene = function(br, ag)
 {
+	var s = gb.serialize;
 	var scene = new gb.Scene();
 	scene.name = s.r_string(br);
     LOG("Loading Scene: " + scene.name);
@@ -2701,12 +2767,14 @@ gb.mesh =
 	    gb.mesh.update_vertex_buffer(vb);
 	    m.vertex_count = vertex_count;
 
-	    var ib = new gb.Index_Buffer();
-	    ib.data = indices;
-	    ib.update_mode = gb.webgl.ctx.STATIC_DRAW;    
-	    m.index_buffer = ib;
-
-	    m.index_count = indices.length;
+	    if(indices)
+	    {
+		    var ib = new gb.Index_Buffer();
+		    ib.data = indices;
+		    ib.update_mode = gb.webgl.ctx.STATIC_DRAW;    
+		    m.index_buffer = ib;
+		    m.index_count = indices.length;
+		}
 	    gb.webgl.link_mesh(m);
 	    return m;
 	},
@@ -3042,6 +3110,10 @@ gb.material =
         if(material.mvp !== undefined)
         {
             gb.mat4.mul(material.mvp, entity.world_matrix, camera.view_projection);
+        }
+        if(material.mv_matrix !== undefined)
+        {
+            gb.mat4.mul(material.mv_matrix, entity.world_matrix, camera.view);
         }
         if(material.model_matrix !== undefined)
         {
@@ -4257,7 +4329,7 @@ var scene = gb.scene;
 var assets;
 
 var construct;
-var cube;
+var line;
 var camera;
 var surface_target;
 var fxaa_pass;
@@ -4286,13 +4358,28 @@ function load_complete(asset_group)
 {
 	construct = scene.new(null, true);
 
-	cube = gb.entity.mesh(gb.mesh.generate.cube(2,1,1), gb.material.new(assets.shaders.surface));
-	cube.spin = 0;
-	scene.add(cube);
+
+    var line_data = new Float32Array(
+    [
+    	// POS NORMAL
+        -1,0,0, 0, 1,0,
+        -1,0,0, 0,-1,0,
+        1,0,0, 0, 1,0,
+        1,0,0, 0,-1,0
+    ]);
+
+    var line_tris = new Uint32Array([0,1,3,0,3,2]);
+    var line_mask = 1 | 2;
+    var line_mesh = gb.mesh.new(4, line_data, line_mask, line_tris);
+    var line = gb.entity.mesh(line_mesh, gb.material.new(assets.shaders.line));
+    line.material.line_width = 0.2;
+
+	scene.add(line);
 
 	camera = gb.camera.new();
 	camera.position[2] = 3.0;
 	scene.add(camera);
+	construct.active_camera = camera;
 
 	surface_target = gb.render_target.new();
 	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
@@ -4305,8 +4392,6 @@ function load_complete(asset_group)
 
 function update(dt)
 {
-	cube.spin += 30 * dt;
-	gb.entity.set_rotation(cube, cube.spin, cube.spin, cube.spin);
 }
 
 function render()

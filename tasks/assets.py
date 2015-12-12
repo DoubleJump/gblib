@@ -11,7 +11,7 @@ def compile_dds(name, file_path, writer):
 	src_file = open(file_path, 'r')
 	writer.i32(ASSET_TYPE_DDS)
 	writer.string(name)
-	writer.bytes(asset_file.read())
+	writer.bytes(src_file.read())
 	src_file.close()
 	return True
 
@@ -20,7 +20,7 @@ def compile_pvr(name, file_path, writer):
 	src_file = open(file_path, 'r')
 	writer.i32(ASSET_TYPE_PVR)
 	writer.string(name)
-	writer.bytes(asset_file.read())
+	writer.bytes(src_file.read())
 	src_file.close()
 	return True
 
@@ -29,7 +29,7 @@ def compile_scene(name, file_path, writer):
 	src_file = open(file_path, 'r')
 	writer.i32(ASSET_TYPE_SCENE)
 	writer.string(name)
-	writer.bytes(asset_file.read())
+	writer.bytes(src_file.read())
 	src_file.close()
 	return True
 

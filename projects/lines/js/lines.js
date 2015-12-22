@@ -1,4 +1,5 @@
 //INCLUDE projects/lines/js/gblib.js
+//INCLUDE lib/js/gl/line_mesh.js
 
 var v2 = gb.vec2;
 var v3 = gb.vec3;
@@ -40,26 +41,13 @@ function load_complete(asset_group)
 {
 	construct = scene.new(null, true);
 
-
-    var line_data = new Float32Array(
-    [
-    	// POS NORMAL
-        -1,0,0, 0, 1,0,
-        -1,0,0, 0,-1,0,
-        1,0,0, 0, 1,0,
-        1,0,0, 0,-1,0
-    ]);
-
-    var line_tris = new Uint32Array([0,1,3,0,3,2]);
-    var line_mask = 1 | 2;
-    var line_mesh = gb.mesh.new(4, line_data, line_mask, line_tris);
-    var line = gb.entity.mesh(line_mesh, gb.material.new(assets.shaders.line));
-    line.material.line_width = 0.2;
-
+	var line = gb.line_mesh.new(0.1, null, [-1,0,0, 1,0,0, 2,0.5,0]);
+	line.entity.material = gb.material.new(assets.shaders.line);
+	line.entity.material.line_width = line.thickness;
 	scene.add(line);
 
 	camera = gb.camera.new();
-	camera.position[2] = 3.0;
+	camera.entity.position[2] = 3.0;
 	scene.add(camera);
 	construct.active_camera = camera;
 
@@ -78,7 +66,7 @@ function update(dt)
 
 function render()
 {
-	gl.render_draw_call(camera.camera, construct.draw_items, null, surface_target, true);
+	gl.render_draw_call(camera, construct.draw_items, null, surface_target, true);
 	gl.render_post_call(fxaa_pass);
 }
 

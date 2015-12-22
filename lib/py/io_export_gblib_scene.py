@@ -60,6 +60,12 @@ def round_vec3(v):
 def round_vec2(v):
 	return round(v[0], FP_PRECISION), round(v[1], FP_PRECISION)
 
+class VertexAttribute:
+	def __init__(self, name, size, normalized):
+		self.name = name
+		self.size = size
+		self.norm = normalized
+
 class FileWriter:
 	def __init__(self, path):
 		self.target = open(path, "wb")
@@ -221,9 +227,6 @@ class FileWriter:
 
 		mesh = ob.to_mesh(scene = scene, apply_modifiers = True, settings = 'PREVIEW')
 
-		self.i32(OB_TYPE_MESH)
-		self.string(ob.data.name)
-
 		armature = None
 		modifiers = ob.modifiers
 		for mod in modifiers:
@@ -314,35 +317,53 @@ class FileWriter:
 
 				vertex_count += 1
 
+		attributes = []
+		attributes.append(VertexAttribute('normal', 3, False))
+
 		uv_ln = len(uv_layers)
+		for i in range(0, uv_ln):
+			if i is 0:
+				attributes.append(VertexAttribute('uv', 2, False))
+			else:
+				attributes.append(VertexAttribute('uv' + str(i+1), 2, False))
+		
 		color_ln = len(color_layers)
+		for i in range(0, color_ln):
+			if i is 0:
+				attributes.append(VertexAttribute('color', 2, True))
+			else:
+				attributes.append(VertexAttribute('color' + str(i+1), 2, True))
+
+
 		weight_ln = len(ob.vertex_groups)
+		for i in range(0, weight_ln):
+			if i is 0:
+				attributes.append(VertexAttribute('weight', 2, False))
+			else:
+				attributes.append(VertexAttribute('weight' + str(i+1), 2, False))
 
-		offset_mask = 1 | 2 #positon and normal
-		if(uv_ln == 1): offset_mask |= 4
-		elif(uv_ln == 2): 
-			offset_mask |= 4
-			offset_mask |= 8
-		if(color_ln == 1): offset_mask |= 16
-		elif(color_ln == 2): 
-			offset_mask |= 16
-			offset_mask |= 32 
-		if(weight_ln > 0):
-			offset_mask |= 64
 
+		num_attributes = 2 + uv_ln + color_ln + weight_ln
 		vertex_data_ln = len(vertex_buffer)
 		index_data_ln = len(index_buffer)
 
-		self.i32(vertex_count)
+		self.i32(OB_TYPE_MESH)
+		self.string(ob.data.name)
 		self.i32(vertex_data_ln)
 		self.i32(index_data_ln)
-		self.i32(offset_mask)
 
 		for i in range(0, vertex_data_ln):
 			self.f32(vertex_buffer[i])
 
 		for i in range(0, index_data_ln):
 			self.i32(index_buffer[i])
+
+		self.i32(num_attributes)
+
+		for attr in attributes:
+			self.string(attr.name)
+			self.i32(attr.size)
+			self.i32(attr.norm)
 
 		bpy.data.meshes.remove(mesh)
 		if not has_triangulate:

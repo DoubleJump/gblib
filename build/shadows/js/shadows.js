@@ -464,7 +464,7 @@ gb.vec2 =
 	{
 		var _t = gb.vec2;
 		var l = _t.sqr_length(v);
-		var x, y;
+		var x; var y;
 		if(l > gb.math.EPSILON)
 		{
 			var il = gb.math.sqrt(1/l);
@@ -1592,6 +1592,293 @@ gb.aabb =
         v3.pop(stack);
     },
 }
+gb.Ray = function()
+{
+	this.point = gb.vec3.new();
+	this.dir = gb.vec3.new();
+}
+gb.ray = 
+{
+	stack: new gb.Stack(gb.Ray, 5),
+
+	new: function()
+	{
+		return new gb.Ray();
+	},
+	tmp: function(point, dir)
+	{
+		var r = gb.stack.get(gb.ray.stack);
+		gb.ray.set(v, point,dir);
+		return v;
+	},
+	set: function(r, point, dir)
+	{
+		gb.vec3.eq(r.point, point);
+		gb.vec3.eq(r.dir, dir);
+	},
+	eq: function(a,b)
+	{
+		gb.ray.set(a, b.point, b.dir);
+	},
+}
+gb.Hit = function()
+{
+	this.hit = false;
+	this.point = gb.vec3.new();
+	this.normal = gb.vec3.new();
+	this.t = 0;
+}
+gb.hit = 
+{
+	stack: new gb.Stack(gb.Hit, 5),
+
+	eq: function(a,b)
+	{
+		a.hit = b.hit;
+		gb.vec3.eq(a.point, b.point);
+		gb.vec3.eq(a.normal, b.normal);
+		a.t = b.t;
+	},
+	tmp: function()
+	{
+		var r = gb.stack.get(gb.hit.stack);
+		r.hit = false;
+		gb.vec3.set(r.point, 0,0,0);
+		gb.vec3.set(r.normal, 0,0,0);
+		r.t = 0;
+		return r;
+	},
+}
+
+
+gb.intersect = 
+{
+	point_circle: function(h, p, c, r)
+	{
+		var v2 = gb.vec2;
+		var delta = v2.tmp();
+		v2.sub(delta, c, p);
+		var l = v2.sqr_length(delta);
+		if(l < r * r)
+		{
+			var nl = gb.math.sqrt(l);
+			h.hit = true;
+			h.t = nl - r;
+			var nd = v2.tmp();
+			v2.mulf(nd, delta, 1/nl);
+			v2.eq(h.normal, nd);
+		}
+		else 
+		{
+			h.hit = false;
+		}
+	},
+
+	line_circle: function(h, c,r, a,b)
+	{
+		var lax = a[0] - c[0];
+		var lay = a[1] - c[1];
+		var lbx = b[0] - c[0];
+		var lby = b[1] - c[1];
+
+		var sx = lbx - lax;
+		var sy = lby - lay;
+
+		var a = sx * sx + sy * sy;
+		var b = 2 * ((sx * lax) + (sy * lay));
+		var c = (lax * lax) + (lay * lay) - (r * r);
+		var delta = b * b - (4 * a * c);
+		if(delta < 0)
+		{
+			h.hit = false;
+			return;
+		} 
+
+		var sd = gb.math.sqrt(delta);
+		var ta = (-b - sd) / (2 * a);
+
+		if(ta < 0 || ta > 1)
+		{
+			h.hit = false;
+			return;
+		}
+
+		h.point[0] = a[0] * (1 - ta) + ta * b[0];
+        h.point[1] = a[1] * (1 - ta) + ta * b[1];
+
+        /*
+		if(delta === 0)
+		{
+			h.hit = true;
+			h.t = t;
+            return;
+		}
+		*/
+
+		var tb = (-b + sd) / (2 * a);
+
+		//draw.text("TA: " + ta, 10, 30)
+		//draw.text("TB: " + tb, 10, 60);
+
+		if(gb.math.abs(ta - 0.5) < gb.math.abs(tb - 0.5))
+        {
+        	h.hit = true;
+            h.point[0] = a[0] * (1 - tb) + tb * b[0];
+        	h.point[1] = a[1] * (1 - tb) + tb * b[1];
+        	return;
+        }
+
+        //TODO: Get normals etc
+
+	},
+
+	line_line: function(h, a,b,c,d)
+	{
+		var lax = b[0] - a[0];
+		var lay = b[1] - a[1];
+		var lbx = d[0] - c[0];  
+		var lby = d[1] - c[1];
+
+		var d = -lbx * lay + lax * lby;
+
+		var s = (-lay * (a[0] - c[0]) + lax * (a[1] - c[1])) / d;
+		var t = ( lbx * (a[1] - c[1]) - lby * (a[0] - c[0])) / d;
+
+		if(s >= 0 && s <= 1 && t >= 0 && t <= 1)
+		{
+			h.hit = true;
+			h.point[0] = a[0] + (t * lbx);
+			h.point[1] = a[1] + (t * lby);
+			return 1;
+		}
+		else
+		{
+			h.hit = false;
+		}
+	},
+
+	aabb_aabb: function(a, b)
+    {
+       	if(a.min[0] > b.max[0]) return false;
+       	if(a.max[0] < b.min[0]) return false;
+
+       	if(a.min[1] > b.max[1]) return false;
+       	if(a.max[1] < b.min[1]) return false;
+
+       	if(a.min[2] > b.max[2]) return false;
+       	if(a.max[2] < b.min[2]) return false;
+
+        return true;
+    },
+
+    aabb_ray: function(h, a, r)
+	{
+		var fx = 1 / r.dir[0];
+		var fy = 1 / r.dir[1];
+		var fz = 1 / r.dir[2];
+
+		var t1 = (a.min[0] - r.point[0]) * fx;
+		var t2 = (a.max[0] - r.point[0]) * fx;
+		var t3 = (a.min[1] - r.point[1]) * fy;
+		var t4 = (a.max[1] - r.point[1]) * fy;
+		var t5 = (a.min[2] - r.point[2]) * fz;
+		var t6 = (a.max[2] - r.point[2]) * fz;
+
+		var m = gb.math;
+		var tmin = m.max(m.max(m.min(t1, t2), m.min(t3, t4)), m.min(t5, t6));
+		var tmax = m.min(m.min(m.max(t1, t2), m.max(t3, t4)), m.max(t5, t6));
+
+		if(tmax < 0 || tmin > tmax)
+		{
+			h.hit = false;
+			return;
+		}
+
+		var v = gb.vec3.tmp();
+		gb.vec3.mulf(v, r.dir, tmin);
+		gb.vec3.add(h.point, r.point, v);
+		h.hit = true;
+		gb.vec3.set(h.normal, 0,1,0);
+		h.t = tmin;
+	},
+
+	point_triangle: function(p, a,b,c)
+	{
+		var A =  (-b[1] * c[0] + a[1] * (-b[0] + c[0]) + a[0] * (b[1] - c[1]) + b[0] * c[1]) / 2;
+		var sign = A < 0 ? -1 : 1;
+		var s = (a[1] * c[0] - a[0] * c[1] + (c[1] - a[1]) * p[0] + (a[0] - c[0]) * p[1]) * sign;
+		var t = (a[0] * b[1] - a[1] * b[0] + (a[1] - b[1]) * p[0] + (b[0] - a[0]) * p[1]) * sign;
+		return s > 0 && t > 0 && s + t < 2 * A * sign;
+	},
+
+	triangle_ray: function(h, a,b,c, r)
+	{
+		var v3 = gb.vec3;
+		var e0 = v3.tmp();
+		var e1 = v3.tmp();
+		var cross = v3.tmp();
+		var n = v3.tmp();
+
+		v3.sub(e0, b,a);
+		v3.sub(e1, c,a);
+
+		v3.cross(cross, e0, e1);
+		v3.normalized(n, cross);
+		v3.inverse(n, n);
+
+		var ndot = v3.dot(n, r.dir);
+		var t = -(v3.dot(n,r.point) + v3.dot(n,a)) / ndot;
+
+		v3.mulf(e0, r.dir, t);
+		v3.add(e1, r.point, e0);
+
+		if(gb.intersect.point_triangle(e1, a,b,c) === true)
+		{
+			h.hit = true;
+			v3.eq(h.point, e1);
+			v3.eq(h.normal, n);
+			h.t = t;
+		}
+		else
+		{
+			h.hit = false;
+		}
+	},
+
+	mesh_ray: function(h, m, matrix, r)
+	{
+		var _t = gb.intersect;
+		var stride = gb.mesh.get_stride(m);
+		h.t = gb.math.MAX_F32;
+
+		var hit = gb.hit.tmp();
+
+		var n = m.vertex_count / 3;
+		var d = m.vertex_buffer.data;
+		var c = 0;
+		for(var i = 0; i < n; ++i)
+		{
+			var stack = gb.vec3.push();
+			var ta = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			gb.mat4.mul_point(ta, matrix, ta);
+			c += stride;
+			var tb = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			gb.mat4.mul_point(tb, matrix, tb);
+			c += stride;
+			var tc = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			gb.mat4.mul_point(tc, matrix, tc);
+			c += stride;
+
+			_t.triangle_ray(hit, ta,tb,tc, r);
+			gb.vec3.pop(stack);
+			if(hit.hit === true && hit.t < h.t)
+			{
+				gb.hit.eq(h, hit);
+			}
+		}
+	},
+}
+
 gb.Color = function(r,g,b,a)
 {
 	return new Float32Array(4);
@@ -1968,14 +2255,12 @@ gb.animation =
 		a.target = target;
 		return a;
 	},
+	/*
 	from_to: function(animation, property, from, to, duration, delay, easing)
 	{
 		var components = 1;
-		if(from.length) 
-		{
-			components = from.length;
-			ASSERT(from.length === to.length, 'Animatable properties must be of same component length');
-		}
+		if(from.length) components = from.length;
+		ASSERT(from.length === to.length, 'Animatable properties must be of same component length');
 
 		for(var i = 0; i < components; ++i)
 		{
@@ -1983,8 +2268,9 @@ gb.animation =
 			t.num_frames = 2;
 			t.property = property;
 			
+
 			var A,B;
-			if(components > 1) 
+			if(from.length) 
 			{
 				A = from[i];
 				B = to[i];
@@ -1994,7 +2280,7 @@ gb.animation =
 			{
 				A = from;
 				B = to;
-				t.index = -1;
+				
 			}
 
 			var A = from[i];
@@ -2003,16 +2289,24 @@ gb.animation =
 
 			t.curve = new Float32Array(
 			[
-				-duration * easing[0], A - (D * easing[1]),
-				delay, A,
-				duration * easing[0], A + (D * easing[1]),
-				(delay + duration) - (duration * easing[2]), B - (D * easing[3]),
-				delay + duration, B,
-				(delay + duration) + (duration * easing[2]), B + (D * easing[3])
+				-duration * easing[0],
+				A - (D * easing[1]),
+				delay,
+				A,
+				duration * easing[0],
+				a + (D * easing[1]),
+
+				(delay + duration) - (duration * easing[2]),
+				B - (D * easing[3]),
+				delay + duration,
+				B,
+				(delay + duration) + (duration * easing[2]),
+				B + (D * easing[3])
 			]);
 			a.tweens.push(t);
 		}
 	},
+	*/
 	play: function(anim, loops)
 	{
 		anim.is_playing = true;
@@ -2213,7 +2507,6 @@ gb.Entity = function()
 	this.name;
 	this.id;
 	this.entity_type = gb.EntityType.EMPTY;
-	this.update = null;
 	this.parent = null;
 	this.children = [];
 
@@ -2325,20 +2618,18 @@ gb.entity =
 		e.rig = a;
 	},
 
+	// TODO: needs updating to ensure components get updated on recursive calls
 	update: function(e, scene)
 	{
 		if(e.active === false || e.dirty === false) return;
-		
-		/*
-		if(e.mesh) console.log(e.mesh.dirty);
-
-		if(e.mesh && e.mesh.dirty === true) 
+		if(e.mesh && e.mesh.dirty === true)
 		{
 			gb.webgl.update_mesh(e.mesh);
 		}
-		*/
-		if(e.rig) gb.rig.update(e.rig, scene);
-
+		if(e.rig)
+		{
+			gb.rig.update(e.rig, scene);
+		}
 		gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
 		if(e.parent === null)
 		{
@@ -2348,8 +2639,6 @@ gb.entity =
 		{
 			gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
 		}
-
-		if(e.update !== null) e.update(e); //updates component
 
 		var n = e.children.length;
 		for(var i = 0; i < n; ++i)
@@ -2381,6 +2670,48 @@ gb.serialize.r_entity = function(br, ag)
     entity.rotation = s.r_vec4(br);
     return entity;
 }
+gb.Lamp = function()
+{
+	this.entity;
+	this.type = gb.LampType.POINT;
+	this.energy = 1;
+	this.distance = 1;
+	this.projection = gb.mat4.new();
+}
+
+gb.lamp = 
+{
+	new: function(type, energy, distance)
+	{
+		var e = gb.entity.new();
+	    var l = new gb.Lamp();
+	    l.type = type;
+	    l.energy = energy;
+	    l.distance = distance;
+	    e.lamp = l;
+	    l.entity = e;
+	    return e;
+	},
+}
+
+gb.LampType = 
+{
+    POINT: 0,
+    SUN: 1,
+}
+
+gb.serialize.r_lamp = function(br, ag)
+{
+    var s = gb.serialize;
+    var entity = s.r_entity(br, ag);
+    entity.type = gb.EntityType.LAMP;
+    var lamp = new gb.Lamp();
+    lamp.energy = s.r_f32(br);
+    lamp.distance = s.r_f32(br);
+    entity.lamp = lamp;
+    lamp.entity = entity;
+    return entity;
+}
 gb.Camera = function()
 {
 	this.entity;
@@ -2404,7 +2735,6 @@ gb.camera =
 	{
 		var e = gb.entity.new();
 		e.entity_type = gb.EntityType.CAMERA;
-		e.update = gb.camera.update;
 	    var c = new gb.Camera();
 	    c.projection_type = projection || gb.Projection.PERSPECTIVE;
 	    c.near = near || 0.1;
@@ -2414,7 +2744,7 @@ gb.camera =
 	    c.scale = 1;
 	    c.entity = e;
 	    e.camera = c;
-	    return c;
+	    return e;
 	},
 	update_projection: function(c, view)
 	{
@@ -2437,15 +2767,14 @@ gb.camera =
 		c.dirty = true;
 	},
 
-	update: function(e)
+	update: function(c)
 	{
-		ASSERT(e.camera, 'Entity is not a camera');
-		var c = e.camera;
+		ASSERT(c.entity != null, "Camera has no transform!");
 		if(c.dirty === true)
 		{
 			gb.camera.update_projection(c, gb.webgl.view);
 		}
-		gb.mat4.inverse(c.view, e.world_matrix);
+		gb.mat4.inverse(c.view, c.entity.world_matrix);
 		gb.mat4.mul(c.view_projection, c.view, c.projection);
 		gb.mat3.from_mat4(c.normal, c.view);
 		gb.mat3.inverse(c.normal, c.normal);
@@ -2455,10 +2784,9 @@ gb.camera =
 	//DEBUG
 	fly: function(c, dt)
 	{
-		var e = c.entity;
 		var m_delta = gb.input.mouse_delta;
 		var ROTATE_SPEED = 10.0;
-		gb.entity.rotate_f(e, -m_delta[1] * ROTATE_SPEED * dt, -m_delta[0] * ROTATE_SPEED * dt, 0);
+		gb.entity.rotate_f(c, -m_delta[1] * ROTATE_SPEED * dt, -m_delta[0] * ROTATE_SPEED * dt, 0);
 
 		var move = gb.vec3.tmp();
 		var MOVE_SPEED = 1.0;
@@ -2479,8 +2807,8 @@ gb.camera =
 			move[2] = MOVE_SPEED * dt;
 		}
 
-		gb.mat4.mul_dir(move, e.world_matrix, move);
-		gb.vec3.add(e.position, move, e.position);
+		gb.mat4.mul_dir(move, c.world_matrix, move);
+		gb.vec3.add(c.position, move, c.position);
 	}
 	//END
 }
@@ -2582,9 +2910,8 @@ gb.scene =
 		}
 		return null;
 	},
-	add: function(entity, s)
+	add: function(e, s)
 	{
-		var e = entity.entity || entity;
 		s = s || gb.scene.current;
 		s.entities.push(e);
 		s.num_entities++;
@@ -2621,7 +2948,21 @@ gb.scene =
 		var n = s.num_entities;
 		for(var i = 0; i < n; ++i) 
 		{
-			gb.entity.update(s.entities[i], s);
+			var e = s.entities[i];
+			gb.entity.update(e, s);
+			switch(e.entity_type)
+			{
+				case gb.EntityType.CAMERA:
+				{
+					gb.camera.update(e.camera);
+					break;
+				}
+				case gb.EntityType.LAMP:
+				{
+					//gb.lamp.update(e.lamp);
+					break;
+				}
+			}
 		}
 	},
 }
@@ -2715,99 +3056,89 @@ gb.serialize.r_scene = function(br, ag)
     gb.scene.scenes[scene.name] = scene;
     gb.scene.load_asset_group(ag, scene);
 }
-gb.Vertex_Attribute = function()
+gb.Vertex_Attribute_Info = function(name, size, normalized)
 {
-	this.name;
-	this.size;
-	this.normalized;
-	this.offset = 0;
+	this.name = name;
+	this.size = size;
+	this.normalized = normalized;
 }
+gb.vertex_attributes =
+[
+	new gb.Vertex_Attribute_Info("position", 3, false),
+	new gb.Vertex_Attribute_Info("normal", 3, false),
+	new gb.Vertex_Attribute_Info("uv", 2, false),
+	new gb.Vertex_Attribute_Info("uv2", 2, false),
+	new gb.Vertex_Attribute_Info("color", 4, true),
+	new gb.Vertex_Attribute_Info("color2", 4, true),
+	new gb.Vertex_Attribute_Info("weight", 4, false),
+];
+gb.NUM_VERTEX_ATTRIBUTES = gb.vertex_attributes.length;
+
 gb.Vertex_Buffer = function()
 {
 	this.id = 0;
 	this.data;
-	this.attributes = {};
+	this.mask = 0;
+	this.update_mode;
 	this.stride = 0;
+	this.offsets = new Uint32Array(gb.NUM_VERTEX_ATTRIBUTES);
 }
 gb.Index_Buffer = function()
 {
 	this.id = 0;
 	this.data;
+	this.update_mode;
 }
 gb.Mesh = function()
 {
 	this.name;
 	this.layout;
-	this.update_mode;
 	this.vertex_buffer = null;
 	this.vertex_count = 0;
 	this.index_buffer = null;
 	this.index_count = 0;
+	this.dirty = true;
 	this.linked = false;
-	//this.dirty = true;
-}
-
-gb.vertex_buffer = 
-{
-	new: function(vertices)
-	{
-		var vb = new gb.Vertex_Buffer();
-		vb.data = new Float32Array(vertices);
-		gb.vertex_buffer.add_attribute(vb, 'position', 3, false);
-		return vb;
-	},
-	add_attribute: function(vb, name, size, normalized)
-	{
-		ASSERT(vb.attributes[name] === undefined, 'Vertex buffer already has an attribute named: ' + name);
-
-		var attr = new gb.Vertex_Attribute();
-		attr.name = name;
-		attr.size = size;
-		attr.normalized = normalized || false;
-		attr.offset = vb.stride;
-		vb.attributes[name] = attr;
-		vb.stride += size;
-	},
-}
-gb.index_buffer = 
-{
-	new: function(indices)
-	{
-		var ib = new gb.Index_Buffer();
-		ib.data = new Uint32Array(indices);
-		return ib;
-	},
 }
 
 gb.mesh = 
 {
-	new: function(vertex_buffer, index_buffer, layout, update_mode)
+	new: function(vertex_count, vertices, mask, indices)
 	{
-		var m = new gb.Mesh();
+	    var m = new gb.Mesh();
+	    m.layout = gb.webgl.ctx.TRIANGLES;
 
-		if(layout) m.layout = gb.webgl.ctx[layout];
-		else m.layout = gb.webgl.ctx.TRIANGLES;
+	    var vb = new gb.Vertex_Buffer();
+	    vb.data = vertices;
+	    vb.mask = mask;
+	    vb.update_mode = gb.webgl.ctx.STATIC_DRAW;
+	    m.vertex_buffer = vb;
+	    gb.mesh.update_vertex_buffer(vb);
+	    m.vertex_count = vertex_count;
 
-		if(update_mode) m.update_mode = gb.webgl.ctx[update_mode];
-		else m.update_mode = gb.webgl.ctx.STATIC_DRAW;
-
-	    m.vertex_buffer = vertex_buffer;
-		m.index_buffer = index_buffer;
-
-	    gb.mesh.update(m);
+	    if(indices)
+	    {
+		    var ib = new gb.Index_Buffer();
+		    ib.data = indices;
+		    ib.update_mode = gb.webgl.ctx.STATIC_DRAW;    
+		    m.index_buffer = ib;
+		    m.index_count = indices.length;
+		}
+	    gb.webgl.link_mesh(m);
 	    return m;
 	},
-	update: function(m)
+	update_vertex_buffer: function(vb)
 	{
-	    if(m.vertex_buffer.data.length === 0) m.vertex_count = 0;
-	    else m.vertex_count = m.vertex_buffer.data.length / m.vertex_buffer.stride;
-
-	    if(m.index_buffer)
-	    { 
-		    if(m.index_buffer.data.length === 0) m.index_count = 0;
-		    else m.index_count = m.index_buffer.data.length;
+		var index = 1;
+		var n = gb.NUM_VERTEX_ATTRIBUTES;
+		for(var i = 0; i < n; ++i)
+		{
+			var mr = (index & vb.mask) === index;
+			var size = gb.vertex_attributes[i].size;
+			vb.offsets[i] = vb.stride * 4; 
+			vb.stride += mr * size;
+			index *= 2;
 		}
-	    gb.webgl.update_mesh(m);
 	},
 	get_bounds: function(b, m)
 	{
@@ -2840,30 +3171,6 @@ gb.serialize.r_mesh = function(br)
 {
 	var s = gb.serialize;
 	var name = s.r_string(br);
-	var vb_size = s.r_i32(br);
-	var ib_size = s.r_i32(br);
-	var vb = gb.vertex_buffer.new(s.r_f32_array(br, vb_size));
-	var ib = gb.index_buffer.new(s.r_u32_array(br, ib_size));
-
-	var num_attributes = s.r_i32(br);
-	for(var i = 0; i < num_attributes; ++i)
-	{
-		var attr_name = s.r_string(br);
-		var attr_size = s.r_i32(br);
-		var attr_norm = s.r_bool(br);
-		gb.vertex_buffer.add_attribute(vb, attr_name, attr_size, attr_norm);
-	}
-
-	var mesh = gb.mesh.new(vb, ib);
-	mesh.name = name;
-	return mesh;
-}
-
-/*
-gb.serialize.r_mesh = function(br)
-{
-	var s = gb.serialize;
-	var name = s.r_string(br);
 	var h = s.r_i32_array(br, 4);
 	var vertices = s.r_f32_array(br, h[1]);
 	var indices = s.r_u32_array(br, h[2]);
@@ -2871,7 +3178,6 @@ gb.serialize.r_mesh = function(br)
 	mesh.name = name;
 	return mesh;
 }
-*/
 gb.mesh.generate = 
 {
 	quad: function(width, height, depth)
@@ -2880,7 +3186,7 @@ gb.mesh.generate =
 	    var N = gb.vec3.tmp();
 	    gb.vec3.normalized(N, P);
 
-	    var vb = gb.vertex_buffer.new(
+	    var data = new Float32Array(
 	    [
 	    	// POS  NORMAL UV
 	        -P[0],-P[1], P[2], N[0], N[1], N[2], 0,0,
@@ -2889,12 +3195,9 @@ gb.mesh.generate =
 	         P[0], P[1],-P[2], N[0], N[1], N[2], 1,1
 	    ]);
 
-	    gb.vertex_buffer.add_attribute(vb, 'normal', 3);
-	    gb.vertex_buffer.add_attribute(vb, 'uv', 2);
-
-	    var ib = gb.index_buffer.new([0,1,3,0,3,2]);
-
-	    return gb.mesh.new(vb, ib);
+	    var tris = new Uint32Array([0,1,3,0,3,2]);
+	    var mask = 1 | 2 | 4;
+	    return gb.mesh.new(4, data, mask, tris);
 	},
 
 	cube: function(width, height, depth)
@@ -2903,7 +3206,7 @@ gb.mesh.generate =
 		var y = height / 2;
 		var z = depth / 2;
 
-		var vb = gb.vertex_buffer.new(
+		var data = new Float32Array(
 		[
 			// POS    NORMAL  UV
 			-x,-y, z, 0,0,1, 0,0, 
@@ -2931,11 +3234,8 @@ gb.mesh.generate =
 			 x, y,-z, 0,0,-1,0,1, 
 			-x, y,-z, 0,0,-1,1,1 		
 		]);
-
-		gb.vertex_buffer.add_attribute(vb, 'normal', 3);
-	    gb.vertex_buffer.add_attribute(vb, 'uv', 2);
 				
-		var ib = gb.index_buffer.new(
+		var tris = new Uint32Array(
 		[
 			0,1,3,0,3,2, 
 			4,5,7,4,7,6, 
@@ -2945,8 +3245,10 @@ gb.mesh.generate =
 			20,21,23,20,23,22 
 		]);
 
-	    return gb.mesh.new(vb, ib);
+	    var mask = 1 | 2 | 4;
+	    return gb.mesh.new(24, data, mask, tris);
 	},
+	
 }
 gb.Texture = function()
 {
@@ -2972,26 +3274,29 @@ gb.Sampler = function()
 
 gb.texture = 
 {
-	new: function(w, h, pixels, sampler, format, byte_size, mipmaps)
+	rgba: function(width, height, pixels, sampler, mipmaps)
 	{
 		var t = new gb.Texture();
-		t.width = w;
-		t.height = h;
-		t.pixels = pixels;
-		t.format = gb.webgl.ctx[format];
-		t.byte_size = gb.webgl.ctx[byte_size];
-		t.mipmaps = mipmaps;
-		t.sampler = sampler;
-		gb.webgl.update_texture(t);
-		return t;
+	    t.width = width;
+	    t.height = height;
+	    t.pixels = pixels;
+	    t.format = gb.webgl.ctx.RGBA;
+	    t.byte_size = gb.webgl.ctx.UNSIGNED_BYTE;
+	    t.mipmaps = mipmaps;
+	    t.sampler = sampler;
+	    return t;
 	},
-	rgba: function(w, h, pixels, sampler, mipmaps)
+	depth: function(width, height)
 	{
-		return gb.texture.new(w, h, pixels, sampler, 'RGBA', 'UNSIGNED_BYTE', mipmaps);
-	},
-	depth: function(w, h)
-	{
-		return gb.texture.new(w, h, null, gb.webgl.samplers.default, 'DEPTH_COMPONENT', 'UNSIGNED_SHORT', 0);
+		var t = new gb.Texture();
+	    t.width = width;
+	    t.height = height;
+	    t.pixels = null;
+	    t.format = gb.webgl.ctx.DEPTH_COMPONENT;
+	    t.byte_size = gb.webgl.ctx.UNSIGNED_SHORT;
+	    t.mipmaps = 0;
+	  	t.sampler = gb.webgl.samplers.default;
+	    return t;
 	},
 }
 gb.sampler = 
@@ -3006,11 +3311,66 @@ gb.sampler =
 	    return s;
 	}
 }
+gb.serialize.r_dds = function(t, br)
+{
+	// http://msdn.microsoft.com/en-us/library/bb943991.aspx/
+	var s = gb.serialize;
+	var dxt = gb.webgl.extensions.dxt;
+    var DXT1 = 827611204;
+   	var DXT5 = 894720068;
+
+	var h = new Int32Array(br.buffer, br.offset, 31);
+
+	ASSERT(h[0] === 0x20534444, "Invalid magic number in DDS header");
+	ASSERT(!h[20] & 0x4, "Unsupported format, must contain a FourCC code");
+
+	var t = new gb.Texture();
+	t.name = s.r_string(br);
+    t.height = h[3];
+	t.width = h[4];
+	
+	var four_cc = h[21];
+	ASSERT(four_cc === DXT1 || four_cc === DXT5, "Invalid FourCC code");
+	
+	var block_size = 0;
+	switch(four_cc)
+	{
+		case DXT1:
+			block_size = 8;
+			t.format = dxt.COMPRESSED_RGBA_S3TC_DXT1_EXT;
+			t.byte_size = dxt.UNSIGNED_BYTE;
+		break;
+		case DXT5:
+			block_size = 16;
+			t.format = dxt.COMPRESSED_RGBA_S3TC_DXT5_EXT;
+			t.byte_size = dxt.UNSIGNED_SHORT;
+		break;
+	}
+	
+	var size = Math.max(4, t.width) / 4 * Math.max(4, t.height) / 4 * block_size;
+
+	br.offset += h[1] + 4;
+    t.pixels = new Uint8Array(br.buffer, br.offset, size);
+    t.sampler = gb.webgl.default_sampler;
+    t.compressed = true;
+
+    if(h[2] & 0x20000) 
+    {
+        t.mipmaps = Math.max(1, h[7]);
+    }
+    br.offset += size;
+
+    gb.webgl.link_texture(t);
+    LOG("Loaded Texture: " + t.name);
+    LOG("Width: " + t.width);
+	LOG("Height: " + t.height);
+
+    return t;
+}
 gb.ShaderAttribute = function()
 {
 	this.location;
-	this.size;
-    this.type;
+	this.index;
 }
 gb.ShaderUniform = function()
 {
@@ -3028,7 +3388,7 @@ gb.Shader = function()
     this.fragment_src;
     this.num_attributes;
     this.num_uniforms;
-    this.attributes = {};
+    this.attributes = [null, null, null, null, null];
     this.uniforms = {};
     this.linked = false;
 }
@@ -3219,6 +3579,116 @@ gb.serialize.r_material = function(br, ag)
     }
     return material;
 }
+gb.Rig = function()
+{
+	this.joints;	
+}
+gb.Joint = function()
+{
+	this.parent;
+	this.position;
+	this.scale;
+	this.rotation;
+	this.local_matrix;
+	this.world_matrix; 
+	this.inverse_bind_pose;
+	this.offset_matrix;
+	this.bind_pose;
+}
+
+gb.rig = 
+{
+	MAX_JOINTS: 18,
+
+	new: function()
+	{
+		var r = new gb.Rig();
+		r.joints = [];
+		return r;
+	},
+	copy: function(src)
+	{
+		var r = new gb.Rig();
+		r.joints = [];
+		var n = src.joints.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var sj = src.joints[i];
+			var j = gb.rig.joint();
+			j.parent = sj.parent;
+			gb.vec3.eq(j.postition, sj.position);
+			gb.vec3.eq(j.scale, sj.scale);
+			gb.quat.eq(j.rotation, sj.rotation);
+			gb.mat4.eq(j.local_matrix, sj.local_matrix);
+			gb.mat4.eq(j.world_matrix, sj.world_matrix);
+			gb.mat4.eq(j.bind_pose, sj.bind_pose);
+			gb.mat4.eq(j.inverse_bind_pose, sj.inverse_bind_pose);
+			gb.mat4.eq(j.offset_matrix, sj.offset_matrix);
+			r.joints.push(j);
+		}
+		return r;
+	},
+	joint: function()
+	{
+		var j = new gb.Joint();
+		j.parent = -1;
+		j.position = gb.vec3.new();
+		j.scale = gb.vec3.new(1,1,1);
+		j.rotation = gb.quat.new();
+		j.local_matrix = gb.mat4.new();
+		j.world_matrix = gb.mat4.new(); 
+		j.bind_pose = gb.mat4.new();
+		j.inverse_bind_pose = gb.mat4.new();
+		j.offset_matrix = gb.mat4.new();
+		return j;
+	},
+	update: function(rig, scene)
+	{
+		var qt = gb.quat.tmp();
+
+		var n = rig.joints.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var j = rig.joints[i];
+			gb.mat4.compose(j.local_matrix, j.position, j.scale, j.rotation);
+			gb.mat4.mul(j.local_matrix, j.local_matrix, j.bind_pose);
+			if(j.parent === -1)
+			{
+				gb.mat4.eq(j.world_matrix, j.local_matrix);
+			}
+			else
+			{
+				var parent = rig.joints[j.parent];
+				gb.mat4.mul(j.world_matrix, j.local_matrix, parent.world_matrix);
+			}
+
+			gb.mat4.mul(j.offset_matrix, j.inverse_bind_pose, j.world_matrix);
+		}
+	},
+}
+gb.serialize.r_rig = function(br, ag)
+{
+    var s = gb.serialize;
+    var rig = gb.rig.new();
+    rig.name = s.r_string(br);
+    var num_joints = s.r_i32(br);
+    ASSERT(num_joints <= gb.rig.MAX_JOINTS, "Rig has too many joints!");
+    for(var i = 0; i < num_joints; ++i)
+    {
+    	var j = new gb.Joint();
+		j.position = gb.vec3.new();
+		j.scale = gb.vec3.new(1,1,1);
+		j.rotation = gb.quat.new();
+		j.local_matrix = gb.mat4.new();
+		j.world_matrix = gb.mat4.new(); 
+		j.offset_matrix = gb.mat4.new();
+    	j.parent = s.r_i32(br);
+    	j.bind_pose = s.r_mat4(br);
+    	j.inverse_bind_pose = s.r_mat4(br);
+    	rig.joints.push(j);
+    } 
+    return rig;
+}
 gb.Render_Target = function()
 {
 	this.bounds;
@@ -3251,10 +3721,12 @@ gb.render_target =
         if(gb.has_flag_set(mask, gb.render_target.COLOR) === true)
         {
             rt.color = gb.texture.rgba(view.width, view.height, null, gb.webgl.samplers.linear, 0);
+            gb.webgl.link_texture(rt.color);
         }
         if(gb.has_flag_set(mask, gb.render_target.DEPTH) === true)
         {
             rt.depth = gb.texture.depth(view.width, view.height);
+            gb.webgl.link_texture(rt.depth);
         }
 
         gb.webgl.link_render_target(rt);
@@ -3295,6 +3767,7 @@ gb.post_call =
 	{
 		var r = new gb.PostCall();
 		r.mesh = gb.mesh.generate.quad(2,2);
+		gb.webgl.link_mesh(r.mesh);
 		r.material = material;
 		r.target = target;
 		return r;
@@ -3381,6 +3854,7 @@ gb.webgl =
         _t.view = gb.rect.new(0,0,width,height);
 
         gl = canvas.getContext('webgl', _t.config);
+        //gl = canvas.getContext('experimental-webgl', config);
 
         //DEBUG
         ASSERT(EXISTS(gl), "Could not load WebGL");
@@ -3432,33 +3906,35 @@ gb.webgl =
 		gb.webgl.ctx.clearColor(r,g,b,a);
 	},
 
+	link_mesh: function(m)
+	{
+		var _t = gb.webgl;
+		var gl = _t.ctx;
+		m.vertex_buffer.id = gl.createBuffer();
+		if(m.index_buffer)
+			m.index_buffer.id = gl.createBuffer();
+		_t.update_mesh(m);
+		m.linked = true;
+	},
 	update_mesh: function(m)
 	{
 		var gl = gb.webgl.ctx;
-		
-		if(m.linked === false)
-		{
-			m.vertex_buffer.id = gl.createBuffer();
-			if(m.index_buffer) m.index_buffer.id = gl.createBuffer();
-			m.linked = true;
-		}
-
-		//if(m.dirty === false) return;
-
 		gl.bindBuffer(gl.ARRAY_BUFFER, m.vertex_buffer.id);
-		gl.bufferData(gl.ARRAY_BUFFER, m.vertex_buffer.data, m.update_mode);
+		gl.bufferData(gl.ARRAY_BUFFER, m.vertex_buffer.data, m.vertex_buffer.update_mode);
 		if(m.index_buffer)
 		{
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.index_buffer.id);
-			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, m.index_buffer.data, m.update_mode);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, m.index_buffer.data, m.index_buffer.update_mode);
 		}
-		//m.dirty = false;
+		m.dirty = false;
 	},
 	delete_mesh: function(m)
 	{
 		var gl = gb.webgl.ctx;
 		gl.deleteBuffer(m.vertex_buffer.id);
-		if(mesh.index_buffer) gl.deleteBuffer(m.index_buffer.id);
+		if(mesh.index_buffer)
+			gl.deleteBuffer(m.index_buffer.id);
+		m = null;
 	},
 
 	link_shader: function(s)
@@ -3500,15 +3976,21 @@ gb.webgl =
 	    s.num_attributes = gl.getProgramParameter(id, gl.ACTIVE_ATTRIBUTES);
 	    s.num_uniforms = gl.getProgramParameter(id, gl.ACTIVE_UNIFORMS);
 
-	    for(var i = 0; i < s.num_attributes; ++i)
-		{
-			var attr = gl.getActiveAttrib(s.id, i);
-			var sa = new gb.ShaderAttribute();
-			sa.location = gl.getAttribLocation(id, attr.name);
-			sa.size = attr.size;
-			sa.type = attr.type;
-			s.attributes[attr.name] = sa;
-		}
+	    var c = 0;
+	    var n = gb.vertex_attributes.length;
+	    for(var i = 0; i < n; ++i)
+	    {
+	    	var attr = gb.vertex_attributes[i];
+	    	var loc = gl.getAttribLocation(id, attr.name);
+	    	if(loc !== -1) 
+	    	{
+	    		var sa = new gb.ShaderAttribute();
+	    		sa.location = loc;
+	    		sa.index = i;
+	    		s.attributes[c] = sa;
+	    		c++;
+	    	}
+	    }
 
 	    var sampler_index = 0;
 	    for(var i = 0; i < s.num_uniforms; ++i)
@@ -3540,6 +4022,23 @@ gb.webgl =
 		else gb.webgl.ctx.disable(val);
 	},
 	
+	link_texture: function(t)
+	{
+		if(t.linked === true)
+		{
+			LOG('Texture is already linked');
+			return;
+		}
+		var _t = gb.webgl;
+		var gl = _t.ctx;
+		ASSERT(t.id === 0, "Texture is already bound to id " + t.id);
+		t.id = gl.createTexture();
+		gl.bindTexture(gl.TEXTURE_2D, t.id);
+		_t.update_texture(t);
+		_t.set_sampler(t.sampler);
+		t.linked = true;
+	},
+
 	set_sampler:function(s)
 	{
 		var gl = gb.webgl.ctx;
@@ -3554,17 +4053,6 @@ gb.webgl =
 		var _t = gb.webgl;
 		var gl = _t.ctx;
 
-		if(t.linked === false)
-		{
-			t.id = gl.createTexture();
-			gl.bindTexture(gl.TEXTURE_2D, t.id);
-			t.linked = true;
-		}
-
-		ASSERT(t.dirty === true, 'Texture already updated');
-
-		_t.set_sampler(t.sampler);
-
 		if(t.compressed === true)
 		{
 			gl.compressedTexImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.pixels);
@@ -3573,10 +4061,9 @@ gb.webgl =
 		{
 			gl.texImage2D(gl.TEXTURE_2D, 0, t.format, t.width, t.height, 0, t.format, t.byte_size, t.pixels);
 		}
+
 		if(t.mipmaps > 1) 
-		{
 			gl.generateMipmap(gl.TEXTURE_2D);
-		}
 
 		t.dirty = false;
 	},
@@ -3632,7 +4119,11 @@ gb.webgl =
 
 	link_render_target: function(rt)
 	{
-		ASSERT(rt.linked === false, 'Render target already linked');
+		if(rt.linked === true)
+		{
+			LOG('Render target already linked');
+			return;
+		}
 
 		var _t = gb.webgl;
 		var gl = _t.ctx;
@@ -3680,13 +4171,12 @@ gb.webgl =
 		var vb = mesh.vertex_buffer;
 		gl.bindBuffer(gl.ARRAY_BUFFER, vb.id);
 
-		for(var k in shader.attributes)
+		for(var i = 0; i < shader.num_attributes; ++i)
 		{
-			var sa = shader.attributes[k];
-			var va = vb.attributes[k];
-
+			var sa = shader.attributes[i];
+			var attr = gb.vertex_attributes[sa.index]; 
 			gl.enableVertexAttribArray(sa.location);
-			gl.vertexAttribPointer(sa.location, va.size, gl.FLOAT, va.normalized, vb.stride * 4, va.offset * 4);
+			gl.vertexAttribPointer(sa.location, attr.size, gl.FLOAT, attr.normalized, vb.stride * 4, vb.offsets[sa.index]);
 		}
 	},
 
@@ -3991,6 +4481,7 @@ gb.gl_draw =
 	init: function(config)
 	{
 		var _t = gb.gl_draw;
+		var wgl = gb.webgl;
 
 		var entity = gb.entity.new();
 		_t.matrix = entity.world_matrix;
@@ -3999,10 +4490,17 @@ gb.gl_draw =
 		_t.offset = 0;
 		_t.color = gb.color.new(1,1,1,1);
 
-		var vb = gb.vertex_buffer.new(config.buffer_size);
-		gb.vertex_buffer.add_attribute(vb, 'color', 4, true);
-
-		var m = gb.mesh.new(vb, null, 'LINES', 'DYNAMIC_DRAW');
+		var m = new gb.Mesh();
+		m.layout = wgl.ctx.LINES;
+	    var vb = new gb.Vertex_Buffer();
+	    vb.mask = 1 | 16;
+	    vb.data = new Float32Array(config.buffer_size);
+	    vb.update_mode = wgl.ctx.DYNAMIC_DRAW;
+	    m.vertex_buffer = vb;
+	    m.vertex_count = 0;
+	    m.dirty = true;
+	    gb.mesh.update_vertex_buffer(vb);
+	    wgl.link_mesh(m);
 	    entity.mesh = m;
 	    _t.mesh = m;
 
@@ -4355,129 +4853,6 @@ gb.debug =
 	}
 }
 //END
-gb.LineMesh = function()
-{
-	this.entity;
-	this.thickness;
-	this.color;
-	this.points = [];
-}
-
-gb.line_mesh = 
-{
-	new: function(thickness, color, points)
-	{
-		var lm = new gb.LineMesh();
-		lm.thickness = thickness;
-		lm.color = gb.color.new();
-		if(color) lm.color.eq(color);
-
-		var e, vb, ib, m;
-
-		e = gb.entity.new();
-		e.entity_type = gb.EntityType.ENTITY;
-		//e.update = gb.line_mesh.update;
-	    lm.entity = e;
-	    e.line_mesh = lm;
-
-		if(points)
-	    {
-	    	lm.points = points;
-	    	gb.line_mesh.update(e);
-	    }
-	    return lm;
-	},
-	update: function(e)
-	{
-		var lm = e.line_mesh;
-
-		ASSERT(lm.points.length > 1, "Line does not contain enought points");
-
-		var vb, ib, m;
-		var num_points = lm.points.length / 3;
-		var vb_size = (num_points - 1) * 24;
-		var ib_size = (num_points - 1) * 6;
-
-		if(!lm.entity.mesh)
-		{
-			vb = gb.vertex_buffer.new(vb_size);
-			gb.vertex_buffer.add_attribute(vb, 'normal', 3);
-			ib = gb.index_buffer.new(ib_size);
-			m = gb.mesh.new(vb, ib, 'TRIANGLES', 'DYNAMIC_DRAW');
-			lm.entity.mesh = m;
-		}
-		else
-		{
-			m = lm.entity.mesh;
-			vb = m.vertex_buffer;
-			ib = m.index_buffer;
-
-			if(vb.data.length !== vb_size) vb.data = new Float32Array(vb_size);
-			if(ib.data.length !== ib_size) ib.data = new Uint32Array(ib_size);
-		}
-
-		
-		var stack = gb.vec3.stack.index;
-		var A = gb.vec3.tmp();
-		var B = gb.vec3.tmp();
-		var C = gb.vec3.tmp(0,0,1);
-		var N = gb.vec3.tmp(0,0,0);
-		var AB = gb.vec3.tmp();
-		var AC = gb.vec3.tmp();
-
-		for(var i = 1; i < num_points; ++i)
-		{
-			var ii = i * 3;
-			gb.vec3.set(B, lm.points[ii], lm.points[ii+1], lm.points[ii+2]);
-			gb.vec3.set(A, lm.points[ii-3], lm.points[ii-2], lm.points[ii-1]);
-
-			gb.vec3.sub(AB, B, A);
-			gb.vec3.sub(AC, C, A);
-			gb.vec3.cross(N, AB, AC);
-			gb.vec3.normalized(N, N);
-
-			var index = (i - 1) * 24;
-
-			// A1
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = A[j];
-			index += 3;
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = -N[j];
-			index += 3;
-			
-			// A2
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = A[j];
-			index += 3;
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = N[j];
-			index += 3;
-
-			// B1 
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = B[j];
-			index += 3;
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = -N[j];
-			index += 3;
-
-			// B2
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = B[j];
-			index += 3;
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = N[j];
-
-			index = (i-1) * 6;
-			var b = (i-1) * 4;
-			ib.data[index] = b + 0;
-			ib.data[index+1] = b + 1;
-			ib.data[index+2] = b + 3;
-			ib.data[index+3] = b + 0;
-			ib.data[index+4] = b + 3;
-			ib.data[index+5] = b + 2;
-		}
-
-	    gb.mesh.update(m);
-		gb.vec3.stack.index = stack;
-	},
-	//circle: function(r)
-
-}
-
 var v2 = gb.vec2;
 var v3 = gb.vec3;
 var qt = gb.quat;
@@ -4489,10 +4864,20 @@ var scene = gb.scene;
 var assets;
 
 var construct;
-var line;
+var cube;
 var camera;
+var lamp;
+
 var surface_target;
-var fxaa_pass;
+
+var lamp_depth_target;
+var lamp_mat;
+
+var shadow_target;
+var shadow_mat;
+
+//var fxaa_pass;
+var final_pass;
 
 function init()
 {
@@ -4503,10 +4888,6 @@ function init()
 			frame_skip: false,
 			update: update, 
 			render: render,
-		},
-		gl:
-		{
-			fill_container: false,
 		}
 	});
 
@@ -4518,33 +4899,67 @@ function load_complete(asset_group)
 {
 	construct = scene.new(null, true);
 
-	var line = gb.line_mesh.new(0.1, null, [-1,0,0, 1,0,0, 2,0.5,0]);
-	line.entity.material = gb.material.new(assets.shaders.line);
-	line.entity.material.line_width = line.thickness;
-	scene.add(line);
+	var surface_mat = gb.material.new(assets.shaders.surface);
+
+	cube = gb.entity.mesh(gb.mesh.generate.cube(2,1,1), surface_mat);
+	cube.spin = 0;
+	scene.add(cube);
+
+	var floor = gb.entity.mesh(gb.mesh.generate.quad(6,0,6), surface_mat);
+	floor.position[1] = -1.0;
+	scene.add(floor);
 
 	camera = gb.camera.new();
-	camera.entity.position[2] = 3.0;
+	camera.position[2] = 3.0;
 	scene.add(camera);
 	construct.active_camera = camera;
 
+	lamp = gb.camera.new(gb.Projection.PERSPECTIVE,0,10);
+	lamp.position[1] = 5.0;
+	qt.euler(lamp.rotation, -90,0,0);
+	scene.add(lamp); 
+
 	surface_target = gb.render_target.new();
+	lamp_depth_target = gb.render_target.new();
+	shadow_target = gb.render_target.new();
+
+	lamp_mat = gb.material.new(assets.shaders.lamp);
+
+	shadow_mat = gb.material.new(assets.shaders.shadow);
+	shadow_mat.lamp_depth_map = lamp_depth_target.color;
+	shadow_mat.lamp_view = lamp.camera.view;
+	shadow_mat.lamp_proj = lamp.camera.projection;
+
+	final_pass = gb.post_call.new(gb.material.new(assets.shaders.final), null);
+	final_pass.material.surface_map = surface_target.color;
+	final_pass.material.shadow_map = shadow_target.color;
+
+	/*
 	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
-	fxaa_pass.material.texture = surface_target.color;
+	fxaa_pass.material.texture = final_pass.render_target.color;
 	v2.set(fxaa_pass.material.resolution, gl.view.width, gl.view.height);
 	v2.set(fxaa_pass.material.inv_resolution, 1.0 / gl.view.width, 1.0 / gl.view.height);
+	*/
 
 	gb.allow_update = true;
 }
 
 function update(dt)
 {
+	cube.spin += 30 * dt;
+	gb.entity.set_rotation(cube, cube.spin, cube.spin, cube.spin);
 }
 
 function render()
 {
-	gl.render_draw_call(camera, construct.draw_items, null, surface_target, true);
-	gl.render_post_call(fxaa_pass);
+	gl.render_draw_call(camera.camera, construct.draw_items, null, surface_target, true);
+	gl.render_draw_call(lamp.camera, construct.draw_items, lamp_mat, lamp_depth_target, true);
+	gl.render_draw_call(camera.camera, construct.draw_items, shadow_mat, shadow_target, true);
+
+	gl.render_post_call(final_pass);
+	//gl.render_post_call(fxaa_pass);
 }
 
 window.addEventListener('load', init, false);
+
+

@@ -2635,19 +2635,21 @@ gb.entity =
 
 	update: function(e, scene)
 	{
-		if(e.dirty === false) return;
 		if(e.rig) gb.rig.update(e.rig, scene);
 
-		gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
-		if(e.parent === null)
+		if(e.dirty === true)
 		{
-			gb.mat4.eq(e.world_matrix, e.local_matrix);
+			gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
+			if(e.parent === null)
+			{
+				gb.mat4.eq(e.world_matrix, e.local_matrix);
+			}
+			else
+			{
+				gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
+			}
 		}
-		else
-		{
-			gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
-		}
-
+	
 		if(e.update !== null) e.update(e); //updates component
 
 		var n = e.children.length;
@@ -2741,7 +2743,7 @@ gb.Camera = function()
 }
 gb.camera = 
 {
-	new: function(projection, near, far, fov, mask)
+	new: function(projection, near, far, fov, mask, scale)
 	{
 		var e = gb.entity.new();
 		e.entity_type = gb.EntityType.CAMERA;
@@ -2752,7 +2754,7 @@ gb.camera =
 	    c.far = far || 100;
 	    c.fov = fov || 60;
 	    c.mask = mask || 0;
-	    c.scale = 1;
+	    c.scale = scale || 1;
 	    c.entity = e;
 	    e.camera = c;
 	    return c;
@@ -2836,9 +2838,14 @@ gb.Projection =
 gb.serialize.r_camera = function(br, ag)
 {
     var s = gb.serialize;
-    var entity = s.r_entity(br, ag);
-    entity.entity_type = gb.EntityType.CAMERA;
+
+    var e = s.r_entity(br, ag);
+    e.entity_type = gb.EntityType.CAMERA;
+    e.update = gb.camera.update;
+
     var c = new gb.Camera();
+    e.camera = c;
+
     var camera_type = s.r_i32(br);
     if(camera_type === 0) 
     {
@@ -2852,10 +2859,10 @@ gb.serialize.r_camera = function(br, ag)
     c.near = s.r_f32(br);
     c.far = s.r_f32(br);
     c.fov = s.r_f32(br);
-    c.dirty = true;
-    entity.camera = c;
-    c.entity = entity;
-    return entity;
+    c.mask = 0;
+    c.entity = e;
+
+    return c;
 }
 gb.Scene = function()
 {
@@ -2997,17 +3004,19 @@ gb.serialize.r_scene = function(br, ag)
         {
             case 0:
             {
-                var entity = s.r_camera(br, ag);
-                ag.entities[entity.name] = entity;
-                LOG("Loaded Camera: " + entity.name);
+                var camera = s.r_camera(br, ag);
+                ag.entities[camera.entity.name] = camera;
+                LOG("Loaded Camera: " + camera.entity.name);
                 break;                        
             }
             case 1:
             {
+            	/*
                 var entity = s.r_lamp(br, ag);
                 ag.entities[entity.name] = entity;
                 LOG("Loaded Lamp: " + entity.name);
                 break;
+                */
             }
             case 2:
             {
@@ -3069,7 +3078,7 @@ gb.serialize.r_scene = function(br, ag)
         }
     }
 
-    var scene = gb.scene.new(name, false);
+    var scene = gb.scene.new(name, true);
     gb.scene.scenes[scene.name] = scene;
     gb.scene.load_asset_group(ag, scene);
 }
@@ -3200,13 +3209,13 @@ gb.serialize.r_mesh = function(br)
 
 	var vb_size = s.r_i32(br);
 	var vertices = s.r_f32_array(br, vb_size);
-
-	//var ib_size = s.r_i32(br);
-	//var indices = s.r_u32_array(br, ib_size);
-	
 	var vb = gb.vertex_buffer.new(vertices);
-	//var ib = gb.index_buffer.new(indices);
 
+	/*
+	var ib_size = s.r_i32(br);
+	var indices = s.r_u32_array(br, ib_size);
+	var ib = gb.index_buffer.new(indices);
+	*/
 	var num_attributes = s.r_i32(br);
 	for(var i = 0; i < num_attributes; ++i)
 	{
@@ -4527,6 +4536,10 @@ gb.gl_draw =
 		var _t = gb.gl_draw;
 		gb.webgl.update_mesh(_t.mesh);
 	},
+	render: function()
+	{
+
+	},
 	set_position_f: function(x,y,z)
 	{
 		var p = gb.vec3.tmp(x,y,z);
@@ -4869,7 +4882,6 @@ var assets;
 var construct;
 var cube;
 var camera;
-var anim;
 var surface_target;
 var fxaa_pass;
 
@@ -4891,19 +4903,10 @@ function init()
 
 function load_complete(asset_group)
 {
-	scene.current = scene.scenes['basic'];
-
-	var plane = scene.find('plane');
-	plane.material = gb.material.new(assets.shaders.basic);
-	plane.material.diffuse = assets.textures.orange;
-
-	//anim = assets.animations.planeaction;
-	//anim.target = plane.transform;
-	gb.animation.play(assets.animations.planeaction, -1);
-
-	camera = gb.camera.new();
-	camera.entity.position[2] = 2.0;
-	scene.add(camera);
+	var character = scene.find('cube');
+	gb.entity.set_armature(character, assets.rigs.armature);
+	assets.animations.test.target = character.rig.joints;
+	gb.animation.play(assets.animations.test, -1);
 
 	surface_target = gb.render_target.new();
 	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
@@ -4916,16 +4919,15 @@ function load_complete(asset_group)
 
 function update(dt)
 {
-	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(3,3,3));
+	//LOG(assets.animations.test.t);
+
 }
 
 function render()
 {
 	var s = scene.current;
-	gl.render_draw_call(s.active_camera, s, s.draw_items, s.num_draw_items, null, surface_target, true, true);
-	gl.render_draw_call(s.active_camera, s, s.draw_items, s.num_draw_items, null, surface_target, true, true);
-	
-	gl.render_post_call(fxaa_pass);
+	gl.render_draw_call(s.active_camera, s, s.draw_items, s.num_draw_items, null, null, true, true);
+	//gl.render_post_call(fxaa_pass);
 }
 
 window.addEventListener('load', init, false);

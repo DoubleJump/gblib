@@ -1,4 +1,4 @@
-//INCLUDE projects/basic/js/gblib.js
+//INCLUDE projects/rig/js/gblib.js
 var v2 = gb.vec2;
 var v3 = gb.vec3;
 var qt = gb.quat;
@@ -12,7 +12,6 @@ var assets;
 var construct;
 var cube;
 var camera;
-var anim;
 var surface_target;
 var fxaa_pass;
 
@@ -34,19 +33,10 @@ function init()
 
 function load_complete(asset_group)
 {
-	scene.current = scene.scenes['basic'];
-
-	var plane = scene.find('plane');
-	plane.material = gb.material.new(assets.shaders.basic);
-	plane.material.diffuse = assets.textures.orange;
-
-	//anim = assets.animations.planeaction;
-	//anim.target = plane.transform;
-	gb.animation.play(assets.animations.planeaction, -1);
-
-	camera = gb.camera.new();
-	camera.entity.position[2] = 2.0;
-	scene.add(camera);
+	var character = scene.find('cube');
+	gb.entity.set_armature(character, assets.rigs.armature);
+	assets.animations.test.target = character.rig.joints;
+	gb.animation.play(assets.animations.test, -1);
 
 	surface_target = gb.render_target.new();
 	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
@@ -59,14 +49,15 @@ function load_complete(asset_group)
 
 function update(dt)
 {
-	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(3,3,3));
+	//LOG(assets.animations.test.t);
+
 }
 
 function render()
 {
 	var s = scene.current;
-	gl.render_draw_call(s.active_camera, s, s.draw_items, s.num_draw_items, null, surface_target, true, true);
-	gl.render_post_call(fxaa_pass);
+	gl.render_draw_call(s.active_camera, s, s.draw_items, s.num_draw_items, null, null, true, true);
+	//gl.render_post_call(fxaa_pass);
 }
 
 window.addEventListener('load', init, false);

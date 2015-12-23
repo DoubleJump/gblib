@@ -118,7 +118,7 @@ class FileWriter:
 		self.target.write(str_encoded)
 		self.offset += str_len
 		for i in range(0, padding):
-			self.target.write(pack("B", 128))
+			self.target.write(pack('B', 0))
 			self.offset += 1	
 
 	def bytes(self, val):
@@ -329,10 +329,12 @@ class FileWriter:
 				vertex_count += 1
 
 		attributes = []
+		num_attributes = 2
 		attributes.append(VertexAttribute('position', 3, False))
 		attributes.append(VertexAttribute('normal', 3, False))
 
 		uv_ln = len(uv_layers)
+		num_attributes += uv_ln
 		for i in range(0, uv_ln):
 			if i is 0:
 				attributes.append(VertexAttribute('uv', 2, False))
@@ -340,24 +342,20 @@ class FileWriter:
 				attributes.append(VertexAttribute('uv' + str(i+1), 2, False))
 		
 		color_ln = len(color_layers)
+		num_attributes += color_ln
 		for i in range(0, color_ln):
 			if i is 0:
 				attributes.append(VertexAttribute('color', 4, True))
 			else:
 				attributes.append(VertexAttribute('color' + str(i+1), 4, True))
 
-
 		weight_ln = len(ob.vertex_groups)
-		for i in range(0, weight_ln):
-			if i is 0:
-				attributes.append(VertexAttribute('weight', 2, False))
-			else:
-				attributes.append(VertexAttribute('weight' + str(i+1), 2, False))
+		if weight_ln > 0:
+			attributes.append(VertexAttribute('weight', 4, False))
+			num_attributes += 1
 
-
-		num_attributes = 2 + uv_ln + color_ln + weight_ln
 		vertex_data_ln = len(vertex_buffer)
-		index_data_ln = len(index_buffer)
+		#index_data_ln = len(index_buffer)
 
 		self.i32(OB_TYPE_MESH)
 		self.string(ob.data.name)
@@ -366,9 +364,11 @@ class FileWriter:
 		for vertex in vertex_buffer:
 			self.f32(vertex)
 
+		'''
 		self.i32(index_data_ln)
 		for index in index_buffer:
 			self.i32(index)
+		'''
 
 		self.i32(num_attributes)
 		for attr in attributes:

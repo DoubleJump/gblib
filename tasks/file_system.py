@@ -23,6 +23,7 @@ class FileWriter:
 	def __init__(self, path):
 		self.target = open(path, "wb")
 		self.offset = 0
+		self.file_start = 0
 		self.BYTE_PADDING = 4
 
 	def close(self):

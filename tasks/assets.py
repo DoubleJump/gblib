@@ -8,7 +8,7 @@ ASSET_TYPE_END = -1
 
 def compile_dds(name, file_path, writer):
 	print(file_path)
-	src_file = open(file_path, 'r')
+	src_file = open(file_path, 'rb')
 	writer.i32(ASSET_TYPE_DDS)
 	writer.string(name)
 	writer.bytes(src_file.read())
@@ -17,7 +17,7 @@ def compile_dds(name, file_path, writer):
 
 def compile_pvr(name, file_path, writer):
 	print(file_path)
-	src_file = open(file_path, 'r')
+	src_file = open(file_path, 'rb')
 	writer.i32(ASSET_TYPE_PVR)
 	writer.string(name)
 	writer.bytes(src_file.read())
@@ -26,7 +26,7 @@ def compile_pvr(name, file_path, writer):
 
 def compile_scene(name, file_path, writer):
 	print(file_path)
-	src_file = open(file_path, 'r')
+	src_file = open(file_path, 'rb')
 	writer.i32(ASSET_TYPE_SCENE)
 	writer.string(name)
 	writer.bytes(src_file.read())

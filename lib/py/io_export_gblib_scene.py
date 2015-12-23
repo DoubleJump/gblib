@@ -79,9 +79,17 @@ class FileWriter:
 		self.target.write(pack("i", val))
 		self.offset += 4
 
+	def u32(self, val):
+		self.target.write(pack("I", val))
+		self.offset += 4
+
 	def f32(self, val):
 		self.target.write(pack("f", val))
 		self.offset += 4
+
+	def b32(self, val):
+		if val is True: self.i32(1)
+		else: self.i32(0) 
 
 	def vec3(self, val):
 		self.f32(val.x)
@@ -158,7 +166,10 @@ class FileWriter:
 		self.i32(OB_TYPE_OBJECT)
 		self.string(ob.name)
 		self.transform(ob)
-		self.string(ob.material_slots[0].material.name) #our material
+		if(len(ob.material_slots) > 0):
+			self.string(ob.material_slots[0].material.name) #our material
+		else:
+			self.string('none')
 		self.string(ob.data.name) #our mesh
 
 	def lamp(self, ob, lamp):
@@ -318,6 +329,7 @@ class FileWriter:
 				vertex_count += 1
 
 		attributes = []
+		attributes.append(VertexAttribute('position', 3, False))
 		attributes.append(VertexAttribute('normal', 3, False))
 
 		uv_ln = len(uv_layers)
@@ -330,9 +342,9 @@ class FileWriter:
 		color_ln = len(color_layers)
 		for i in range(0, color_ln):
 			if i is 0:
-				attributes.append(VertexAttribute('color', 2, True))
+				attributes.append(VertexAttribute('color', 4, True))
 			else:
-				attributes.append(VertexAttribute('color' + str(i+1), 2, True))
+				attributes.append(VertexAttribute('color' + str(i+1), 4, True))
 
 
 		weight_ln = len(ob.vertex_groups)
@@ -349,21 +361,20 @@ class FileWriter:
 
 		self.i32(OB_TYPE_MESH)
 		self.string(ob.data.name)
+
 		self.i32(vertex_data_ln)
+		for vertex in vertex_buffer:
+			self.f32(vertex)
+
 		self.i32(index_data_ln)
-
-		for i in range(0, vertex_data_ln):
-			self.f32(vertex_buffer[i])
-
-		for i in range(0, index_data_ln):
-			self.i32(index_buffer[i])
+		for index in index_buffer:
+			self.i32(index)
 
 		self.i32(num_attributes)
-
 		for attr in attributes:
 			self.string(attr.name)
 			self.i32(attr.size)
-			self.i32(attr.norm)
+			self.b32(attr.norm)
 
 		bpy.data.meshes.remove(mesh)
 		if not has_triangulate:
@@ -531,8 +542,8 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 					exported_lamps.append(lamp)
 
 			elif ob.type == 'MESH':
-				material = ob.material_slots[0].material
-				if not material is None: #and 'shader' in material:
+				if len(ob.material_slots) > 0:
+					material = ob.material_slots[0].material
 					if not material in exported_materials:
 						if not material.animation_data is None:
 							action = material.animation_data.action
@@ -555,6 +566,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 
 		writer.i32(OB_TYPE_FILE_END)
 		writer.close()
+		print(writer.offset)
 
 		print("")
 		print("######### EXPORTING COMPLETED ###########")

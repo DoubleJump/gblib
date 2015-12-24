@@ -4522,20 +4522,20 @@ gb.line_mesh =
 			gb.vertex_buffer.add_attribute(vb, 'mitre', 1);
 			gb.vertex_buffer.alloc(vb, vertex_count);
 
-			//ib = gb.index_buffer.new(index_count);
-			m = gb.mesh.new(vb, null, 'TRIANGLES', 'DYNAMIC_DRAW');
+			ib = gb.index_buffer.new(index_count);
+			m = gb.mesh.new(vb, ib, 'TRIANGLES', 'DYNAMIC_DRAW');
 			lm.entity.mesh = m;
 		}
 		else
 		{
 			vb = m.vertex_buffer;
-			//ib = m.index_buffer;
+			ib = m.index_buffer;
 			m = lm.entity.mesh;
 
 			if(lm.num_points !== lm.points.length)
 			{
 				gb.vertex_buffer.resize(vb, vertex_count, false);
-				//gb.index_buffer.resize(index_buffer, index_count, false);
+				gb.index_buffer.resize(index_buffer, index_count, false);
 				lm.num_points = lm.points.length;
 			}
 		}
@@ -4553,7 +4553,6 @@ gb.line_mesh =
 		var mitre_dist;
 
 		//set first
-		var index = 0;
 		vec.set(p0, lm.points[0], lm.points[1]);
 		vec.set(p1, lm.points[2], lm.points[3]);
 		vec.sub(LA, p1, p0);
@@ -4561,19 +4560,32 @@ gb.line_mesh =
 
 		//gb.mesh.set_vertex(mesh, 'position', 0, p0);
 
-		for(var j = 0; j < VS; ++j) vb.data[index + j] = p0[j];
-		index += VS;
-		for(var j = 0; j < VS; ++j) vb.data[index + j] = N[j];
-		index += VS;
+		var index = 0;
+		for(var j = 0; j < VS; ++j) 
+		{
+			vb.data[index] = p0[j];
+			index++;
+		}
+		for(var j = 0; j < VS; ++j)
+		{
+			vb.data[index] = N[j];
+			index++;
+		}
 		vb.data[index] = 1.0;
-		index += 1;
+		index ++;
 
-		for(var j = 0; j < VS; ++j) vb.data[index + j] = p1[j];
-		index += VS;
-		for(var j = 0; j < VS; ++j) vb.data[index + j] = -N[j];
-		index += VS;
+		for(var j = 0; j < VS; ++j) 
+		{
+			vb.data[index] = p0[j];
+			index++;
+		}
+		for(var j = 0; j < VS; ++j)
+		{
+			vb.data[index] = -N[j];
+			index++;
+		}
 		vb.data[index] = 1.0;
-		index += 1;
+		index ++;
 
 		for(var i = 1; i < num_points; ++i)
 		{
@@ -4583,26 +4595,35 @@ gb.line_mesh =
 			vec.set(p1, lm.points[ii], lm.points[ii+1]);
 			vec.sub(LA, p1, p0);
 
-			if(i === num_points - 1) //last
+			if(i === num_points - 1)
 			{
 				vec.perp(N, LA);
 				mitre_dist = 1.0;
 
-				// A1
-				for(var j = 0; j < VS; ++j) vb.data[index + j] = p1[j];
-				index += VS;
-				for(var j = 0; j < VS; ++j) vb.data[index + j] = -N[j];
-				index += VS;
-				vb.data[index + j] = mitre_dist;
+				for(var j = 0; j < VS; ++j) 
+				{
+					vb.data[index] = p1[j];
+					index++;
+				}
+				for(var j = 0; j < VS; ++j)
+				{
+					vb.data[index] = N[j];
+					index++;
+				}
+				vb.data[index] = 1.0;
 				index ++;
 
-				
-				// A2
-				for(var j = 0; j < VS; ++j) vb.data[index + j] = p1[j];
-				index += VS;
-				for(var j = 0; j < VS; ++j) vb.data[index + j] = N[j];
-				index += VS;
-				vb.data[index + j] = mitre_dist;
+				for(var j = 0; j < VS; ++j) 
+				{
+					vb.data[index] = p1[j];
+					index++;
+				}
+				for(var j = 0; j < VS; ++j)
+				{
+					vb.data[index] = -N[j];
+					index++;
+				}
+				vb.data[index] = 1.0;
 				index ++;
 			}
 			else
@@ -4614,46 +4635,63 @@ gb.line_mesh =
 				vec.perp(N, LA);
 				vec.add(tangent, LB,LA);
 				vec.perp(mitre, tangent);
-				mitre_dist = lm.thickness / vec.dot(mitre, N);
+				mitre_dist = 1 / vec.dot(mitre, N);
 
-				// A1
-				for(var j = 0; j < VS; ++j) vb.data[index + j] = p1[j];
-				index += VS;
-				for(var j = 0; j < VS; ++j) vb.data[index + j] = -N[j];
-				index += VS;
-				vb.data[index + j] = mitre_dist;
+				// TODO: compress this
+				for(var j = 0; j < VS; ++j) 
+				{
+					vb.data[index] = p1[j];
+					index++;
+				}
+				for(var j = 0; j < VS; ++j)
+				{
+					vb.data[index] = mitre[j];
+					index++;
+				}
+				vb.data[index] = mitre_dist;
 				index ++;
 
-				
-				// A2
-				for(var j = 0; j < VS; ++j) vb.data[index + j] = p1[j];
-				index += VS;
-				for(var j = 0; j < VS; ++j) vb.data[index + j] = N[j];
-				index += VS;
-				vb.data[index + j] = mitre_dist;
+				for(var j = 0; j < VS; ++j) 
+				{
+					vb.data[index] = p1[j];
+					index++;
+				}
+				for(var j = 0; j < VS; ++j)
+				{
+					vb.data[index] = -mitre[j];
+					index++;
+				}
+				vb.data[index] = mitre_dist;
 				index ++;
 
-
-				// B1 
-				for(var j = 0; j < VS; ++j) vb.data[index + j] = p1[j];
-				index += VS;
-				for(var j = 0; j < VS; ++j) vb.data[index + j] = -N[j];
-				index += VS;
-				vb.data[index + j] = mitre_dist;
+				for(var j = 0; j < VS; ++j) 
+				{
+					vb.data[index] = p1[j];
+					index++;
+				}
+				for(var j = 0; j < VS; ++j)
+				{
+					vb.data[index] = mitre[j];
+					index++;
+				}
+				vb.data[index] = mitre_dist;
 				index ++;
 
-
-				// B2
-				for(var j = 0; j < VS; ++j) vb.data[index + j] = p1[j];
-				index += VS;
-				for(var j = 0; j < VS; ++j) vb.data[index + j] = N[j];
-				index += VS;
-				vb.data[index + j] = mitre_dist;
+				for(var j = 0; j < VS; ++j) 
+				{
+					vb.data[index] = p1[j];
+					index++;
+				}
+				for(var j = 0; j < VS; ++j)
+				{
+					vb.data[index] = -mitre[j];
+					index++;
+				}
+				vb.data[index] = mitre_dist;
 				index ++;
-			}	
+			}
 		}
 
-		/*
 		index = 0;
 		var offset = 0;
 		for(var i = 0; i < num_faces; ++i)
@@ -4667,7 +4705,7 @@ gb.line_mesh =
 			offset += 4;
 			index += 6;
 		}
-		*/
+		LOG(m);
 
 	    gb.mesh.update(m);
 		vec.stack.index = stack;
@@ -4710,9 +4748,10 @@ function load_complete(ag)
 {
 	construct = scene.new(null, true);
 
-	var line = gb.line_mesh.new(0.1, null, [-1,0, 1,0, 2,0.5]);
+	var line = gb.line_mesh.new(0.2, null, [-1,0, 1,0, 1,0.5, 2.0,0.5]);
 	line.entity.material = gb.material.new(ag.shaders.line);
 	line.entity.material.line_width = line.thickness;
+	gb.color.set(line.entity.material.color, 0.67,0.1,0.884,0.75);
 	scene.add(line);
 
 	camera = gb.camera.new();

@@ -30,6 +30,8 @@ function load_complete(ag)
 	scene.current = scene.scenes['basic'];
 
 	var plane = scene.find('plane');
+	gb.mesh.set_vertex(plane.mesh, 'position', 0, gb.vec3.tmp(0,0,0));
+	gb.mesh.update(plane.mesh);
 	plane.material = gb.material.new(ag.shaders.basic);
 	plane.material.diffuse = ag.textures.orange;
 	//gb.animation.play(assets.animations.planeaction, -1);

@@ -9,15 +9,17 @@ uniform mat4 proj_matrix;
 
 void main()
 { 
-	vec4 delta = vec4(normal, 0, 0);
-	vec4 pos = mv_matrix * vec4(position, 0, 1);
-	gl_Position = proj_matrix * (pos + delta);
+	vec2 delta = normal * mitre * line_width;
+	vec4 pos = mv_matrix * vec4(position + delta, 0, 1);
+	gl_Position = proj_matrix * pos;
 }
 
 #FRAGMENT
 precision highp float;
 
+uniform vec4 color;
+
 void main()
 { 
-    gl_FragColor = vec4(1,1,1,1);
+    gl_FragColor = color;
 }

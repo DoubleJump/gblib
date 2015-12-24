@@ -497,9 +497,11 @@ gb.vec2 =
 	},
 	perp: function(r, a)
 	{
+		var _t = gb.vec2;
 		var x = -a[1];
 		var y = a[0];
 		_t.set(r,x,y);
+		_t.normalized(r,r);
 	},
 	angle: function(a, b)
 	{
@@ -3195,6 +3197,62 @@ gb.mesh =
 		}
 	    gb.webgl.update_mesh(m);
 	},
+	get_vertex: function(result, mesh, attribute, index)
+	{
+		var vb = mesh.vertex_buffer;
+		var attr = vb.attributes[attribute];
+		var start = (index * vb.stride) + attr.offset; 
+		for(var i = 0; i < attr.size; ++i)
+		{
+			result[i] = vb.data[start + i];
+		}
+	},
+	set_vertex: function(mesh, attribute, index, val)
+	{
+		var vb = mesh.vertex_buffer;
+		var attr = vb.attributes[attribute];
+		var start = (index * vb.stride) + attr.offset; 
+		for(var i = 0; i < attr.size; ++i)
+		{
+			vb.data[start + i] = val[i];
+		}
+	},
+	get_vertices: function(result, mesh, attribute, start, end)
+	{
+		var vb = mesh.vertex_buffer;
+		var attr = vb.attributes[attribute];
+		start = start || 0;
+		end = end || mesh.vertex_count;
+		var range = end - start;
+		var dest_index = 0;
+		var src_index = (start * vb.stride) + attr.offset;
+
+		for(var i = 0; i < range; ++i)
+		{
+			for(var j = 0; j < attr.size; ++j)
+			{
+				result[dest_index + j] = vb.data[src_index + j]; 
+			}
+			src_index += vb.stride;
+			dest_index += attr.size;
+		}
+	},
+	set_vertices: function(mesh, attribute, start, val)
+	{
+		var vb = mesh.vertex_buffer;
+		var attr = vb.attributes[attribute];
+		var range = val.length;
+		ASSERT((start + range) < mesh.vertex_count, 'src data too large for vertex buffer');
+		for(var i = 0; i < range; ++i)
+		{
+			for(var j = 0; j < attr.size; ++j)
+			{
+				vb.data[dest_index + j] = val[src_index + j]; 
+			}
+			src_index += attr.size;
+			dest_index += vb.stride;
+		}
+	},
 	get_bounds: function(b, m)
 	{
 		var v3 = gb.vec3;
@@ -3220,6 +3278,7 @@ gb.mesh =
 
 			c += stride;
 		}
+		v3.stack.index -= 1;
 	},
 }
 gb.serialize.r_mesh = function(br)
@@ -4935,6 +4994,8 @@ function load_complete(ag)
 	scene.current = scene.scenes['basic'];
 
 	var plane = scene.find('plane');
+	gb.mesh.set_vertex(plane.mesh, 'position', 0, gb.vec3.tmp(0,0,0));
+	gb.mesh.update(plane.mesh);
 	plane.material = gb.material.new(ag.shaders.basic);
 	plane.material.diffuse = ag.textures.orange;
 	//gb.animation.play(assets.animations.planeaction, -1);

@@ -35,9 +35,10 @@ function load_complete(ag)
 {
 	construct = scene.new(null, true);
 
-	var line = gb.line_mesh.new(0.1, null, [-1,0, 1,0, 2,0.5]);
+	var line = gb.line_mesh.new(0.2, null, [-1,0, 1,0, 1,0.5, 2.0,0.5]);
 	line.entity.material = gb.material.new(ag.shaders.line);
 	line.entity.material.line_width = line.thickness;
+	gb.color.set(line.entity.material.color, 0.67,0.1,0.884,0.75);
 	scene.add(line);
 
 	camera = gb.camera.new();

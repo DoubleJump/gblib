@@ -1,6 +1,7 @@
 #VERTEX
-attribute vec3 position;
-attribute vec3 normal;
+attribute vec2 position;
+attribute vec2 normal;
+attribute float mitre;
 
 uniform float line_width;
 uniform mat4 mv_matrix;
@@ -8,8 +9,8 @@ uniform mat4 proj_matrix;
 
 void main()
 { 
-	vec4 delta = vec4(normal * line_width, 0);
-	vec4 pos = mv_matrix * vec4(position, 1);
+	vec4 delta = vec4(normal, 0, 0);
+	vec4 pos = mv_matrix * vec4(position, 0, 1);
 	gl_Position = proj_matrix * (pos + delta);
 }
 

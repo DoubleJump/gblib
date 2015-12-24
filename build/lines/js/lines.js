@@ -31,7 +31,7 @@ var gb =
 		},
 		gl_draw:
 		{
-			buffer_size: 160000,
+			buffer_size: 2048,
 		},
 		input:
 		{
@@ -114,16 +114,8 @@ var gb =
 		}
 		gb.stack.clear_all();
 		
-		//DEBUG
-		gb.gl_draw.clear();
-		//END
-		
 		gb.update(gb.time.dt);
-		gb.scene.update(gb.scene.current, gb.time.dt);
-		
-		//DEBUG
-		gb.gl_draw.update();
-		//END
+		gb.scene.update(gb.time.dt);
 		
 		gb.input.update();
 		gb.render();
@@ -306,9 +298,30 @@ gb.Binary_Reader = function(buffer)
 
 gb.serialize =
 {
+	/*
+	r_bytes: function(br, l)
+	{
+		var r = new Uint8Array(br.buffer, br.offset, l);
+		br.offset += l;
+		return r;
+	},
+	*/
+	r_b32: function(br)
+	{
+		var r = br.bytes.getInt32(br.offset, true);
+		br.offset += 4;
+		if(r === 1) return true;
+		return false;
+	},
 	r_i32: function(br)
 	{
 		var r = br.bytes.getInt32(br.offset, true);
+		br.offset += 4;
+		return r;
+	},
+	r_u32: function(br)
+	{
+		var r = br.bytes.getUint32(br.offset, true);
 		br.offset += 4;
 		return r;
 	},
@@ -481,6 +494,14 @@ gb.vec2 =
 	dot: function(a, b)
 	{
 		return a[0] * b[0] + a[1] * b[1];
+	},
+	perp: function(r, a)
+	{
+		var _t = gb.vec2;
+		var x = -a[1];
+		var y = a[0];
+		_t.set(r,x,y);
+		_t.normalized(r,r);
 	},
 	angle: function(a, b)
 	{
@@ -2327,28 +2348,21 @@ gb.entity =
 
 	update: function(e, scene)
 	{
-		if(e.active === false || e.dirty === false) return;
-		
-		/*
-		if(e.mesh) console.log(e.mesh.dirty);
-
-		if(e.mesh && e.mesh.dirty === true) 
-		{
-			gb.webgl.update_mesh(e.mesh);
-		}
-		*/
 		if(e.rig) gb.rig.update(e.rig, scene);
 
-		gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
-		if(e.parent === null)
+		if(e.dirty === true)
 		{
-			gb.mat4.eq(e.world_matrix, e.local_matrix);
+			gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
+			if(e.parent === null)
+			{
+				gb.mat4.eq(e.world_matrix, e.local_matrix);
+			}
+			else
+			{
+				gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
+			}
 		}
-		else
-		{
-			gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
-		}
-
+	
 		if(e.update !== null) e.update(e); //updates component
 
 		var n = e.children.length;
@@ -2400,7 +2414,7 @@ gb.Camera = function()
 }
 gb.camera = 
 {
-	new: function(projection, near, far, fov, mask)
+	new: function(projection, near, far, fov, mask, scale)
 	{
 		var e = gb.entity.new();
 		e.entity_type = gb.EntityType.CAMERA;
@@ -2411,7 +2425,7 @@ gb.camera =
 	    c.far = far || 100;
 	    c.fov = fov || 60;
 	    c.mask = mask || 0;
-	    c.scale = 1;
+	    c.scale = scale || 1;
 	    c.entity = e;
 	    e.camera = c;
 	    return c;
@@ -2459,6 +2473,7 @@ gb.camera =
 		var m_delta = gb.input.mouse_delta;
 		var ROTATE_SPEED = 10.0;
 		gb.entity.rotate_f(e, -m_delta[1] * ROTATE_SPEED * dt, -m_delta[0] * ROTATE_SPEED * dt, 0);
+		//TODO: proper quat mul for each axis instead of this rubbish
 
 		var move = gb.vec3.tmp();
 		var MOVE_SPEED = 1.0;
@@ -2494,9 +2509,14 @@ gb.Projection =
 gb.serialize.r_camera = function(br, ag)
 {
     var s = gb.serialize;
-    var entity = s.r_entity(br, ag);
-    entity.entity_type = gb.EntityType.CAMERA;
+
+    var e = s.r_entity(br, ag);
+    e.entity_type = gb.EntityType.CAMERA;
+    e.update = gb.camera.update;
+
     var c = new gb.Camera();
+    e.camera = c;
+
     var camera_type = s.r_i32(br);
     if(camera_type === 0) 
     {
@@ -2510,10 +2530,10 @@ gb.serialize.r_camera = function(br, ag)
     c.near = s.r_f32(br);
     c.far = s.r_f32(br);
     c.fov = s.r_f32(br);
-    c.dirty = true;
-    entity.camera = c;
-    c.entity = entity;
-    return entity;
+    c.mask = 0;
+    c.entity = e;
+
+    return c;
 }
 gb.Scene = function()
 {
@@ -2522,7 +2542,8 @@ gb.Scene = function()
 	this.world_matrix = gb.mat4.new();
 	this.num_entities = 0;
 	this.entities = [];
-	this.draw_items = [];
+	this.draw_items;
+	this.num_draw_items;
 	this.animations = [];
 	//DEBUG
 	this.fly_mode = false;
@@ -2537,6 +2558,8 @@ gb.scene =
 	{
 		var scene = new gb.Scene();
 		scene.name = name;
+		scene.draw_items = new Uint32Array(64);
+		scene.num_draw_items = 0;
 		gb.scene.scenes[name] = scene;
 		if(make_active) gb.scene.current = scene;
 		return scene;
@@ -2587,13 +2610,15 @@ gb.scene =
 		var e = entity.entity || entity;
 		s = s || gb.scene.current;
 		s.entities.push(e);
+		e.id = s.num_entities;
 		s.num_entities++;
-		if(e.entity_type === gb.EntityType.ENTITY && e.mesh && e.material)
+
+		if(e.entity_type === gb.EntityType.CAMERA && s.active_camera === null)
 		{
-			s.draw_items.push(e);
+			s.active_camera = e.camera;
 		}
 	},
-	update: function(s, dt)
+	update: function(dt, s)
 	{
 		s = s || gb.scene.current;
 
@@ -2619,18 +2644,28 @@ gb.scene =
 		//END
 
 		var n = s.num_entities;
+		s.num_draw_items = 0;
 		for(var i = 0; i < n; ++i) 
 		{
-			gb.entity.update(s.entities[i], s);
+			var e = s.entities[i];
+			if(e.active === true)
+			{
+				gb.entity.update(e, s);
+
+				if(e.mesh && e.material)
+				{
+					s.draw_items[s.num_draw_items] = e.id;
+					s.num_draw_items++;
+				}
+			}
 		}
 	},
 }
 gb.serialize.r_scene = function(br, ag)
 {
 	var s = gb.serialize;
-	var scene = new gb.Scene();
-	scene.name = s.r_string(br);
-    LOG("Loading Scene: " + scene.name);
+	var name = s.r_string(br);
+    LOG("Loading Scene: " + name);
 
     var scene_complete = false;
     while(scene_complete === false)
@@ -2640,17 +2675,19 @@ gb.serialize.r_scene = function(br, ag)
         {
             case 0:
             {
-                var entity = s.r_camera(br, ag);
-                ag.entities[entity.name] = entity;
-                LOG("Loaded Camera: " + entity.name);
+                var camera = s.r_camera(br, ag);
+                ag.entities[camera.entity.name] = camera;
+                LOG("Loaded Camera: " + camera.entity.name);
                 break;                        
             }
             case 1:
             {
+            	/*
                 var entity = s.r_lamp(br, ag);
                 ag.entities[entity.name] = entity;
                 LOG("Loaded Lamp: " + entity.name);
                 break;
+                */
             }
             case 2:
             {
@@ -2712,6 +2749,7 @@ gb.serialize.r_scene = function(br, ag)
         }
     }
 
+    var scene = gb.scene.new(name, true);
     gb.scene.scenes[scene.name] = scene;
     gb.scene.load_asset_group(ag, scene);
 }
@@ -2752,8 +2790,7 @@ gb.vertex_buffer =
 	new: function(vertices)
 	{
 		var vb = new gb.Vertex_Buffer();
-		vb.data = new Float32Array(vertices);
-		gb.vertex_buffer.add_attribute(vb, 'position', 3, false);
+		if(vertices) vb.data = new Float32Array(vertices);
 		return vb;
 	},
 	add_attribute: function(vb, name, size, normalized)
@@ -2768,14 +2805,36 @@ gb.vertex_buffer =
 		vb.attributes[name] = attr;
 		vb.stride += size;
 	},
+	alloc: function(vb, vertex_count)
+	{
+		vb.data = new Float32Array(vb.stride * vertex_count);		
+	},
+	resize: function(vb, vertex_count, copy)
+	{
+		ASSERT((vb.data.length / vb.stride) !== vertex_count, 'Buffer already correct size');
+		var new_buffer = new Float32Array(vb.stride * vertex_count);
+		if(copy) new_buffer.set(vb.data);
+		vb.data = new_buffer; 
+	},
 }
 gb.index_buffer = 
 {
 	new: function(indices)
 	{
 		var ib = new gb.Index_Buffer();
-		ib.data = new Uint32Array(indices);
+		if(indices) ib.data = new Uint32Array(indices);
 		return ib;
+	},
+	alloc: function(ib, count)
+	{
+		ib.data = new Uint32Array(count);		
+	},
+	resize: function(ib, count, copy)
+	{
+		ASSERT(ib.data.length !== count, 'Buffer already correct size');
+		var new_buffer = new Uint32Array(count);
+		if(copy) new_buffer.set(ib.data);
+		ib.data = new_buffer; 
 	},
 }
 
@@ -2809,6 +2868,62 @@ gb.mesh =
 		}
 	    gb.webgl.update_mesh(m);
 	},
+	get_vertex: function(result, mesh, attribute, index)
+	{
+		var vb = mesh.vertex_buffer;
+		var attr = vb.attributes[attribute];
+		var start = (index * vb.stride) + attr.offset; 
+		for(var i = 0; i < attr.size; ++i)
+		{
+			result[i] = vb.data[start + i];
+		}
+	},
+	set_vertex: function(mesh, attribute, index, val)
+	{
+		var vb = mesh.vertex_buffer;
+		var attr = vb.attributes[attribute];
+		var start = (index * vb.stride) + attr.offset; 
+		for(var i = 0; i < attr.size; ++i)
+		{
+			vb.data[start + i] = val[i];
+		}
+	},
+	get_vertices: function(result, mesh, attribute, start, end)
+	{
+		var vb = mesh.vertex_buffer;
+		var attr = vb.attributes[attribute];
+		start = start || 0;
+		end = end || mesh.vertex_count;
+		var range = end - start;
+		var dest_index = 0;
+		var src_index = (start * vb.stride) + attr.offset;
+
+		for(var i = 0; i < range; ++i)
+		{
+			for(var j = 0; j < attr.size; ++j)
+			{
+				result[dest_index + j] = vb.data[src_index + j]; 
+			}
+			src_index += vb.stride;
+			dest_index += attr.size;
+		}
+	},
+	set_vertices: function(mesh, attribute, start, val)
+	{
+		var vb = mesh.vertex_buffer;
+		var attr = vb.attributes[attribute];
+		var range = val.length;
+		ASSERT((start + range) < mesh.vertex_count, 'src data too large for vertex buffer');
+		for(var i = 0; i < range; ++i)
+		{
+			for(var j = 0; j < attr.size; ++j)
+			{
+				vb.data[dest_index + j] = val[src_index + j]; 
+			}
+			src_index += attr.size;
+			dest_index += vb.stride;
+		}
+	},
 	get_bounds: function(b, m)
 	{
 		var v3 = gb.vec3;
@@ -2834,44 +2949,35 @@ gb.mesh =
 
 			c += stride;
 		}
+		v3.stack.index -= 1;
 	},
 }
 gb.serialize.r_mesh = function(br)
 {
 	var s = gb.serialize;
 	var name = s.r_string(br);
-	var vb_size = s.r_i32(br);
-	var ib_size = s.r_i32(br);
-	var vb = gb.vertex_buffer.new(s.r_f32_array(br, vb_size));
-	var ib = gb.index_buffer.new(s.r_u32_array(br, ib_size));
 
+	var vb_size = s.r_i32(br);
+	var vertices = s.r_f32_array(br, vb_size);
+	var vb = gb.vertex_buffer.new(vertices);
+	/*
+	var ib_size = s.r_i32(br);
+	var indices = s.r_u32_array(br, ib_size);
+	var ib = gb.index_buffer.new(indices);
+	*/
 	var num_attributes = s.r_i32(br);
 	for(var i = 0; i < num_attributes; ++i)
 	{
 		var attr_name = s.r_string(br);
 		var attr_size = s.r_i32(br);
-		var attr_norm = s.r_bool(br);
+		var attr_norm = s.r_b32(br);
 		gb.vertex_buffer.add_attribute(vb, attr_name, attr_size, attr_norm);
 	}
 
-	var mesh = gb.mesh.new(vb, ib);
+	var mesh = gb.mesh.new(vb, null);
 	mesh.name = name;
 	return mesh;
 }
-
-/*
-gb.serialize.r_mesh = function(br)
-{
-	var s = gb.serialize;
-	var name = s.r_string(br);
-	var h = s.r_i32_array(br, 4);
-	var vertices = s.r_f32_array(br, h[1]);
-	var indices = s.r_u32_array(br, h[2]);
-	var mesh = gb.mesh.new(h[0], vertices, h[3], indices);
-	mesh.name = name;
-	return mesh;
-}
-*/
 gb.mesh.generate = 
 {
 	quad: function(width, height, depth)
@@ -2889,6 +2995,7 @@ gb.mesh.generate =
 	         P[0], P[1],-P[2], N[0], N[1], N[2], 1,1
 	    ]);
 
+	    gb.vertex_buffer.add_attribute(vb, 'position', 3);
 	    gb.vertex_buffer.add_attribute(vb, 'normal', 3);
 	    gb.vertex_buffer.add_attribute(vb, 'uv', 2);
 
@@ -2932,6 +3039,7 @@ gb.mesh.generate =
 			-x, y,-z, 0,0,-1,1,1 		
 		]);
 
+		gb.vertex_buffer.add_attribute(vb, 'position', 3);
 		gb.vertex_buffer.add_attribute(vb, 'normal', 3);
 	    gb.vertex_buffer.add_attribute(vb, 'uv', 2);
 				
@@ -3073,6 +3181,7 @@ gb.material =
         for(var key in shader.uniforms)
         {
             var uniform = shader.uniforms[key];
+            var size = uniform.size;
             var val;
             switch(uniform.type)
             {
@@ -3108,7 +3217,8 @@ gb.material =
                 }
                 case 'FLOAT_MAT4':
                 {
-                    val = gb.mat4.new();
+                    if(size > 1) val = new Float32Array(size * 16);
+                    else val = gb.mat4.new();
                     break;
                 }
                 case 'SAMPLER_2D':
@@ -3126,10 +3236,6 @@ gb.material =
                     ASSERT(false, uniform.type + ' is an unsupported uniform type');
                 }
             }
-            if(key === 'rig[0]') 
-            {
-                val = new Float32Array(gb.rig.MAX_JOINTS * 16);
-            }
             m[key] = val
         }
         return m;
@@ -3143,28 +3249,10 @@ gb.material =
     },
     set_camera_uniforms: function(material, camera)
     {
-        /*
         gb.material.set_uniform(material, 'proj_matrix', camera.projection);
         gb.material.set_uniform(material, 'view_matrix', camera.view);
         gb.material.set_uniform(material, 'view_proj_matrix', camera.view_projection);
         gb.material.set_uniform(material, 'normal_matrix', camera.normal);
-        */
-        if(material.proj_matrix !== undefined)
-        {
-            material.proj_matrix = camera.projection;
-        }
-        if(material.view_matrix !== undefined)
-        {
-            material.view_matrix = camera.view;
-        }
-        if(material.view_proj_matrix !== undefined)
-        {
-            material.view_proj_matrix = camera.view_projection;
-        }
-        if(material.normal_matrix !== undefined)
-        {
-            material.normal_matrix = camera.normal;
-        }
     },
     set_entity_uniforms: function(material, entity, camera)
     {
@@ -3207,8 +3295,8 @@ gb.serialize.r_material = function(br, ag)
 
     var material = gb.material.new(shader);
     material.name = name;
-    var num_textures = s.r_i32(br);
 
+    var num_textures = s.r_i32(br);
     for(var i = 0; i < num_textures; ++i)
     {
         var tex_name = s.r_string(br);
@@ -3341,12 +3429,12 @@ gb.webgl =
 	    preserveDrawingBuffer: false,
 	    preferLowPowerToHighPerformance: false,
 	    failIfMajorPerformanceCaveat: false,
-	    extensions: ["WEBGL_depth_texture", 
-					 "WEBGL_compressed_texture_s3tc",
-					 "WEBKIT_WEBGL_compressed_texture_pvrtc",
-					 "OES_standard_derivatives",
-					 "OES_texture_float",
-					 "OES_element_index_uint"],
+	    extensions: ['WEBGL_depth_texture', 
+					 'WEBGL_compressed_texture_s3tc',
+					 'WEBKIT_WEBGL_compressed_texture_pvrtc',
+					 'OES_standard_derivatives',
+					 'OES_texture_float',
+					 'OES_element_index_uint'],
 	},
 	extensions: {},
 	ctx: null,
@@ -3685,6 +3773,8 @@ gb.webgl =
 			var sa = shader.attributes[k];
 			var va = vb.attributes[k];
 
+			ASSERT(va !== undefined, 'Shader wants attribute ' + k + ' but mesh does not have it');
+
 			gl.enableVertexAttribArray(sa.location);
 			gl.vertexAttribPointer(sa.location, va.size, gl.FLOAT, va.normalized, vb.stride * 4, va.offset * 4);
 		}
@@ -3816,16 +3906,16 @@ gb.webgl =
 		}
 	},
 	*/
-	render_draw_call: function(camera, entities, material, target, clear)
+	render_draw_call: function(camera, scene, ids, count, material, target, clear, depth)
 	{
 		var _t = gb.webgl;
 		var gl = _t.ctx;
-		var n = entities.length;
+		var n = count;
 		
-		_t.set_state(gl.DEPTH_TEST, true);
+		_t.set_state(gl.DEPTH_TEST, depth);
 		_t.set_render_target(target, clear);
 
-		gl.depthRange(0, camera.far);
+		gl.depthRange(camera.near, camera.far);
 
 		if(material)
 		{
@@ -3833,8 +3923,9 @@ gb.webgl =
 			gb.material.set_camera_uniforms(material, camera);
 			for(var i = 0; i < n; ++i)
 			{
-				var e = entities[i];
-				gb.material.set_entity_uniforms(material, e, camera);
+				var id = ids[i];
+				var e = scene.entities[id];
+				gb.material.set_entity_uniforms(material, e, camera); //NOTE: prolly not needed on mats?
 				_t.link_attributes(material.shader, e.mesh);
 				_t.set_uniforms(material);
 				_t.draw_mesh(e.mesh);
@@ -3844,7 +3935,8 @@ gb.webgl =
 		{
 			for(var i = 0; i < n; ++i)
 			{
-				var e = entities[i];
+				var id = ids[i];
+				var e = scene.entities[id];
 				var material = e.material;
 				_t.use_shader(material.shader);
 				gb.material.set_camera_uniforms(material, camera);
@@ -3911,14 +4003,13 @@ gb.Asset_Group = function()
 
 gb.assets = 
 {
-    load: function(url, asset_group, on_load, on_progress)
+    load: function(url, on_load, on_progress)
     {
         var request = new XMLHttpRequest();
         request.open('GET', url, true);
         request.onload = gb.assets.event_asset_load;
         request.onprogress = on_progress || gb.event_load_progress;
         request.responseType = 'arraybuffer';
-        request.upload.asset_group = asset_group;
         request.upload.callback = on_load;
         request.send();
     },
@@ -3931,7 +4022,8 @@ gb.assets =
             var br = new gb.Binary_Reader(e.target.response);
             LOG("Asset File Size: " + br.buffer.byteLength + " bytes");
 
-            var ag = e.target.upload.asset_group;
+            //var ag = e.target.upload.asset_group;
+            var ag = new gb.Asset_Group();
 
             var asset_load_complete = false;
             while(asset_load_complete === false)
@@ -3953,13 +4045,13 @@ gb.assets =
                     case 2:
                     {
                         var texture = s.r_dds(br);
-                        ag.textures[name] = texture;
+                        ag.textures[texture.name] = texture;
                         break;
                     }
                     case 3:
                     {
                         var texture = s.r_pvr(br);
-                        ag.textures[name] = texture;
+                        ag.textures[texture.name] = texture;
                         break;
                     } 
                     case -1:
@@ -3981,32 +4073,37 @@ gb.assets =
 //DEBUG
 gb.gl_draw = 
 {
-	entities: [],
-	mesh: null,
+	entity: null,
 	offset: null,
 	color: null,
+	thickness: 1.0,
 	matrix: null,
-	draw_call: null,
 
 	init: function(config)
 	{
 		var _t = gb.gl_draw;
 
-		var entity = gb.entity.new();
-		_t.matrix = entity.world_matrix;
-		entity.entity_type = gb.EntityType.ENTITY;
+		var e = gb.entity.new();
+		_t.entity = e;
+		_t.matrix = e.world_matrix;
+		e.entity_type = gb.EntityType.ENTITY;
 
 		_t.offset = 0;
 		_t.color = gb.color.new(1,1,1,1);
 
-		var vb = gb.vertex_buffer.new(config.buffer_size);
+		var vb = gb.vertex_buffer.new();
+		gb.vertex_buffer.add_attribute(vb, 'position', 3, false);
 		gb.vertex_buffer.add_attribute(vb, 'color', 4, true);
+		gb.vertex_buffer.alloc(vb, config.buffer_size);
 
 		var m = gb.mesh.new(vb, null, 'LINES', 'DYNAMIC_DRAW');
-	    entity.mesh = m;
+	    e.mesh = m;
 	    _t.mesh = m;
 
-	    _t.entities.push(entity);
+	    var vs = 'attribute vec3 position;attribute vec4 color;uniform mat4 mvp;varying vec4 _color;void main(){_color = color;gl_Position = mvp * vec4(position, 1.0);}';
+	    var fs = 'precision highp float;varying vec4 _color;void main(){gl_FragColor = _color;}'; 
+	    e.material = gb.material.new(gb.shader.new(vs,fs));
+		_t.clear();
 	},
 	clear: function()
 	{
@@ -4015,16 +4112,31 @@ gb.gl_draw =
 		gb.color.set(_t.color, 1,1,1,1);
 		_t.offset = 0;
 		_t.mesh.vertex_count = 0;
+		_t.thickness = 1.0;
 		var n = _t.mesh.vertex_buffer.data.length;
 		for(var i = 0; i < n; ++i)
 		{
 			_t.mesh.vertex_buffer.data[i] = 0;
 		}
 	},
-	update: function()
+	render: function(camera, target)
 	{
 		var _t = gb.gl_draw;
-		gb.webgl.update_mesh(_t.mesh);
+		var gl = gb.webgl;
+
+		gl.update_mesh(_t.entity.mesh);
+		gl.use_shader(_t.entity.material.shader);
+		gb.material.set_camera_uniforms(_t.entity.material, camera);
+		gb.material.set_entity_uniforms(_t.entity.material, _t.entity, camera);
+		gl.link_attributes(_t.entity.material.shader, _t.entity.mesh);
+		gl.set_uniforms(_t.entity.material);
+		gl.set_state(gl.ctx.DEPTH_TEST, false);
+		gl.set_render_target(target, false);
+		gl.ctx.depthRange(camera.near, camera.far);
+		gl.ctx.lineWidth = _t.thickness;
+		gl.draw_mesh(_t.entity.mesh);
+
+		_t.clear();
 	},
 	set_position_f: function(x,y,z)
 	{
@@ -4360,6 +4472,7 @@ gb.LineMesh = function()
 	this.entity;
 	this.thickness;
 	this.color;
+	this.num_points;
 	this.points = [];
 }
 
@@ -4393,86 +4506,171 @@ gb.line_mesh =
 
 		ASSERT(lm.points.length > 1, "Line does not contain enought points");
 
+		var VS = 2;
+		var vec = gb.vec2;
 		var vb, ib, m;
-		var num_points = lm.points.length / 3;
-		var vb_size = (num_points - 1) * 24;
-		var ib_size = (num_points - 1) * 6;
+		var num_points = lm.points.length / VS;
+		var num_faces = num_points - 1;
+		var vertex_count = num_faces * 4;
+		var index_count = num_faces * 6;
 
 		if(!lm.entity.mesh)
 		{
-			vb = gb.vertex_buffer.new(vb_size);
-			gb.vertex_buffer.add_attribute(vb, 'normal', 3);
-			ib = gb.index_buffer.new(ib_size);
-			m = gb.mesh.new(vb, ib, 'TRIANGLES', 'DYNAMIC_DRAW');
+			vb = gb.vertex_buffer.new();
+			gb.vertex_buffer.add_attribute(vb, 'position', VS);
+			gb.vertex_buffer.add_attribute(vb, 'normal', VS);
+			gb.vertex_buffer.add_attribute(vb, 'mitre', 1);
+			gb.vertex_buffer.alloc(vb, vertex_count);
+
+			//ib = gb.index_buffer.new(index_count);
+			m = gb.mesh.new(vb, null, 'TRIANGLES', 'DYNAMIC_DRAW');
 			lm.entity.mesh = m;
 		}
 		else
 		{
-			m = lm.entity.mesh;
 			vb = m.vertex_buffer;
-			ib = m.index_buffer;
+			//ib = m.index_buffer;
+			m = lm.entity.mesh;
 
-			if(vb.data.length !== vb_size) vb.data = new Float32Array(vb_size);
-			if(ib.data.length !== ib_size) ib.data = new Uint32Array(ib_size);
+			if(lm.num_points !== lm.points.length)
+			{
+				gb.vertex_buffer.resize(vb, vertex_count, false);
+				//gb.index_buffer.resize(index_buffer, index_count, false);
+				lm.num_points = lm.points.length;
+			}
 		}
 
-		
-		var stack = gb.vec3.stack.index;
-		var A = gb.vec3.tmp();
-		var B = gb.vec3.tmp();
-		var C = gb.vec3.tmp(0,0,1);
-		var N = gb.vec3.tmp(0,0,0);
-		var AB = gb.vec3.tmp();
-		var AC = gb.vec3.tmp();
+		var stack = vec.stack.index;
+		var p0 = vec.tmp();
+		var p1 = vec.tmp();
+		var p2 = vec.tmp();
+
+		var N  = vec.tmp();
+		var LA = vec.tmp();
+		var LB = vec.tmp();
+		var tangent = vec.tmp();
+		var mitre = vec.tmp();
+		var mitre_dist;
+
+		//set first
+		var index = 0;
+		vec.set(p0, lm.points[0], lm.points[1]);
+		vec.set(p1, lm.points[2], lm.points[3]);
+		vec.sub(LA, p1, p0);
+		vec.perp(N, LA);
+
+		//gb.mesh.set_vertex(mesh, 'position', 0, p0);
+
+		for(var j = 0; j < VS; ++j) vb.data[index + j] = p0[j];
+		index += VS;
+		for(var j = 0; j < VS; ++j) vb.data[index + j] = N[j];
+		index += VS;
+		vb.data[index] = 1.0;
+		index += 1;
+
+		for(var j = 0; j < VS; ++j) vb.data[index + j] = p1[j];
+		index += VS;
+		for(var j = 0; j < VS; ++j) vb.data[index + j] = -N[j];
+		index += VS;
+		vb.data[index] = 1.0;
+		index += 1;
 
 		for(var i = 1; i < num_points; ++i)
 		{
-			var ii = i * 3;
-			gb.vec3.set(B, lm.points[ii], lm.points[ii+1], lm.points[ii+2]);
-			gb.vec3.set(A, lm.points[ii-3], lm.points[ii-2], lm.points[ii-1]);
+			var ii = i * VS;
+	
+			vec.set(p0, lm.points[ii-2], lm.points[ii-1]);
+			vec.set(p1, lm.points[ii], lm.points[ii+1]);
+			vec.sub(LA, p1, p0);
 
-			gb.vec3.sub(AB, B, A);
-			gb.vec3.sub(AC, C, A);
-			gb.vec3.cross(N, AB, AC);
-			gb.vec3.normalized(N, N);
+			if(i === num_points - 1) //last
+			{
+				vec.perp(N, LA);
+				mitre_dist = 1.0;
 
-			var index = (i - 1) * 24;
+				// A1
+				for(var j = 0; j < VS; ++j) vb.data[index + j] = p1[j];
+				index += VS;
+				for(var j = 0; j < VS; ++j) vb.data[index + j] = -N[j];
+				index += VS;
+				vb.data[index + j] = mitre_dist;
+				index ++;
 
-			// A1
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = A[j];
-			index += 3;
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = -N[j];
-			index += 3;
-			
-			// A2
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = A[j];
-			index += 3;
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = N[j];
-			index += 3;
+				
+				// A2
+				for(var j = 0; j < VS; ++j) vb.data[index + j] = p1[j];
+				index += VS;
+				for(var j = 0; j < VS; ++j) vb.data[index + j] = N[j];
+				index += VS;
+				vb.data[index + j] = mitre_dist;
+				index ++;
+			}
+			else
+			{
+				vec.set(p2, lm.points[ii+2], lm.points[ii+3]);
+				vec.sub(LB, p2, p1);
+				vec.normalized(LA, LA);
+				vec.normalized(LB, LB);
+				vec.perp(N, LA);
+				vec.add(tangent, LB,LA);
+				vec.perp(mitre, tangent);
+				mitre_dist = lm.thickness / vec.dot(mitre, N);
 
-			// B1 
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = B[j];
-			index += 3;
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = -N[j];
-			index += 3;
+				// A1
+				for(var j = 0; j < VS; ++j) vb.data[index + j] = p1[j];
+				index += VS;
+				for(var j = 0; j < VS; ++j) vb.data[index + j] = -N[j];
+				index += VS;
+				vb.data[index + j] = mitre_dist;
+				index ++;
 
-			// B2
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = B[j];
-			index += 3;
-			for(var j = 0; j < 3; ++j) vb.data[index + j] = N[j];
+				
+				// A2
+				for(var j = 0; j < VS; ++j) vb.data[index + j] = p1[j];
+				index += VS;
+				for(var j = 0; j < VS; ++j) vb.data[index + j] = N[j];
+				index += VS;
+				vb.data[index + j] = mitre_dist;
+				index ++;
 
-			index = (i-1) * 6;
-			var b = (i-1) * 4;
-			ib.data[index] = b + 0;
-			ib.data[index+1] = b + 1;
-			ib.data[index+2] = b + 3;
-			ib.data[index+3] = b + 0;
-			ib.data[index+4] = b + 3;
-			ib.data[index+5] = b + 2;
+
+				// B1 
+				for(var j = 0; j < VS; ++j) vb.data[index + j] = p1[j];
+				index += VS;
+				for(var j = 0; j < VS; ++j) vb.data[index + j] = -N[j];
+				index += VS;
+				vb.data[index + j] = mitre_dist;
+				index ++;
+
+
+				// B2
+				for(var j = 0; j < VS; ++j) vb.data[index + j] = p1[j];
+				index += VS;
+				for(var j = 0; j < VS; ++j) vb.data[index + j] = N[j];
+				index += VS;
+				vb.data[index + j] = mitre_dist;
+				index ++;
+			}	
 		}
 
+		/*
+		index = 0;
+		var offset = 0;
+		for(var i = 0; i < num_faces; ++i)
+		{
+			ib.data[index  ] = offset + 0;
+			ib.data[index+1] = offset + 1;
+			ib.data[index+2] = offset + 3;
+			ib.data[index+3] = offset + 0;
+			ib.data[index+4] = offset + 3;
+			ib.data[index+5] = offset + 2;
+			offset += 4;
+			index += 6;
+		}
+		*/
+
 	    gb.mesh.update(m);
-		gb.vec3.stack.index = stack;
+		vec.stack.index = stack;
 	},
 	//circle: function(r)
 
@@ -4486,7 +4684,6 @@ var math = gb.math;
 var gl = gb.webgl;
 var input = gb.input;
 var scene = gb.scene;
-var assets;
 
 var construct;
 var line;
@@ -4504,22 +4701,17 @@ function init()
 			update: update, 
 			render: render,
 		},
-		gl:
-		{
-			fill_container: false,
-		}
 	});
 
-	assets = new gb.Asset_Group();
-	gb.assets.load("assets/assets.gl", assets, load_complete);
+	gb.assets.load("assets/assets.gl", load_complete);
 }
 
-function load_complete(asset_group)
+function load_complete(ag)
 {
 	construct = scene.new(null, true);
 
-	var line = gb.line_mesh.new(0.1, null, [-1,0,0, 1,0,0, 2,0.5,0]);
-	line.entity.material = gb.material.new(assets.shaders.line);
+	var line = gb.line_mesh.new(0.1, null, [-1,0, 1,0, 2,0.5]);
+	line.entity.material = gb.material.new(ag.shaders.line);
 	line.entity.material.line_width = line.thickness;
 	scene.add(line);
 
@@ -4529,11 +4721,12 @@ function load_complete(asset_group)
 	construct.active_camera = camera;
 
 	surface_target = gb.render_target.new();
-	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
+	/*
+	fxaa_pass = gb.post_call.new(gb.material.new(ag.shaders.fxaa), null);
 	fxaa_pass.material.texture = surface_target.color;
 	v2.set(fxaa_pass.material.resolution, gl.view.width, gl.view.height);
 	v2.set(fxaa_pass.material.inv_resolution, 1.0 / gl.view.width, 1.0 / gl.view.height);
-
+	*/
 	gb.allow_update = true;
 }
 
@@ -4543,8 +4736,8 @@ function update(dt)
 
 function render()
 {
-	gl.render_draw_call(camera, construct.draw_items, null, surface_target, true);
-	gl.render_post_call(fxaa_pass);
+	gl.render_draw_call(camera, construct, construct.draw_items, construct.num_draw_items, null, null, true, true);
+	//gl.render_post_call(fxaa_pass);
 }
 
 window.addEventListener('load', init, false);

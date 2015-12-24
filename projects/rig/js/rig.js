@@ -7,11 +7,7 @@ var math = gb.math;
 var gl = gb.webgl;
 var input = gb.input;
 var scene = gb.scene;
-var assets;
-
-var construct;
-var cube;
-var camera;
+var character;
 var surface_target;
 var fxaa_pass;
 
@@ -24,22 +20,20 @@ function init()
 			frame_skip: false,
 			update: update, 
 			render: render,
-		}
+		},
 	});
-
-	assets = new gb.Asset_Group();
-	gb.assets.load("assets/assets.gl", assets, load_complete);
+	gb.assets.load("assets/assets.gl", load_complete);
 }
 
-function load_complete(asset_group)
+function load_complete(ag)
 {
-	var character = scene.find('cube');
-	gb.entity.set_armature(character, assets.rigs.armature);
-	assets.animations.test.target = character.rig.joints;
-	gb.animation.play(assets.animations.test, -1);
+	character = scene.find('cube');
+	gb.entity.set_armature(character, ag.rigs.armature);
+	ag.animations.test.target = character.rig.joints;
+	gb.animation.play(ag.animations.test, -1);
 
 	surface_target = gb.render_target.new();
-	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
+	fxaa_pass = gb.post_call.new(gb.material.new(ag.shaders.fxaa), null);
 	fxaa_pass.material.texture = surface_target.color;
 	v2.set(fxaa_pass.material.resolution, gl.view.width, gl.view.height);
 	v2.set(fxaa_pass.material.inv_resolution, 1.0 / gl.view.width, 1.0 / gl.view.height);
@@ -49,14 +43,14 @@ function load_complete(asset_group)
 
 function update(dt)
 {
-	//LOG(assets.animations.test.t);
-
+	gb.gl_draw.rig_transforms(character.rig);
 }
 
 function render()
 {
 	var s = scene.current;
 	gl.render_draw_call(s.active_camera, s, s.draw_items, s.num_draw_items, null, null, true, true);
+	gb.gl_draw.render(s.active_camera, null);
 	//gl.render_post_call(fxaa_pass);
 }
 

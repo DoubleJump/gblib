@@ -31,7 +31,7 @@ var gb =
 		},
 		gl_draw:
 		{
-			buffer_size: 160000,
+			buffer_size: 2048,
 		},
 		input:
 		{
@@ -114,16 +114,8 @@ var gb =
 		}
 		gb.stack.clear_all();
 		
-		//DEBUG
-		gb.gl_draw.clear();
-		//END
-		
 		gb.update(gb.time.dt);
 		gb.scene.update(gb.time.dt);
-		
-		//DEBUG
-		gb.gl_draw.update();
-		//END
 		
 		gb.input.update();
 		gb.render();
@@ -502,6 +494,12 @@ gb.vec2 =
 	dot: function(a, b)
 	{
 		return a[0] * b[0] + a[1] * b[1];
+	},
+	perp: function(r, a)
+	{
+		var x = -a[1];
+		var y = a[0];
+		_t.set(r,x,y);
 	},
 	angle: function(a, b)
 	{
@@ -2635,19 +2633,21 @@ gb.entity =
 
 	update: function(e, scene)
 	{
-		if(e.dirty === false) return;
 		if(e.rig) gb.rig.update(e.rig, scene);
 
-		gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
-		if(e.parent === null)
+		if(e.dirty === true)
 		{
-			gb.mat4.eq(e.world_matrix, e.local_matrix);
+			gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
+			if(e.parent === null)
+			{
+				gb.mat4.eq(e.world_matrix, e.local_matrix);
+			}
+			else
+			{
+				gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
+			}
 		}
-		else
-		{
-			gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
-		}
-
+	
 		if(e.update !== null) e.update(e); //updates component
 
 		var n = e.children.length;
@@ -2741,7 +2741,7 @@ gb.Camera = function()
 }
 gb.camera = 
 {
-	new: function(projection, near, far, fov, mask)
+	new: function(projection, near, far, fov, mask, scale)
 	{
 		var e = gb.entity.new();
 		e.entity_type = gb.EntityType.CAMERA;
@@ -2752,7 +2752,7 @@ gb.camera =
 	    c.far = far || 100;
 	    c.fov = fov || 60;
 	    c.mask = mask || 0;
-	    c.scale = 1;
+	    c.scale = scale || 1;
 	    c.entity = e;
 	    e.camera = c;
 	    return c;
@@ -2836,9 +2836,14 @@ gb.Projection =
 gb.serialize.r_camera = function(br, ag)
 {
     var s = gb.serialize;
-    var entity = s.r_entity(br, ag);
-    entity.entity_type = gb.EntityType.CAMERA;
+
+    var e = s.r_entity(br, ag);
+    e.entity_type = gb.EntityType.CAMERA;
+    e.update = gb.camera.update;
+
     var c = new gb.Camera();
+    e.camera = c;
+
     var camera_type = s.r_i32(br);
     if(camera_type === 0) 
     {
@@ -2852,10 +2857,10 @@ gb.serialize.r_camera = function(br, ag)
     c.near = s.r_f32(br);
     c.far = s.r_f32(br);
     c.fov = s.r_f32(br);
-    c.dirty = true;
-    entity.camera = c;
-    c.entity = entity;
-    return entity;
+    c.mask = 0;
+    c.entity = e;
+
+    return c;
 }
 gb.Scene = function()
 {
@@ -2997,17 +3002,19 @@ gb.serialize.r_scene = function(br, ag)
         {
             case 0:
             {
-                var entity = s.r_camera(br, ag);
-                ag.entities[entity.name] = entity;
-                LOG("Loaded Camera: " + entity.name);
+                var camera = s.r_camera(br, ag);
+                ag.entities[camera.entity.name] = camera;
+                LOG("Loaded Camera: " + camera.entity.name);
                 break;                        
             }
             case 1:
             {
+            	/*
                 var entity = s.r_lamp(br, ag);
                 ag.entities[entity.name] = entity;
                 LOG("Loaded Lamp: " + entity.name);
                 break;
+                */
             }
             case 2:
             {
@@ -3069,7 +3076,7 @@ gb.serialize.r_scene = function(br, ag)
         }
     }
 
-    var scene = gb.scene.new(name, false);
+    var scene = gb.scene.new(name, true);
     gb.scene.scenes[scene.name] = scene;
     gb.scene.load_asset_group(ag, scene);
 }
@@ -3110,7 +3117,7 @@ gb.vertex_buffer =
 	new: function(vertices)
 	{
 		var vb = new gb.Vertex_Buffer();
-		vb.data = new Float32Array(vertices);
+		if(vertices) vb.data = new Float32Array(vertices);
 		return vb;
 	},
 	add_attribute: function(vb, name, size, normalized)
@@ -3125,14 +3132,36 @@ gb.vertex_buffer =
 		vb.attributes[name] = attr;
 		vb.stride += size;
 	},
+	alloc: function(vb, vertex_count)
+	{
+		vb.data = new Float32Array(vb.stride * vertex_count);		
+	},
+	resize: function(vb, vertex_count, copy)
+	{
+		ASSERT((vb.data.length / vb.stride) !== vertex_count, 'Buffer already correct size');
+		var new_buffer = new Float32Array(vb.stride * vertex_count);
+		if(copy) new_buffer.set(vb.data);
+		vb.data = new_buffer; 
+	},
 }
 gb.index_buffer = 
 {
 	new: function(indices)
 	{
 		var ib = new gb.Index_Buffer();
-		ib.data = new Uint32Array(indices);
+		if(indices) ib.data = new Uint32Array(indices);
 		return ib;
+	},
+	alloc: function(ib, count)
+	{
+		ib.data = new Uint32Array(count);		
+	},
+	resize: function(ib, count, copy)
+	{
+		ASSERT(ib.data.length !== count, 'Buffer already correct size');
+		var new_buffer = new Uint32Array(count);
+		if(copy) new_buffer.set(ib.data);
+		ib.data = new_buffer; 
 	},
 }
 
@@ -3200,13 +3229,12 @@ gb.serialize.r_mesh = function(br)
 
 	var vb_size = s.r_i32(br);
 	var vertices = s.r_f32_array(br, vb_size);
-
-	//var ib_size = s.r_i32(br);
-	//var indices = s.r_u32_array(br, ib_size);
-	
 	var vb = gb.vertex_buffer.new(vertices);
-	//var ib = gb.index_buffer.new(indices);
-
+	/*
+	var ib_size = s.r_i32(br);
+	var indices = s.r_u32_array(br, ib_size);
+	var ib = gb.index_buffer.new(indices);
+	*/
 	var num_attributes = s.r_i32(br);
 	for(var i = 0; i < num_attributes; ++i)
 	{
@@ -3480,6 +3508,7 @@ gb.material =
         for(var key in shader.uniforms)
         {
             var uniform = shader.uniforms[key];
+            var size = uniform.size;
             var val;
             switch(uniform.type)
             {
@@ -3515,7 +3544,8 @@ gb.material =
                 }
                 case 'FLOAT_MAT4':
                 {
-                    val = gb.mat4.new();
+                    if(size > 1) val = new Float32Array(size * 16);
+                    else val = gb.mat4.new();
                     break;
                 }
                 case 'SAMPLER_2D':
@@ -3532,10 +3562,6 @@ gb.material =
                 {
                     ASSERT(false, uniform.type + ' is an unsupported uniform type');
                 }
-            }
-            if(key === 'rig[0]') 
-            {
-                val = new Float32Array(gb.rig.MAX_JOINTS * 16);
             }
             m[key] = val
         }
@@ -4184,6 +4210,8 @@ gb.webgl =
 			var sa = shader.attributes[k];
 			var va = vb.attributes[k];
 
+			ASSERT(va !== undefined, 'Shader wants attribute ' + k + ' but mesh does not have it');
+
 			gl.enableVertexAttribArray(sa.location);
 			gl.vertexAttribPointer(sa.location, va.size, gl.FLOAT, va.normalized, vb.stride * 4, va.offset * 4);
 		}
@@ -4324,7 +4352,7 @@ gb.webgl =
 		_t.set_state(gl.DEPTH_TEST, depth);
 		_t.set_render_target(target, clear);
 
-		gl.depthRange(0, camera.far);
+		gl.depthRange(camera.near, camera.far);
 
 		if(material)
 		{
@@ -4334,7 +4362,7 @@ gb.webgl =
 			{
 				var id = ids[i];
 				var e = scene.entities[id];
-				gb.material.set_entity_uniforms(material, e, camera);
+				gb.material.set_entity_uniforms(material, e, camera); //NOTE: prolly not needed on mats?
 				_t.link_attributes(material.shader, e.mesh);
 				_t.set_uniforms(material);
 				_t.draw_mesh(e.mesh);
@@ -4412,14 +4440,13 @@ gb.Asset_Group = function()
 
 gb.assets = 
 {
-    load: function(url, asset_group, on_load, on_progress)
+    load: function(url, on_load, on_progress)
     {
         var request = new XMLHttpRequest();
         request.open('GET', url, true);
         request.onload = gb.assets.event_asset_load;
         request.onprogress = on_progress || gb.event_load_progress;
         request.responseType = 'arraybuffer';
-        request.upload.asset_group = asset_group;
         request.upload.callback = on_load;
         request.send();
     },
@@ -4432,7 +4459,8 @@ gb.assets =
             var br = new gb.Binary_Reader(e.target.response);
             LOG("Asset File Size: " + br.buffer.byteLength + " bytes");
 
-            var ag = e.target.upload.asset_group;
+            //var ag = e.target.upload.asset_group;
+            var ag = new gb.Asset_Group();
 
             var asset_load_complete = false;
             while(asset_load_complete === false)
@@ -4482,32 +4510,37 @@ gb.assets =
 //DEBUG
 gb.gl_draw = 
 {
-	entities: [],
-	mesh: null,
+	entity: null,
 	offset: null,
 	color: null,
+	thickness: 1.0,
 	matrix: null,
-	draw_call: null,
 
 	init: function(config)
 	{
 		var _t = gb.gl_draw;
 
-		var entity = gb.entity.new();
-		_t.matrix = entity.world_matrix;
-		entity.entity_type = gb.EntityType.ENTITY;
+		var e = gb.entity.new();
+		_t.entity = e;
+		_t.matrix = e.world_matrix;
+		e.entity_type = gb.EntityType.ENTITY;
 
 		_t.offset = 0;
 		_t.color = gb.color.new(1,1,1,1);
 
-		var vb = gb.vertex_buffer.new(config.buffer_size);
+		var vb = gb.vertex_buffer.new();
+		gb.vertex_buffer.add_attribute(vb, 'position', 3, false);
 		gb.vertex_buffer.add_attribute(vb, 'color', 4, true);
+		gb.vertex_buffer.alloc(vb, config.buffer_size);
 
 		var m = gb.mesh.new(vb, null, 'LINES', 'DYNAMIC_DRAW');
-	    entity.mesh = m;
+	    e.mesh = m;
 	    _t.mesh = m;
 
-	    _t.entities.push(entity);
+	    var vs = 'attribute vec3 position;attribute vec4 color;uniform mat4 mvp;varying vec4 _color;void main(){_color = color;gl_Position = mvp * vec4(position, 1.0);}';
+	    var fs = 'precision highp float;varying vec4 _color;void main(){gl_FragColor = _color;}'; 
+	    e.material = gb.material.new(gb.shader.new(vs,fs));
+		_t.clear();
 	},
 	clear: function()
 	{
@@ -4516,16 +4549,31 @@ gb.gl_draw =
 		gb.color.set(_t.color, 1,1,1,1);
 		_t.offset = 0;
 		_t.mesh.vertex_count = 0;
+		_t.thickness = 1.0;
 		var n = _t.mesh.vertex_buffer.data.length;
 		for(var i = 0; i < n; ++i)
 		{
 			_t.mesh.vertex_buffer.data[i] = 0;
 		}
 	},
-	update: function()
+	render: function(camera, target)
 	{
 		var _t = gb.gl_draw;
-		gb.webgl.update_mesh(_t.mesh);
+		var gl = gb.webgl;
+
+		gl.update_mesh(_t.entity.mesh);
+		gl.use_shader(_t.entity.material.shader);
+		gb.material.set_camera_uniforms(_t.entity.material, camera);
+		gb.material.set_entity_uniforms(_t.entity.material, _t.entity, camera);
+		gl.link_attributes(_t.entity.material.shader, _t.entity.mesh);
+		gl.set_uniforms(_t.entity.material);
+		gl.set_state(gl.ctx.DEPTH_TEST, false);
+		gl.set_render_target(target, false);
+		gl.ctx.depthRange(camera.near, camera.far);
+		gl.ctx.lineWidth = _t.thickness;
+		gl.draw_mesh(_t.entity.mesh);
+
+		_t.clear();
 	},
 	set_position_f: function(x,y,z)
 	{
@@ -4864,12 +4912,7 @@ var math = gb.math;
 var gl = gb.webgl;
 var input = gb.input;
 var scene = gb.scene;
-var assets;
-
-var construct;
-var cube;
 var camera;
-var anim;
 var surface_target;
 var fxaa_pass;
 
@@ -4884,29 +4927,24 @@ function init()
 			render: render,
 		}
 	});
-
-	assets = new gb.Asset_Group();
-	gb.assets.load("assets/assets.gl", assets, load_complete);
+	gb.assets.load("assets/assets.gl", load_complete);
 }
 
-function load_complete(asset_group)
+function load_complete(ag)
 {
 	scene.current = scene.scenes['basic'];
 
 	var plane = scene.find('plane');
-	plane.material = gb.material.new(assets.shaders.basic);
-	plane.material.diffuse = assets.textures.orange;
-
-	//anim = assets.animations.planeaction;
-	//anim.target = plane.transform;
-	gb.animation.play(assets.animations.planeaction, -1);
+	plane.material = gb.material.new(ag.shaders.basic);
+	plane.material.diffuse = ag.textures.orange;
+	//gb.animation.play(assets.animations.planeaction, -1);
 
 	camera = gb.camera.new();
 	camera.entity.position[2] = 2.0;
 	scene.add(camera);
 
 	surface_target = gb.render_target.new();
-	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
+	fxaa_pass = gb.post_call.new(gb.material.new(ag.shaders.fxaa), null);
 	fxaa_pass.material.texture = surface_target.color;
 	v2.set(fxaa_pass.material.resolution, gl.view.width, gl.view.height);
 	v2.set(fxaa_pass.material.inv_resolution, 1.0 / gl.view.width, 1.0 / gl.view.height);
@@ -4916,6 +4954,7 @@ function load_complete(asset_group)
 
 function update(dt)
 {
+	gb.gl_draw.thickness = 3.0;
 	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(3,3,3));
 }
 
@@ -4923,8 +4962,7 @@ function render()
 {
 	var s = scene.current;
 	gl.render_draw_call(s.active_camera, s, s.draw_items, s.num_draw_items, null, surface_target, true, true);
-	gl.render_draw_call(s.active_camera, s, s.draw_items, s.num_draw_items, null, surface_target, true, true);
-	
+	gb.gl_draw.render(s.active_camera, surface_target);
 	gl.render_post_call(fxaa_pass);
 }
 

@@ -687,6 +687,15 @@ gb.vec3 =
 			_t.divf(r, gb.math.sqrt(sqr_l));
 		}
 	},
+	tangent: function(r, a,b, plane)
+	{
+		var _t = gb.vec3;
+		var t = v3.tmp();
+		_t.add(t, b,a);
+		_t.normalized(t,t);
+		_t.cross(r, t,plane);
+		_t.stack.index--;
+	},
 	rotate: function(r, v,q)
 	{
 		var tx = (q[1] * v[2] - q[2] * v[1]) * 2;
@@ -870,7 +879,7 @@ gb.quat =
 		var s = m.sin(h);	
 		r[0] = s * axis[0];
 		r[1] = s * axis[1];
-		r[2] = s * axis[1];
+		r[2] = s * axis[2];
 		r[3] = m.cos(s);
 	},
 
@@ -2410,6 +2419,10 @@ gb.Camera = function()
 	this.far;
 	this.fov;
 	this.scale;
+	//DEBUG
+	this.angle_x = 0;
+	this.angle_y = 0;
+	//END
 	return this;
 }
 gb.camera = 
@@ -2471,9 +2484,20 @@ gb.camera =
 	{
 		var e = c.entity;
 		var m_delta = gb.input.mouse_delta;
-		var ROTATE_SPEED = 10.0;
-		gb.entity.rotate_f(e, -m_delta[1] * ROTATE_SPEED * dt, -m_delta[0] * ROTATE_SPEED * dt, 0);
-		//TODO: proper quat mul for each axis instead of this rubbish
+		var ROTATE_SPEED = 20.0;
+		c.angle_x -= m_delta[1] * ROTATE_SPEED * dt;
+		c.angle_y -= m_delta[0] * ROTATE_SPEED * dt;
+
+		var index = gb.vec3.stack.index;
+
+		var rot_x = gb.quat.tmp();
+		var rot_y = gb.quat.tmp();
+		var right = gb.vec3.tmp(1,0,0);
+		gb.mat4.mul_dir(right, e.world_matrix, right);
+		gb.quat.angle_axis(rot_x, c.angle_x, right);
+		gb.quat.angle_axis(rot_y, c.angle_y, gb.vec3.tmp(0,1,0));
+		gb.quat.mul(e.rotation, rot_x, rot_y);
+
 
 		var move = gb.vec3.tmp();
 		var MOVE_SPEED = 1.0;
@@ -2496,6 +2520,8 @@ gb.camera =
 
 		gb.mat4.mul_dir(move, e.world_matrix, move);
 		gb.vec3.add(e.position, move, e.position);
+		e.dirty = true;
+		gb.vec3.stack.index = index;
 	}
 	//END
 }
@@ -2888,6 +2914,12 @@ gb.mesh =
 			vb.data[start + i] = val[i];
 		}
 	},
+	set_vertex_abs: function(mesh, index, val, size)
+	{
+		for(var i = 0; i < size; ++i)
+			vb.data[i] = val[i];
+		return index + size;
+	},
 	get_vertices: function(result, mesh, attribute, start, end)
 	{
 		var vb = mesh.vertex_buffer;
@@ -3249,9 +3281,9 @@ gb.material =
     },
     set_camera_uniforms: function(material, camera)
     {
-        gb.material.set_uniform(material, 'proj_matrix', camera.projection);
-        gb.material.set_uniform(material, 'view_matrix', camera.view);
-        gb.material.set_uniform(material, 'view_proj_matrix', camera.view_projection);
+        gb.material.set_uniform(material, 'projection', camera.projection);
+        gb.material.set_uniform(material, 'view', camera.view);
+        gb.material.set_uniform(material, 'view_projection', camera.view_projection);
         gb.material.set_uniform(material, 'normal_matrix', camera.normal);
     },
     set_entity_uniforms: function(material, entity, camera)
@@ -3260,13 +3292,13 @@ gb.material =
         {
             gb.mat4.mul(material.mvp, entity.world_matrix, camera.view_projection);
         }
-        if(material.mv_matrix !== undefined)
+        if(material.model_view !== undefined)
         {
-            gb.mat4.mul(material.mv_matrix, entity.world_matrix, camera.view);
+            gb.mat4.mul(material.model_view, entity.world_matrix, camera.view);
         }
         if(material.model_matrix !== undefined)
         {
-            material.model_matrix = entity.world_matrix;
+            material.model = entity.world_matrix;
         }
         if(material['rig[0]'] !== undefined)
         {
@@ -3852,7 +3884,7 @@ gb.webgl =
 		        //case 'UNSIGNED_SHORT':
 		        case 'INT':
 		        {
-					gl.uniformi(loc, val);
+					gl.uniform1i(loc, val);
 					break;
 				}
 		        //case 'UNSIGNED_INT':
@@ -4506,11 +4538,12 @@ gb.line_mesh =
 
 		ASSERT(lm.points.length > 1, "Line does not contain enought points");
 
-		var VS = 2;
-		var vec = gb.vec2;
+		var VS = 3;
+		var v3 = gb.vec3;
 		var vb, ib, m;
 		var num_points = lm.points.length / VS;
 		var num_faces = num_points - 1;
+		var num_node_verts = 2;
 		var vertex_count = num_faces * 4;
 		var index_count = num_faces * 6;
 
@@ -4518,8 +4551,10 @@ gb.line_mesh =
 		{
 			vb = gb.vertex_buffer.new();
 			gb.vertex_buffer.add_attribute(vb, 'position', VS);
-			gb.vertex_buffer.add_attribute(vb, 'normal', VS);
-			gb.vertex_buffer.add_attribute(vb, 'mitre', 1);
+			gb.vertex_buffer.add_attribute(vb, 'previous', VS);
+			gb.vertex_buffer.add_attribute(vb, 'next', VS);
+			gb.vertex_buffer.add_attribute(vb, 'direction', 1);
+			gb.vertex_buffer.add_attribute(vb, 'dist', 1);
 			gb.vertex_buffer.alloc(vb, vertex_count);
 
 			ib = gb.index_buffer.new(index_count);
@@ -4540,157 +4575,97 @@ gb.line_mesh =
 			}
 		}
 
-		var stack = vec.stack.index;
-		var p0 = vec.tmp();
-		var p1 = vec.tmp();
-		var p2 = vec.tmp();
-
-		var N  = vec.tmp();
-		var LA = vec.tmp();
-		var LB = vec.tmp();
-		var tangent = vec.tmp();
-		var mitre = vec.tmp();
-		var mitre_dist;
-
-		//set first
-		vec.set(p0, lm.points[0], lm.points[1]);
-		vec.set(p1, lm.points[2], lm.points[3]);
-		vec.sub(LA, p1, p0);
-		vec.perp(N, LA);
-
-		//gb.mesh.set_vertex(mesh, 'position', 0, p0);
+		var stack = v3.stack.index;
+		var current = v3.tmp();
+		var previous = v3.tmp();
+		var next = v3.tmp();
+		var segment = v3.tmp();
+		var distance = 0;
+		var flip = 1;
 
 		var index = 0;
-		for(var j = 0; j < VS; ++j) 
-		{
-			vb.data[index] = p0[j];
-			index++;
-		}
-		for(var j = 0; j < VS; ++j)
-		{
-			vb.data[index] = N[j];
-			index++;
-		}
-		vb.data[index] = 1.0;
-		index ++;
-
-		for(var j = 0; j < VS; ++j) 
-		{
-			vb.data[index] = p0[j];
-			index++;
-		}
-		for(var j = 0; j < VS; ++j)
-		{
-			vb.data[index] = -N[j];
-			index++;
-		}
-		vb.data[index] = 1.0;
-		index ++;
-
-		for(var i = 1; i < num_points; ++i)
+		for(var i = 0; i < num_points; ++i)
 		{
 			var ii = i * VS;
 	
-			vec.set(p0, lm.points[ii-2], lm.points[ii-1]);
-			vec.set(p1, lm.points[ii], lm.points[ii+1]);
-			vec.sub(LA, p1, p0);
+			v3.set(current, lm.points[ii], lm.points[ii+1], lm.points[ii+2])
 
-			if(i === num_points - 1)
+			if(i === 0) //first
 			{
-				vec.perp(N, LA);
-				mitre_dist = 1.0;
-
-				for(var j = 0; j < VS; ++j) 
-				{
-					vb.data[index] = p1[j];
-					index++;
-				}
-				for(var j = 0; j < VS; ++j)
-				{
-					vb.data[index] = N[j];
-					index++;
-				}
-				vb.data[index] = 1.0;
-				index ++;
-
-				for(var j = 0; j < VS; ++j) 
-				{
-					vb.data[index] = p1[j];
-					index++;
-				}
-				for(var j = 0; j < VS; ++j)
-				{
-					vb.data[index] = -N[j];
-					index++;
-				}
-				vb.data[index] = 1.0;
-				index ++;
+				v3.set(previous, lm.points[0], lm.points[1], lm.points[2]);
+				v3.set(next, lm.points[3], lm.points[4], lm.points[5]);
+			}
+			else if(i === num_points - 1) //last
+			{
+				v3.set(previous, lm.points[ii-3], lm.points[ii-2], lm.points[ii-1]);
+				v3.set(next, lm.points[ii], lm.points[ii+1], lm.points[ii+2]);
 			}
 			else
 			{
-				vec.set(p2, lm.points[ii+2], lm.points[ii+3]);
-				vec.sub(LB, p2, p1);
-				vec.normalized(LA, LA);
-				vec.normalized(LB, LB);
-				vec.perp(N, LA);
-				vec.add(tangent, LB,LA);
-				vec.perp(mitre, tangent);
-				mitre_dist = 1 / vec.dot(mitre, N);
-
-				// TODO: compress this
-				for(var j = 0; j < VS; ++j) 
-				{
-					vb.data[index] = p1[j];
-					index++;
-				}
-				for(var j = 0; j < VS; ++j)
-				{
-					vb.data[index] = mitre[j];
-					index++;
-				}
-				vb.data[index] = mitre_dist;
-				index ++;
-
-				for(var j = 0; j < VS; ++j) 
-				{
-					vb.data[index] = p1[j];
-					index++;
-				}
-				for(var j = 0; j < VS; ++j)
-				{
-					vb.data[index] = -mitre[j];
-					index++;
-				}
-				vb.data[index] = mitre_dist;
-				index ++;
-
-				for(var j = 0; j < VS; ++j) 
-				{
-					vb.data[index] = p1[j];
-					index++;
-				}
-				for(var j = 0; j < VS; ++j)
-				{
-					vb.data[index] = mitre[j];
-					index++;
-				}
-				vb.data[index] = mitre_dist;
-				index ++;
-
-				for(var j = 0; j < VS; ++j) 
-				{
-					vb.data[index] = p1[j];
-					index++;
-				}
-				for(var j = 0; j < VS; ++j)
-				{
-					vb.data[index] = -mitre[j];
-					index++;
-				}
-				vb.data[index] = mitre_dist;
-				index ++;
+				v3.set(previous, lm.points[ii-3], lm.points[ii-2], lm.points[ii-1]);
+				v3.set(next, lm.points[ii+3], lm.points[ii+4], lm.points[ii+5]);
 			}
+
+			v3.sub(segment, current, previous);
+			distance += v3.length(segment);
+
+			for(var j = 0; j < num_node_verts; ++j)
+			{
+				//current
+				for(var k = 0; k < VS; ++k)
+				{
+					vb.data[index] = current[k];
+					index++;
+				}
+				//previous
+				for(var k = 0; k < VS; ++k)
+				{
+					vb.data[index] = previous[k];
+					index++;
+				}
+				//next
+				for(var k = 0; k < VS; ++k)
+				{
+					vb.data[index] = next[k];
+					index++;
+				}
+				//direction
+				vb.data[index] = flip;
+				index++;
+				flip *= -1;
+
+				vb.data[index] = distance;
+				index++;
+			}
+
+			
+
+
+			//write currentA
+			/*
+			for(var j = 0; j < VS; ++j)
+			{
+				vb.data[index] = current[j];
+				index++;
+			}
+			//write prevA
+			for(var j = 0; j < VS; ++j)
+			{
+				vb.data[index] = previous[j];
+				index++;
+			}
+			//write nextA
+			for(var j = 0; j < VS; ++j)
+			{
+				vb.data[index] = next[j];
+				index++;
+			}
+			//write dirA
+			vb.data[index] = -1.0;
+			index++;
+			*/
 		}
+
 
 		index = 0;
 		var offset = 0;
@@ -4702,13 +4677,11 @@ gb.line_mesh =
 			ib.data[index+3] = offset + 0;
 			ib.data[index+4] = offset + 3;
 			ib.data[index+5] = offset + 2;
-			offset += 4;
+			offset += 2;
 			index += 6;
 		}
-		LOG(m);
-
 	    gb.mesh.update(m);
-		vec.stack.index = stack;
+		v3.stack.index = stack;
 	},
 	//circle: function(r)
 
@@ -4728,6 +4701,7 @@ var line;
 var camera;
 var surface_target;
 var fxaa_pass;
+var line_cutoff = 0;
 
 function init()
 {
@@ -4739,6 +4713,10 @@ function init()
 			update: update, 
 			render: render,
 		},
+		gl:
+		{
+			antialias: true,
+		},
 	});
 
 	gb.assets.load("assets/assets.gl", load_complete);
@@ -4748,10 +4726,19 @@ function load_complete(ag)
 {
 	construct = scene.new(null, true);
 
-	var line = gb.line_mesh.new(0.2, null, [-1,0, 1,0, 1,0.5, 2.0,0.5]);
+	line = gb.line_mesh.new(0.03, null, 
+	[
+		-1,0,0, 
+		1,0,0, 
+		1.0,0.5,0,
+		0.5,0.8,0,
+		1.0,1.5,1.0,
+	]);
 	line.entity.material = gb.material.new(ag.shaders.line);
 	line.entity.material.line_width = line.thickness;
-	gb.color.set(line.entity.material.color, 0.67,0.1,0.884,0.75);
+	line.entity.material.aspect = 1.0;
+	line.entity.material.mitre = 1;
+	gb.color.set(line.entity.material.color, 0.67,0.1,0.884,1.0);
 	scene.add(line);
 
 	camera = gb.camera.new();
@@ -4760,22 +4747,25 @@ function load_complete(ag)
 	construct.active_camera = camera;
 
 	surface_target = gb.render_target.new();
-	/*
 	fxaa_pass = gb.post_call.new(gb.material.new(ag.shaders.fxaa), null);
 	fxaa_pass.material.texture = surface_target.color;
 	v2.set(fxaa_pass.material.resolution, gl.view.width, gl.view.height);
 	v2.set(fxaa_pass.material.inv_resolution, 1.0 / gl.view.width, 1.0 / gl.view.height);
-	*/
 	gb.allow_update = true;
 }
 
 function update(dt)
 {
+	line_cutoff += dt;
+	var sint = gb.math.sin(line_cutoff) + 1;
+	//line.entity.material.line_width = sint;
+	line.entity.material.cutoff = sint * 5;
 }
 
 function render()
 {
 	gl.render_draw_call(camera, construct, construct.draw_items, construct.num_draw_items, null, null, true, true);
+	gb.gl_draw.render(camera, null);
 	//gl.render_post_call(fxaa_pass);
 }
 

@@ -40,19 +40,14 @@ function load_complete(ag)
 {
 	construct = scene.new(null, true);
 
-	line = gb.line_mesh.new(0.03, null, 
-	[
-		-1,0,0, 
-		1,0,0, 
-		1.0,0.5,0,
-		0.5,0.8,0,
-		1.0,1.5,1.0,
-	]);
+	line = gb.line_mesh.ellipse(2,2,60,0.1);
+
 	line.entity.material = gb.material.new(ag.shaders.line);
 	line.entity.material.line_width = line.thickness;
+	line.entity.material.cutoff = 100;
 	line.entity.material.aspect = 1.0;
 	line.entity.material.mitre = 1;
-	gb.color.set(line.entity.material.color, 0.67,0.1,0.884,1.0);
+	gb.color.set(line.entity.material.color, 0.8,0.8,0.884,1.0);
 	scene.add(line);
 
 	camera = gb.camera.new();
@@ -71,9 +66,9 @@ function load_complete(ag)
 function update(dt)
 {
 	line_cutoff += dt;
-	var sint = gb.math.sin(line_cutoff) + 1;
+	var sint = (gb.math.sin(line_cutoff) + 1) * 0.5;
 	//line.entity.material.line_width = sint;
-	line.entity.material.cutoff = sint * 5;
+	line.entity.material.cutoff = sint * line.length;
 }
 
 function render()

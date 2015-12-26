@@ -46,8 +46,6 @@ void main()
 			vec2 tangent = normalize(A + B);
 			vec2 perp = vec2(-A.y, A.x);
 			vec2 mitre = vec2(-tangent.y, tangent.x);
-			//normalize(mitre);
-			//normalize(perp);
 			v_direction = tangent;
 			len = line_width / dot(mitre, perp);
 		}
@@ -58,8 +56,8 @@ void main()
 	}
 
 	float scale = 1.0 / current_projected.z;
-	//vec2 normal = vec2(-v_direction.y, v_direction.x) * (len * 0.5 * scale);
-	vec2 normal = vec2(-v_direction.y, v_direction.x) * (len * 0.5);
+	vec2 normal = vec2(-v_direction.y, v_direction.x) * (len * 0.5 * scale);
+	//vec2 normal = vec2(-v_direction.y, v_direction.x) * (len * 0.5);
 	normal.x /= aspect;
 
 	vec4 offset = vec4(normal * direction, 0.0,1.0);

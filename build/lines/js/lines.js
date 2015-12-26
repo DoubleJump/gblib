@@ -4506,15 +4506,17 @@ gb.LineMesh = function()
 	this.color;
 	this.num_points;
 	this.points = [];
+	this.length;
 }
 
 gb.line_mesh = 
 {
-	new: function(thickness, color, points)
+	new: function(points, thickness, color)
 	{
 		var lm = new gb.LineMesh();
-		lm.thickness = thickness;
+		lm.thickness = thickness || 0.2;
 		lm.color = gb.color.new();
+		lm.legth = 0;
 		if(color) lm.color.eq(color);
 
 		var e, vb, ib, m;
@@ -4637,35 +4639,9 @@ gb.line_mesh =
 				vb.data[index] = distance;
 				index++;
 			}
-
-			
-
-
-			//write currentA
-			/*
-			for(var j = 0; j < VS; ++j)
-			{
-				vb.data[index] = current[j];
-				index++;
-			}
-			//write prevA
-			for(var j = 0; j < VS; ++j)
-			{
-				vb.data[index] = previous[j];
-				index++;
-			}
-			//write nextA
-			for(var j = 0; j < VS; ++j)
-			{
-				vb.data[index] = next[j];
-				index++;
-			}
-			//write dirA
-			vb.data[index] = -1.0;
-			index++;
-			*/
 		}
-
+		lm.length = distance;
+		LOG(lm.length);
 
 		index = 0;
 		var offset = 0;
@@ -4683,7 +4659,24 @@ gb.line_mesh =
 	    gb.mesh.update(m);
 		v3.stack.index = stack;
 	},
-	//circle: function(r)
+	ellipse: function(rx, ry, segments, thickness, color)
+	{
+		var points = [];
+		var theta = gb.math.TAU / segments;
+		for(var i = 0; i < segments + 1; ++i)
+		{
+			var sin_theta = gb.math.sin(theta * i);
+			var cos_theta = gb.math.cos(theta * i);
+			points.push(sin_theta * rx);
+			points.push(cos_theta * ry);
+			points.push(0.0);
+		}
+		return gb.line_mesh.new(points, thickness, color);
+	},
+	circle: function(r, segments, thickness, color)
+	{
+		return gb.line_mesh.ellipse(r, r, segments,thickness, color)
+	},
 
 }
 
@@ -4726,19 +4719,14 @@ function load_complete(ag)
 {
 	construct = scene.new(null, true);
 
-	line = gb.line_mesh.new(0.03, null, 
-	[
-		-1,0,0, 
-		1,0,0, 
-		1.0,0.5,0,
-		0.5,0.8,0,
-		1.0,1.5,1.0,
-	]);
+	line = gb.line_mesh.ellipse(2,2,60,0.1);
+
 	line.entity.material = gb.material.new(ag.shaders.line);
 	line.entity.material.line_width = line.thickness;
+	line.entity.material.cutoff = 100;
 	line.entity.material.aspect = 1.0;
 	line.entity.material.mitre = 1;
-	gb.color.set(line.entity.material.color, 0.67,0.1,0.884,1.0);
+	gb.color.set(line.entity.material.color, 0.8,0.8,0.884,1.0);
 	scene.add(line);
 
 	camera = gb.camera.new();
@@ -4757,9 +4745,9 @@ function load_complete(ag)
 function update(dt)
 {
 	line_cutoff += dt;
-	var sint = gb.math.sin(line_cutoff) + 1;
+	var sint = (gb.math.sin(line_cutoff) + 1) * 0.5;
 	//line.entity.material.line_width = sint;
-	line.entity.material.cutoff = sint * 5;
+	line.entity.material.cutoff = sint * line.length;
 }
 
 function render()

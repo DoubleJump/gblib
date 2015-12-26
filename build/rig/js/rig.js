@@ -497,9 +497,11 @@ gb.vec2 =
 	},
 	perp: function(r, a)
 	{
+		var _t = gb.vec2;
 		var x = -a[1];
 		var y = a[0];
 		_t.set(r,x,y);
+		_t.normalized(r,r);
 	},
 	angle: function(a, b)
 	{
@@ -685,6 +687,15 @@ gb.vec3 =
 			_t.divf(r, gb.math.sqrt(sqr_l));
 		}
 	},
+	tangent: function(r, a,b, plane)
+	{
+		var _t = gb.vec3;
+		var t = v3.tmp();
+		_t.add(t, b,a);
+		_t.normalized(t,t);
+		_t.cross(r, t,plane);
+		_t.stack.index--;
+	},
 	rotate: function(r, v,q)
 	{
 		var tx = (q[1] * v[2] - q[2] * v[1]) * 2;
@@ -868,7 +879,7 @@ gb.quat =
 		var s = m.sin(h);	
 		r[0] = s * axis[0];
 		r[1] = s * axis[1];
-		r[2] = s * axis[1];
+		r[2] = s * axis[2];
 		r[3] = m.cos(s);
 	},
 
@@ -2737,6 +2748,10 @@ gb.Camera = function()
 	this.far;
 	this.fov;
 	this.scale;
+	//DEBUG
+	this.angle_x = 0;
+	this.angle_y = 0;
+	//END
 	return this;
 }
 gb.camera = 
@@ -2798,9 +2813,20 @@ gb.camera =
 	{
 		var e = c.entity;
 		var m_delta = gb.input.mouse_delta;
-		var ROTATE_SPEED = 10.0;
-		gb.entity.rotate_f(e, -m_delta[1] * ROTATE_SPEED * dt, -m_delta[0] * ROTATE_SPEED * dt, 0);
-		//TODO: proper quat mul for each axis instead of this rubbish
+		var ROTATE_SPEED = 20.0;
+		c.angle_x -= m_delta[1] * ROTATE_SPEED * dt;
+		c.angle_y -= m_delta[0] * ROTATE_SPEED * dt;
+
+		var index = gb.vec3.stack.index;
+
+		var rot_x = gb.quat.tmp();
+		var rot_y = gb.quat.tmp();
+		var right = gb.vec3.tmp(1,0,0);
+		gb.mat4.mul_dir(right, e.world_matrix, right);
+		gb.quat.angle_axis(rot_x, c.angle_x, right);
+		gb.quat.angle_axis(rot_y, c.angle_y, gb.vec3.tmp(0,1,0));
+		gb.quat.mul(e.rotation, rot_x, rot_y);
+
 
 		var move = gb.vec3.tmp();
 		var MOVE_SPEED = 1.0;
@@ -2823,6 +2849,8 @@ gb.camera =
 
 		gb.mat4.mul_dir(move, e.world_matrix, move);
 		gb.vec3.add(e.position, move, e.position);
+		e.dirty = true;
+		gb.vec3.stack.index = index;
 	}
 	//END
 }
@@ -3195,6 +3223,68 @@ gb.mesh =
 		}
 	    gb.webgl.update_mesh(m);
 	},
+	get_vertex: function(result, mesh, attribute, index)
+	{
+		var vb = mesh.vertex_buffer;
+		var attr = vb.attributes[attribute];
+		var start = (index * vb.stride) + attr.offset; 
+		for(var i = 0; i < attr.size; ++i)
+		{
+			result[i] = vb.data[start + i];
+		}
+	},
+	set_vertex: function(mesh, attribute, index, val)
+	{
+		var vb = mesh.vertex_buffer;
+		var attr = vb.attributes[attribute];
+		var start = (index * vb.stride) + attr.offset; 
+		for(var i = 0; i < attr.size; ++i)
+		{
+			vb.data[start + i] = val[i];
+		}
+	},
+	set_vertex_abs: function(mesh, index, val, size)
+	{
+		for(var i = 0; i < size; ++i)
+			vb.data[i] = val[i];
+		return index + size;
+	},
+	get_vertices: function(result, mesh, attribute, start, end)
+	{
+		var vb = mesh.vertex_buffer;
+		var attr = vb.attributes[attribute];
+		start = start || 0;
+		end = end || mesh.vertex_count;
+		var range = end - start;
+		var dest_index = 0;
+		var src_index = (start * vb.stride) + attr.offset;
+
+		for(var i = 0; i < range; ++i)
+		{
+			for(var j = 0; j < attr.size; ++j)
+			{
+				result[dest_index + j] = vb.data[src_index + j]; 
+			}
+			src_index += vb.stride;
+			dest_index += attr.size;
+		}
+	},
+	set_vertices: function(mesh, attribute, start, val)
+	{
+		var vb = mesh.vertex_buffer;
+		var attr = vb.attributes[attribute];
+		var range = val.length;
+		ASSERT((start + range) < mesh.vertex_count, 'src data too large for vertex buffer');
+		for(var i = 0; i < range; ++i)
+		{
+			for(var j = 0; j < attr.size; ++j)
+			{
+				vb.data[dest_index + j] = val[src_index + j]; 
+			}
+			src_index += attr.size;
+			dest_index += vb.stride;
+		}
+	},
 	get_bounds: function(b, m)
 	{
 		var v3 = gb.vec3;
@@ -3220,6 +3310,7 @@ gb.mesh =
 
 			c += stride;
 		}
+		v3.stack.index -= 1;
 	},
 }
 gb.serialize.r_mesh = function(br)
@@ -3576,9 +3667,9 @@ gb.material =
     },
     set_camera_uniforms: function(material, camera)
     {
-        gb.material.set_uniform(material, 'proj_matrix', camera.projection);
-        gb.material.set_uniform(material, 'view_matrix', camera.view);
-        gb.material.set_uniform(material, 'view_proj_matrix', camera.view_projection);
+        gb.material.set_uniform(material, 'projection', camera.projection);
+        gb.material.set_uniform(material, 'view', camera.view);
+        gb.material.set_uniform(material, 'view_projection', camera.view_projection);
         gb.material.set_uniform(material, 'normal_matrix', camera.normal);
     },
     set_entity_uniforms: function(material, entity, camera)
@@ -3587,13 +3678,13 @@ gb.material =
         {
             gb.mat4.mul(material.mvp, entity.world_matrix, camera.view_projection);
         }
-        if(material.mv_matrix !== undefined)
+        if(material.model_view !== undefined)
         {
-            gb.mat4.mul(material.mv_matrix, entity.world_matrix, camera.view);
+            gb.mat4.mul(material.model_view, entity.world_matrix, camera.view);
         }
         if(material.model_matrix !== undefined)
         {
-            material.model_matrix = entity.world_matrix;
+            material.model = entity.world_matrix;
         }
         if(material['rig[0]'] !== undefined)
         {
@@ -4289,7 +4380,7 @@ gb.webgl =
 		        //case 'UNSIGNED_SHORT':
 		        case 'INT':
 		        {
-					gl.uniformi(loc, val);
+					gl.uniform1i(loc, val);
 					break;
 				}
 		        //case 'UNSIGNED_INT':

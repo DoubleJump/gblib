@@ -3,10 +3,10 @@ attribute vec3 position;
 attribute vec3 normal;
 attribute vec4 weight;
 
-uniform mat4 projection;
-uniform mat4 view;
 uniform mat4 model;
-uniform mat3 normal;
+uniform mat4 view;
+uniform mat4 projection;
+uniform mat3 normal_matrix;
 uniform mat4 rig[18];
 
 varying vec3 _normal;

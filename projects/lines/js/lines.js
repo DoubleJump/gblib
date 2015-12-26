@@ -40,7 +40,21 @@ function load_complete(ag)
 {
 	construct = scene.new(null, true);
 
-	line = gb.line_mesh.ellipse(2,2,60,0.1);
+	//line = gb.line_mesh.ellipse(2,2,60,0.1);
+	line = gb.line_mesh.curve(
+	[
+		0.0,1.5,0.0,
+		0.5,1.5,0.0,
+		1.0,1.5,0.0,
+
+		1.5,0.0,0.0,
+		2.0,0.0,0.0,
+		2.5,0.0,0.0,
+
+		3.0,1.5,0.0,
+		3.5,1.5,0.0,
+		4.0,1.5,0.0,
+	], 24, 0.2)
 
 	line.entity.material = gb.material.new(ag.shaders.line);
 	line.entity.material.line_width = line.thickness;

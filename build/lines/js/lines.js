@@ -223,6 +223,10 @@ gb.math =
 	{
 		return Math.floor(a);
 	},
+	ceil: function(a)
+	{
+		return Math.ceil(a);
+	},
 	clamp: function(a, min, max)
 	{
 		if(a < min) return min;
@@ -4516,7 +4520,7 @@ gb.line_mesh =
 		var lm = new gb.LineMesh();
 		lm.thickness = thickness || 0.2;
 		lm.color = gb.color.new();
-		lm.legth = 0;
+		lm.length = 0;
 		if(color) lm.color.eq(color);
 
 		var e, vb, ib, m;
@@ -4641,7 +4645,6 @@ gb.line_mesh =
 			}
 		}
 		lm.length = distance;
-		LOG(lm.length);
 
 		index = 0;
 		var offset = 0;
@@ -4659,11 +4662,11 @@ gb.line_mesh =
 	    gb.mesh.update(m);
 		v3.stack.index = stack;
 	},
-	ellipse: function(rx, ry, segments, thickness, color)
+	ellipse: function(rx, ry, res, thickness, color)
 	{
 		var points = [];
-		var theta = gb.math.TAU / segments;
-		for(var i = 0; i < segments + 1; ++i)
+		var theta = gb.math.TAU / res;
+		for(var i = 0; i < res + 1; ++i)
 		{
 			var sin_theta = gb.math.sin(theta * i);
 			var cos_theta = gb.math.cos(theta * i);
@@ -4673,9 +4676,54 @@ gb.line_mesh =
 		}
 		return gb.line_mesh.new(points, thickness, color);
 	},
-	circle: function(r, segments, thickness, color)
+	circle: function(r, res, thickness, color)
 	{
-		return gb.line_mesh.ellipse(r, r, segments,thickness, color)
+		return gb.line_mesh.ellipse(r, r, res, thickness, color)
+	},
+	curve: function(curve, res, thickness, color)
+	{
+		var VS = 3;
+		var stride = VS * 6;
+		var num_points = curve.length;
+		//LOG(num_points);
+		var num_curve_segments = gb.math.ceil(num_points / stride);
+		//LOG(num_curve_segments);
+		var points = new Float32Array(num_curve_segments * res * VS);
+
+		var src_index = VS;
+		var dest_index = 0;
+		for(var i = 0; i < num_curve_segments; ++i)
+		{
+			LOG(src_index);
+			var step = 1 / res;
+			var t = 0;
+			var ca = src_index + 0;
+			var cb = src_index + VS;
+			var cc = src_index + (VS * 2);
+			var cd = src_index + (VS * 3);
+
+			for(var j = 0; j < res+1; ++j)
+			{
+				var u = 1.0 - t;
+				var tt = t * t;
+				var uu = u * u;
+				var uuu = uu * u;
+				var ttt = tt * t;
+
+				for(var k = 0; k < VS; ++k)
+				{
+					points[dest_index] = (uuu * curve[ca+k]) + 
+									(3 * uu * t * curve[cb+k]) + 
+									(3 * u * tt * curve[cc+k]) + 
+						   			(ttt * curve[cd+k]); 
+
+					dest_index++;
+				}
+				t += step;
+			}
+			src_index += (stride / 2);
+		}
+		return gb.line_mesh.new(points, thickness, color);
 	},
 
 }
@@ -4719,7 +4767,21 @@ function load_complete(ag)
 {
 	construct = scene.new(null, true);
 
-	line = gb.line_mesh.ellipse(2,2,60,0.1);
+	//line = gb.line_mesh.ellipse(2,2,60,0.1);
+	line = gb.line_mesh.curve(
+	[
+		0.0,1.5,0.0,
+		0.5,1.5,0.0,
+		1.0,1.5,0.0,
+
+		1.5,0.0,0.0,
+		2.0,0.0,0.0,
+		2.5,0.0,0.0,
+
+		3.0,1.5,0.0,
+		3.5,1.5,0.0,
+		4.0,1.5,0.0,
+	], 24, 0.2)
 
 	line.entity.material = gb.material.new(ag.shaders.line);
 	line.entity.material.line_width = line.thickness;

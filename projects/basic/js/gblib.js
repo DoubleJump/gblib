@@ -8,6 +8,7 @@
 //INCLUDE lib/js/vector.js
 //INCLUDE lib/js/quaternion.js
 //INCLUDE lib/js/matrix.js
+//INCLUDE lib/js/projections.js
 //INCLUDE lib/js/rect.js
 //INCLUDE lib/js/aabb.js
 //INCLUDE lib/js/ray.js
@@ -32,5 +33,5 @@
 //INCLUDE lib/js/gl/asset_group.js
 //DEBUG
 //INCLUDE lib/js/gl/draw.js
-//INCLUDE lib/js/gl/debug.js
+//INCLUDE lib/js/debug.js
 //END

@@ -1,3 +1,5 @@
+import jsminify
+
 def read_js(file_path, out_buffer, debug):
 	print(file_path)
 	read_state = 0
@@ -24,15 +26,26 @@ def read_js(file_path, out_buffer, debug):
 
 	out_buffer.append('\n')
 	src_file.close()
-			
+
 
 def compile(file_path, destination_path, debug):
-	out_buffer = []
+	out_buffer = [];
 	read_js(file_path, out_buffer, debug)
 
-	out_file = open(destination_path, 'w')
+	js_string = ''
 	for line in out_buffer:
-		out_file.write(line)
+		js_string += line
 
+	out_file = open(destination_path, 'w')
+	
+	#lol
+	if debug is False: 
+		print('Minifying..')
+		minified = jsminify.jsmin(js_string)
+		out_file.write(minified)
+	else:
+		out_file.write(js_string)
+	
 	out_file.close()
+
 	print('')

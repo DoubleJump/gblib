@@ -1,4 +1,5 @@
 //INCLUDE projects/lines/js/gblib.js
+//INCLUDE lib/js/gl/curve.js
 //INCLUDE lib/js/gl/line_mesh.js
 
 var v2 = gb.vec2;
@@ -41,24 +42,11 @@ function load_complete(ag)
 	construct = scene.new(null, true);
 
 	//line = gb.line_mesh.ellipse(2,2,60,0.1);
-	line = gb.line_mesh.curve(
-	[
-		0.0,1.5,0.0,
-		0.5,1.5,0.0,
-		1.0,1.5,0.0,
-
-		1.5,0.0,0.0,
-		2.0,0.0,0.0,
-		2.5,0.0,0.0,
-
-		3.0,1.5,0.0,
-		3.5,1.5,0.0,
-		4.0,1.5,0.0,
-	], 24, 0.2)
+	line = gb.line_mesh.curve(ag.curves['bob'], 15);
 
 	line.entity.material = gb.material.new(ag.shaders.line);
 	line.entity.material.line_width = line.thickness;
-	line.entity.material.cutoff = 100;
+	line.entity.material.cutoff = line.length;
 	line.entity.material.aspect = 1.0;
 	line.entity.material.mitre = 1;
 	gb.color.set(line.entity.material.color, 0.8,0.8,0.884,1.0);
@@ -82,7 +70,7 @@ function update(dt)
 	line_cutoff += dt;
 	var sint = (gb.math.sin(line_cutoff) + 1) * 0.5;
 	//line.entity.material.line_width = sint;
-	line.entity.material.cutoff = sint * line.length;
+	//line.entity.material.cutoff = sint * line.length;
 }
 
 function render()

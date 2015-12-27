@@ -13,10 +13,10 @@ def create_html_boilerplate(project_path, name):
 	<link rel='stylesheet' href='css/style.css' type='text/css'>
 	
 </head>
-
+<body>
 	<div class='webgl'></div>
 	<script src='js/""" + name + """.js'></script>
-
+</body>
 </html>"""
 
 	html_file.write(html_string)

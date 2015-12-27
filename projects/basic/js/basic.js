@@ -1,4 +1,5 @@
 //INCLUDE projects/basic/js/gblib.js
+
 var v2 = gb.vec2;
 var v3 = gb.vec3;
 var qt = gb.quat;
@@ -10,6 +11,7 @@ var scene = gb.scene;
 var camera;
 var surface_target;
 var fxaa_pass;
+var debug_view;
 
 function init()
 {
@@ -23,10 +25,13 @@ function init()
 		}
 	});
 	gb.assets.load("assets/assets.gl", load_complete);
+
 }
 
 function load_complete(ag)
 {
+	debug_view = gb.debug_view.new(document.body);
+
 	scene.current = scene.scenes['basic'];
 
 	var plane = scene.find('plane');
@@ -40,6 +45,10 @@ function load_complete(ag)
 	camera.entity.position[2] = 2.0;
 	scene.add(camera);
 
+	gb.debug_view.watch(debug_view, 'AngleX', camera, 'angle_x');
+	gb.debug_view.watch(debug_view, 'AngleY', camera, 'angle_y');
+
+
 	surface_target = gb.render_target.new();
 	fxaa_pass = gb.post_call.new(gb.material.new(ag.shaders.fxaa), null);
 	fxaa_pass.material.texture = surface_target.color;
@@ -51,15 +60,19 @@ function load_complete(ag)
 
 function update(dt)
 {
+	gb.debug_view.update(debug_view);
+	//gb.debug_view.label(debug_view, "Position", 3.0);
+
+
 	gb.gl_draw.thickness = 3.0;
 	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(3,3,3));
 }
 
 function render()
 {
-	var s = scene.current;
-	gl.render_draw_call(s.active_camera, s, s.draw_items, s.num_draw_items, null, surface_target, true, true);
-	gb.gl_draw.render(s.active_camera, surface_target);
+	//gl.render_draw_call(s.active_camera, s, s.draw_items, s.num_draw_items, null, surface_target, true, true);
+	gl.render_scene(scene.current, camera, surface_target);
+	gb.gl_draw.render(camera, surface_target);
 	gl.render_post_call(fxaa_pass);
 }
 

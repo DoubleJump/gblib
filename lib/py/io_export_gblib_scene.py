@@ -46,6 +46,7 @@ OB_TYPE_OBJECT = 5
 OB_TYPE_EMPTY = 6
 OB_TYPE_ARMATURE = 7
 OB_TYPE_ARMATURE_ACTION = 8
+OB_TYPE_CURVE = 9
 OB_TYPE_FILE_END = -101
 
 ANIM_TYPE_ENTITY = 0
@@ -179,6 +180,21 @@ class FileWriter:
 		self.transform(ob)
 		self.f32(lamp.energy)
 		self.f32(lamp.distance)
+
+	def curve(self, ob, curve):
+		print("Exporting Curve: " + ob.name)
+		self.i32(OB_TYPE_CURVE)
+		self.string(ob.name)
+		self.i32(curve.resolution_u)
+
+		for spline in curve.splines:
+			num_bezier_points = len(spline.bezier_points)
+			self.i32(num_bezier_points)
+			for point in spline.bezier_points:
+				self.vec3(point.handle_left)
+				self.vec3(point.co)
+				self.vec3(point.handle_right)
+
 
 	def camera(self, ob, camera):
 		print("Exporting Camera: " + ob.name)
@@ -486,6 +502,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 		exported_cameras = []
 		exported_lamps = []
 		exported_armatures = []
+		exported_curves = []
 
 		print("")
 		print("######### EXPORTING SCENE: " + scene.name + " ###########")
@@ -528,6 +545,19 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 					writer.camera(ob, camera)
 					exported_cameras.append(camera)
 
+			elif ob.type == 'CURVE':
+				curve = ob.data
+				if not curve in exported_curves:
+					if not curve.animation_data is None:
+						action = curve.animation_data.action
+						if not action is None:
+							if not action in exported_actions:
+								writer.action(action, ob, ob, scene, ANIM_TYPE_ENTITY)
+								exported_actions.append(action)
+
+					writer.curve(ob, curve)
+					exported_cameras.append(curve)
+
 			elif ob.type == 'LAMP': 
 				lamp = ob.data
 				if not lamp in exported_lamps:
@@ -569,7 +599,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 		print(writer.offset)
 
 		print("")
-		print("######### EXPORTING COMPLETED ###########")
+		print("######### EXPORT COMPLETED ###########")
 		print("")
 							
 		return {'FINISHED'}

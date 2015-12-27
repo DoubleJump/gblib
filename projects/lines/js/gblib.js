@@ -27,5 +27,5 @@
 //INCLUDE lib/js/gl/asset_group.js
 //DEBUG
 //INCLUDE lib/js/gl/draw.js
-//INCLUDE lib/js/gl/debug.js
+//INCLUDE lib/js/debug.js
 //END

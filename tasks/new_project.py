@@ -50,7 +50,6 @@ def create(name):
 	copy_file('lib/config/config.json', project_path + '/config/config.json') 
 	copy_file('lib/css/style.scss', project_path + '/css/style.scss')
 	create_js_boilerplate(project_path, name)
-	copy_file('lib/glsl/debug.glsl', project_path + '/assets/glsl/debug.glsl')
 	copy_file('lib/glsl/final.glsl', project_path + '/assets/glsl/final.glsl')
 	copy_file('lib/glsl/fxaa.glsl', project_path + '/assets/glsl/fxaa.glsl')
 	copy_file('lib/glsl/surface.glsl', project_path + '/assets/glsl/surface.glsl')

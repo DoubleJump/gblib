@@ -1454,16 +1454,19 @@ gb.mat4 =
 }
 gb.projections = 
 {
-    cartesian_polar: function(r, cartesian)
+    cartesian_to_polar: function(r, c)
     {
-        var radius = gb.vec3.length(cartesian);
-        var theta = gb.math.atan2(cartesian[1], cartesian[0]);
+        var radius = gb.vec3.length(c);
+        var theta = gb.math.atan2(c[1], c[0]);
         var phi = gb.math.acos(2/radius);
         gb.vec3.set(r, theta, phi, radius);
     },
-    polar_cartesian: function(r, polar)
+    polar_to_cartesian: function(r, theta, phi, radius)
     {
-
+        var x = radius * gb.math.cos(theta) * gb.math.sin(phi);
+        var y = radius * gb.math.cos(phi);
+        var z = radius * gb.math.sin(theta) * gb.math.sin(phi);
+        gb.vec3.set(r, x,y,z);
     },
 
     world_to_screen: function(r, projection, world, view)
@@ -2871,7 +2874,6 @@ gb.camera =
 		gb.quat.angle_axis(rot_y, c.angle_y, up);
 		gb.quat.mul(e.rotation, rot_y, rot_x);
 
-
 		var move = gb.vec3.tmp();
 		var MOVE_SPEED = 1.0;
 		if(gb.input.held(gb.Keys.a))
@@ -3484,6 +3486,131 @@ gb.mesh.generate =
 
 	    return gb.mesh.new(vb, ib);
 	},
+
+	grid: function(width, height, res_x, res_y)
+	{
+		var num_cells = res_x * res_y;
+
+		var vb = gb.vertex_buffer.new();
+		gb.vertex_buffer.add_attribute(vb, 'position', 3);
+		//gb.vertex_buffer.add_attribute(vb, 'normal', 3);
+	    //gb.vertex_buffer.add_attribute(vb, 'uv', 2);
+	    gb.vertex_buffer.alloc(vb, num_cells);
+
+	    var w = width / res_x;
+	    var h = height / res_y;
+	    var hw = w / 2;
+	    var hh = h / 2;
+	    var u = 1 / w;
+	    var v = 1 / h;
+
+	    var i = 0;
+	    for(var y = 0; y < res_y; ++y)
+	    {
+	    	for(var x = 0; x < res_x; ++x)
+	    	{
+	    		// position
+                vb.data[  i] = (x * w) - hw;
+                vb.data[i+1] = (y * h) - hh;
+                vb.data[i+2] = 0.0;
+                i += 3;
+
+                // normal
+                /*
+                vb.data[  i] = 0;
+                vb.data[i+1] = 0;
+                vb.data[i+2] = 1;
+                i += 3;
+                */
+                // uv
+                /*
+                vb.data[  i] = x * u;
+                vb.data[i+1] = x * v;
+                i += 2;
+                */
+	    	}
+	    }
+
+	    var ib = gb.index_buffer.new(num_cells * 6);
+	    for(var n = 0; n < num_cells; ++n)
+	    {
+	    	ib.data[  i] = n + 0;
+		    ib.data[i+1] = n + 1;
+		    ib.data[i+2] = n + 3;
+		    ib.data[i+3] = n + 0;
+		    ib.data[i+4] = n + 3;
+		    ib.data[i+5] = n + 2;
+		    i += 6
+	    }
+
+	    return gb.mesh.new(vb, ib);
+	},
+
+	sphere: function(radius, segments, rings)
+	{
+		var lat, lng;
+		var vb = gb.vertex_buffer.new();
+		gb.vertex_buffer.add_attribute(vb, 'position', 3);
+		gb.vertex_buffer.add_attribute(vb, 'normal', 3);
+	    //gb.vertex_buffer.add_attribute(vb, 'uv', 2);
+	    gb.vertex_buffer.alloc(vb, rings * segments);
+
+		var i = 0;
+		for(lat = 0; lat <= rings; ++lat)
+		{      
+            var theta = lat * gb.math.PI / rings;
+            var sin_theta = gb.math.sin(theta);
+            var cos_theta = gb.math.cos(theta);
+
+            for(lng = 0; lng <= segments; ++lng)
+            {
+                var phi = lng * gb.math.TAU / segments;
+                var sin_phi = gb.math.sin(phi);
+                var cos_phi = gb.math.cos(phi);
+
+               	var x = cos_phi * sin_theta;
+              	var y = cos_theta;
+                var z = sin_phi * sin_theta;
+                
+                // position
+                vb.data[  i] = x * radius;
+                vb.data[i+1] = y * radius;
+                vb.data[i+2] = z * radius;
+                i += 3;
+
+                // normal
+                vb.data[  i] = x;
+                vb.data[i+1] = y;
+                vb.data[i+2] = z;
+                i += 3;
+
+                // uv
+                uvs[  i] = 1.0 - (lng / segments);
+                uvs[i+1] = 1.0 - (lat / rings);
+                i += 2;
+		    }
+        }
+
+	    var ib = gb.index_buffer.new(rings * segments * 6);
+        i = 0;
+        for(lat = 0; lat < rings; ++lat)
+		{ 
+			for(lng = 0; lng < segments; ++lng)
+            {
+            	var a = lat * (segments + 1) + lng;
+            	var b = a + segments + 1;
+
+			    ib.data[  i] = a;
+			    ib.data[i+1] = b;
+			    ib.data[i+2] = a+1;
+			    ib.data[i+3] = b;
+			    ib.data[i+4] = b+1;
+			    ib.data[i+5] = a+1;
+			    i += 6
+            }
+        }
+        return gb.mesh.new(vb, ib);
+	}
 }
 gb.Texture = function()
 {
@@ -5039,6 +5166,7 @@ gb.Debug_View = function()
 	this.root;
 	this.container;
 	this.observers = [];
+	this.controllers = [];
 }
 gb.Debug_Observer = function()
 {
@@ -5049,6 +5177,13 @@ gb.Debug_Observer = function()
 	this.target;
 	this.property;
 	this.index;
+}
+gb.Debug_Controller = function()
+{
+	this.name;
+	this.label;
+	this.slider;
+	this.value;
 }
 
 gb.debug_view =
@@ -5112,6 +5247,13 @@ gb.debug_view =
 				observer.element.classList.add('gb-debug-hidden');
 			}
 		}
+		n = view.controllers.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var controller = view.controllers[i];
+			controller.value = controller.slider.value;
+			controller.label.innerText = controller.name + ': ' + controller.value;
+		}
 	},
 	label: function(view, label, val)
 	{
@@ -5148,7 +5290,35 @@ gb.debug_view =
 			}
 		}
 		LOG('No free observers available');
-	}
+	},
+	control: function(view, name, min, max, step, initial_value)
+	{
+		initial_value = initial_value || 0;
+
+		var label = document.createElement('div');
+		label.classList.add('gb-debug-label');
+		label.innerText = name + ': ' + initial_value;
+		view.container.appendChild(label);
+
+		var slider = document.createElement('input');
+		slider.setAttribute('type', 'range');
+
+		slider.classList.add('gb-debug-slider');
+		slider.min = min;
+		slider.max = max;
+		slider.step = step;
+		slider.defaultValue = initial_value;
+		slider.value = initial_value;
+		view.container.appendChild(slider);
+
+		var controller = new gb.Debug_Controller();
+		controller.name = name;
+		controller.label = label;
+		controller.slider = slider;
+		view.controllers.push(controller);
+
+		return controller;
+	},
 }
 //END
 var v2 = gb.vec2;
@@ -5167,15 +5337,22 @@ var camera;
 var surface_target;
 var fxaa_pass;
 
+var debug_view;
+var x_warp;
+
 function init()
 {
 	gb.init(
 	{
 		config:
 		{
-			frame_skip: false,
+			frame_skip: true,
 			update: update, 
 			render: render,
+		},
+		gl:
+		{
+			antialias: true,
 		}
 	});
 
@@ -5184,10 +5361,13 @@ function init()
 
 function load_complete(asset_group)
 {
+	debug_view = gb.debug_view.new(document.body);
+	x_warp = gb.debug_view.control(debug_view, 'WarpX', 0, 1.0, 0.01);
+
 	assets = asset_group;
 	construct = scene.new(null, true);
 
-	cube = gb.entity.mesh(gb.mesh.generate.cube(2,1,1), gb.material.new(assets.shaders.surface));
+	cube = gb.entity.mesh(assets.meshes.map, gb.material.new(assets.shaders.sphere));
 	cube.spin = 0;
 	scene.add(cube);
 
@@ -5195,25 +5375,27 @@ function load_complete(asset_group)
 	camera.entity.position[2] = 3.0;
 	scene.add(camera);
 
+	/*
 	surface_target = gb.render_target.new();
 	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
 	fxaa_pass.material.texture = surface_target.color;
 	v2.set(fxaa_pass.material.resolution, gl.view.width, gl.view.height);
 	v2.set(fxaa_pass.material.inv_resolution, 1.0 / gl.view.width, 1.0 / gl.view.height);
+	*/
 
 	gb.allow_update = true;
 }
 
 function update(dt)
 {
-	cube.spin += 30 * dt;
-	gb.entity.set_rotation(cube, cube.spin, cube.spin, cube.spin);
+	gb.debug_view.update(debug_view);
+
 }
 
 function render()
 {
-	gl.render_scene(construct, camera, surface_target);
-	gl.render_post_call(fxaa_pass);
+	gl.render_scene(construct, camera, null);
+	//gl.render_post_call(fxaa_pass);
 }
 
 window.addEventListener('load', init, false);

@@ -1454,9 +1454,12 @@ gb.mat4 =
 }
 gb.projections = 
 {
-    cartesian_to_polar: function(r, cartesian)
+    cartesian_to_polar: function(r, c)
     {
-
+        var radius = gb.vec3.length(c);
+        var theta = gb.math.atan2(c[1], c[0]);
+        var phi = gb.math.acos(2/radius);
+        gb.vec3.set(r, theta, phi, radius);
     },
     polar_cartesian: function(r, polar)
     {
@@ -2866,6 +2869,8 @@ gb.camera =
 
 		gb.quat.angle_axis(rot_x, c.angle_x, right);
 		gb.quat.angle_axis(rot_y, c.angle_y, up);
+		gb.quat.normalized(rot_x, rot_x);
+		gb.quat.normalized(rot_y, rot_y);
 		gb.quat.mul(e.rotation, rot_y, rot_x);
 
 
@@ -3481,6 +3486,124 @@ gb.mesh.generate =
 
 	    return gb.mesh.new(vb, ib);
 	},
+
+	grid: function(width, height, res_x, res_y)
+	{
+		var num_cells = res_x * res_y;
+
+		var vb = gb.vertex_buffer.new();
+		gb.vertex_buffer.add_attribute(vb, 'position', 3);
+		gb.vertex_buffer.add_attribute(vb, 'normal', 3);
+	    gb.vertex_buffer.add_attribute(vb, 'uv', 2);
+	    gb.vertex_buffer.alloc(vb, num_cells);
+
+	    var w = width / res_x;
+	    var h = height / res_y;
+	    var u = 1 / w;
+	    var v = 1 / h;
+
+	    var i = 0;
+	    for(var x = 0; x < res_x; ++x)
+	    {
+	    	for(var y = 0; y < res_y; ++y)
+	    	{
+	    		// position
+                vb.data[  i] = x * w;
+                vb.data[i+1] = y * h;
+                vb.data[i+2] = 0.0;
+                i += 3;
+
+                // normal
+                vb.data[  i] = 0;
+                vb.data[i+1] = 0;
+                vb.data[i+2] = 1;
+                i += 3;
+
+                // uv
+                uvs[  i] = x * u;
+                uvs[i+1] = x * v;
+                i += 2;
+	    	}
+	    }
+
+	    var ib = gb.index_buffer.new(num_cells * 6);
+	    for(var n = 0; n < num_cells; ++n)
+	    {
+	    	ib.data[  i] = n + 0;
+		    ib.data[i+1] = n + 1;
+		    ib.data[i+2] = n + 3;
+		    ib.data[i+3] = n + 0;
+		    ib.data[i+4] = n + 3;
+		    ib.data[i+5] = n + 2;
+		    i += 6
+	    }
+	},
+
+	sphere: function(radius, segments, rings)
+	{
+		var lat, lng;
+		var vb = gb.vertex_buffer.new();
+		gb.vertex_buffer.add_attribute(vb, 'position', 3);
+		gb.vertex_buffer.add_attribute(vb, 'normal', 3);
+	    gb.vertex_buffer.add_attribute(vb, 'uv', 2);
+	    gb.vertex_buffer.alloc(vb, rings * segments);
+
+		var i = 0;
+		for(lat = 0; lat <= rings; ++lat)
+		{      
+            var theta = lat * gb.math.PI / rings;
+            var sin_theta = gb.math.sin(theta);
+            var cos_theta = gb.math.cos(theta);
+
+            for(lng = 0; lng <= segments; ++lng)
+            {
+                var phi = lng * gb.math.TAU / segments;
+                var sin_phi = gb.math.sin(phi);
+                var cos_phi = gb.math.cos(phi);
+
+               	var x = cos_phi * sin_theta;
+              	var y = cos_theta;
+                var z = sin_phi * sin_theta;
+                
+                // position
+                vb.data[  i] = x * radius;
+                vb.data[i+1] = y * radius;
+                vb.data[i+2] = z * radius;
+                i += 3;
+
+                // normal
+                vb.data[  i] = x;
+                vb.data[i+1] = y;
+                vb.data[i+2] = z;
+                i += 3;
+
+                // uv
+                uvs[  i] = 1.0 - (lng / segments);
+                uvs[i+1] = 1.0 - (lat / rings);
+                i += 2;
+		    }
+        }
+
+	    var ib = gb.index_buffer.new(rings * segments * 6);
+        i = 0;
+        for(lat = 0; lat < rings; ++lat)
+		{ 
+			for(lng = 0; lng < segments; ++lng)
+            {
+            	var a = lat * (segments + 1) + lng;
+            	var b = a + segments + 1;
+
+			    ib.data[  i] = a;
+			    ib.data[i+1] = b;
+			    ib.data[i+2] = a+1;
+			    ib.data[i+3] = b;
+			    ib.data[i+4] = b+1;
+			    ib.data[i+5] = a+1;
+			    i += 6
+            }
+        }
+        return gb.mesh.new(vb, ib);
+	}
 }
 gb.Texture = function()
 {

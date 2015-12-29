@@ -15,15 +15,22 @@ var camera;
 var surface_target;
 var fxaa_pass;
 
+var debug_view;
+var x_warp;
+
 function init()
 {
 	gb.init(
 	{
 		config:
 		{
-			frame_skip: false,
+			frame_skip: true,
 			update: update, 
 			render: render,
+		},
+		gl:
+		{
+			antialias: true,
 		}
 	});
 
@@ -32,10 +39,13 @@ function init()
 
 function load_complete(asset_group)
 {
+	debug_view = gb.debug_view.new(document.body);
+	x_warp = gb.debug_view.control(debug_view, 'WarpX', 0, 1.0, 0.01);
+
 	assets = asset_group;
 	construct = scene.new(null, true);
 
-	cube = gb.entity.mesh(gb.mesh.generate.cube(2,1,1), gb.material.new(assets.shaders.surface));
+	cube = gb.entity.mesh(assets.meshes.map, gb.material.new(assets.shaders.sphere));
 	cube.spin = 0;
 	scene.add(cube);
 
@@ -43,25 +53,27 @@ function load_complete(asset_group)
 	camera.entity.position[2] = 3.0;
 	scene.add(camera);
 
+	/*
 	surface_target = gb.render_target.new();
 	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
 	fxaa_pass.material.texture = surface_target.color;
 	v2.set(fxaa_pass.material.resolution, gl.view.width, gl.view.height);
 	v2.set(fxaa_pass.material.inv_resolution, 1.0 / gl.view.width, 1.0 / gl.view.height);
+	*/
 
 	gb.allow_update = true;
 }
 
 function update(dt)
 {
-	cube.spin += 30 * dt;
-	gb.entity.set_rotation(cube, cube.spin, cube.spin, cube.spin);
+	gb.debug_view.update(debug_view);
+
 }
 
 function render()
 {
-	gl.render_scene(construct, camera, surface_target);
-	gl.render_post_call(fxaa_pass);
+	gl.render_scene(construct, camera, null);
+	//gl.render_post_call(fxaa_pass);
 }
 
 window.addEventListener('load', init, false);

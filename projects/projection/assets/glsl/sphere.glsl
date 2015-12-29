@@ -11,6 +11,7 @@ varying vec4 _color;
 #define PI 3.14159
 #define DEG2RAD 0.01745329251
 
+/*
 vec3 polar_to_cartesian(float theta, float phi, float radius)
 {
     float x = radius * sin(theta) * cos(phi);
@@ -18,22 +19,20 @@ vec3 polar_to_cartesian(float theta, float phi, float radius)
 	float z	= radius * cos(theta);
     return vec3(x,y,z);
 }
-
+*/
 
 vec3 grid_to_sphere(vec3 p, float width, float height)
 {
     float radius = width / (2.0 * PI);
 
-	//float lng = ((p.x / (width / 2.0)) * 180.0) * DEG2RAD;
-	//float lat = ((p.y / (height / 2.0)) * 90.0) * DEG2RAD;
+	float phi = ((p.y / height)-0.5) * PI * warp_y;
+	float theta = (p.x / width) * 2.0 * PI * warp_x;
 
-	//float lat = (PI / 2.0) * (1.0 * p.x - 1.0);
-	//float lng = (PI / 2.0) * (2.0 * p.y + 1.0);
+	float x = radius * sin(theta) * sin(phi);
+	float y = radius * cos(phi);
+	float z	= radius * cos(theta) * sin(phi);
 
-	float lat = (p.y / height) * 2.0 * PI;
-	float lng = (p.x / width) - 0.5 * PI;
-
-	return polar_to_cartesian(lat, lng, radius);
+	return vec3(-x,y,-z);
 }
 
 void main()

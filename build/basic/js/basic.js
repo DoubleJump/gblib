@@ -756,6 +756,7 @@ gb.quat =
 		var y = a[3] * b[1] + a[1] * b[3] + a[2] * b[0] - a[0] * b[2];
 		var z = a[3] * b[2] + a[2] * b[3] + a[0] * b[1] - a[1] * b[0];
 		var w = a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2];
+
 		gb.quat.set(r, x,y,z,w);
 	},
 	mulf: function(r, q,f)
@@ -793,14 +794,8 @@ gb.quat =
 	{
 		var _t = gb.quat;
 		var l = qt.sqr_length(q);
-		if(l > gb.math.EPSILON)
-		{
-			qt.mulf(r, q, 1 / l);
-		} 
-		else
-		{
-			qt.eq(r, q);
-		}
+		if(l > gb.math.EPSILON) qt.mulf(r, q, 1.0 / l);
+		else qt.eq(r, q);
 	},
 
 	conjugate:function(r, q) 
@@ -814,7 +809,7 @@ gb.quat =
 	inverse:function(r, q)
 	{
 		var _t = gb.quat;
-		var t = -t.tmp(0,0,0,1);
+		var t = _t.tmp(0,0,0,1);
 		_t.normalized(r, _t.conjugate(t,q));
 	},
 
@@ -872,12 +867,13 @@ gb.quat =
 	angle_axis:function(r, angle, axis)
 	{
 		var m = gb.math;
-		var h = 0.5 * (angle * m.DEG2RAD);
+		var radians = angle * m.DEG2RAD;
+		var h = 0.5 * radians;
 		var s = m.sin(h);	
 		r[0] = s * axis[0];
 		r[1] = s * axis[1];
 		r[2] = s * axis[2];
-		r[3] = m.cos(s);
+		r[3] = m.cos(h);
 	},
 
 	get_angle_axis:function(q, angle, axis)
@@ -1461,9 +1457,12 @@ gb.projections =
         var phi = gb.math.acos(2/radius);
         gb.vec3.set(r, theta, phi, radius);
     },
-    polar_cartesian: function(r, polar)
+    polar_to_cartesian: function(r, theta, phi, radius)
     {
-
+        var x = radius * gb.math.cos(theta) * gb.math.sin(phi);
+        var y = radius * gb.math.cos(phi);
+        var z = radius * gb.math.sin(theta) * gb.math.sin(phi);
+        gb.vec3.set(r, x,y,z);
     },
 
     world_to_screen: function(r, projection, world, view)
@@ -2066,6 +2065,7 @@ gb.Keys =
 
 gb.input = 
 {
+	root: null,
 	mouse_position: gb.vec3.new(),
 	last_mouse_position: gb.vec3.new(),
 	mouse_delta: gb.vec3.new(),
@@ -2093,6 +2093,7 @@ gb.input =
 		root.onmouseup   = _t.key_up;
 		root.onmousemove = _t.mouse_move;
 		root.addEventListener("wheel", _t.mouse_wheel, false);
+		//root.requestPointerLock = root.requestPointerLock || root.mozRequestPointerLock || root.webkitRequestPointerLock;
 
 		for(var i = 0; i < 256; ++i)
 		{
@@ -2117,6 +2118,8 @@ gb.input =
 		window.addEventListener("touchstart", _t.touch_start, false);
 	  	window.addEventListener("touchmove", _t.touch_move, false);
 	  	window.addEventListener("touchend", _t.touch_end, false);
+
+	  	_t.root = root;
 	},
 
 	update: function()
@@ -2146,6 +2149,18 @@ gb.input =
 		*/
 		gb.vec3.set(_t.mouse_delta, 0, 0, 0);
 	},
+
+	/*
+	lock_cursor: function(mode)
+	{
+		var _t = gb.input;
+		if(_t.root.requestPointerLock)
+		{
+			if(mode === true) _t.root.requestPointerLock();
+			else document.exitPointerLock();
+		}
+	},
+	*/
 
 	up: function(code)
 	{
@@ -2864,15 +2879,16 @@ gb.camera =
 
 		var rot_x = gb.quat.tmp();
 		var rot_y = gb.quat.tmp();
+		var rot = gb.quat.tmp();
 		var right = gb.vec3.tmp(1,0,0);
 		var up = gb.vec3.tmp(0,1,0);
 
 		gb.quat.angle_axis(rot_x, c.angle_x, right);
 		gb.quat.angle_axis(rot_y, c.angle_y, up);
-		gb.quat.normalized(rot_x, rot_x);
-		gb.quat.normalized(rot_y, rot_y);
-		gb.quat.mul(e.rotation, rot_y, rot_x);
 
+		gb.quat.mul(rot, rot_y, rot_x);
+		gb.quat.mul(e.rotation, rot_y, rot_x);
+		//gb.quat.eq(e.rotation, rot);
 
 		var move = gb.vec3.tmp();
 		var MOVE_SPEED = 1.0;
@@ -2898,6 +2914,9 @@ gb.camera =
 		e.dirty = true;
 
 		gb.entity.update(c.entity);
+
+
+		// Draw reticule cross... (yeah, I know)
 
 		var vx = gb.webgl.view.width / 2;
 		var vy = gb.webgl.view.height / 2;
@@ -3493,36 +3512,41 @@ gb.mesh.generate =
 
 		var vb = gb.vertex_buffer.new();
 		gb.vertex_buffer.add_attribute(vb, 'position', 3);
-		gb.vertex_buffer.add_attribute(vb, 'normal', 3);
-	    gb.vertex_buffer.add_attribute(vb, 'uv', 2);
+		//gb.vertex_buffer.add_attribute(vb, 'normal', 3);
+	    //gb.vertex_buffer.add_attribute(vb, 'uv', 2);
 	    gb.vertex_buffer.alloc(vb, num_cells);
 
 	    var w = width / res_x;
 	    var h = height / res_y;
+	    var hw = w / 2;
+	    var hh = h / 2;
 	    var u = 1 / w;
 	    var v = 1 / h;
 
 	    var i = 0;
-	    for(var x = 0; x < res_x; ++x)
+	    for(var y = 0; y < res_y; ++y)
 	    {
-	    	for(var y = 0; y < res_y; ++y)
+	    	for(var x = 0; x < res_x; ++x)
 	    	{
 	    		// position
-                vb.data[  i] = x * w;
-                vb.data[i+1] = y * h;
+                vb.data[  i] = (x * w) - hw;
+                vb.data[i+1] = (y * h) - hh;
                 vb.data[i+2] = 0.0;
                 i += 3;
 
                 // normal
+                /*
                 vb.data[  i] = 0;
                 vb.data[i+1] = 0;
                 vb.data[i+2] = 1;
                 i += 3;
-
+                */
                 // uv
-                uvs[  i] = x * u;
-                uvs[i+1] = x * v;
+                /*
+                vb.data[  i] = x * u;
+                vb.data[i+1] = x * v;
                 i += 2;
+                */
 	    	}
 	    }
 
@@ -3537,6 +3561,8 @@ gb.mesh.generate =
 		    ib.data[i+5] = n + 2;
 		    i += 6
 	    }
+
+	    return gb.mesh.new(vb, ib);
 	},
 
 	sphere: function(radius, segments, rings)
@@ -4161,6 +4187,7 @@ gb.webgl =
 					 'OES_texture_float',
 					 'OES_element_index_uint'],
 	},
+	canvas: null,
 	extensions: {},
 	ctx: null,
 	view: null,
@@ -4194,6 +4221,7 @@ gb.webgl =
         _t.view = gb.rect.new(0,0,width,height);
 
         gl = canvas.getContext('webgl', _t.config);
+        _t.canvas = canvas;
 
         //DEBUG
         ASSERT(EXISTS(gl), "Could not load WebGL");
@@ -5159,6 +5187,7 @@ gb.Debug_View = function()
 	this.root;
 	this.container;
 	this.observers = [];
+	this.controllers = [];
 }
 gb.Debug_Observer = function()
 {
@@ -5169,6 +5198,13 @@ gb.Debug_Observer = function()
 	this.target;
 	this.property;
 	this.index;
+}
+gb.Debug_Controller = function()
+{
+	this.name;
+	this.label;
+	this.slider;
+	this.value;
 }
 
 gb.debug_view =
@@ -5232,6 +5268,13 @@ gb.debug_view =
 				observer.element.classList.add('gb-debug-hidden');
 			}
 		}
+		n = view.controllers.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var controller = view.controllers[i];
+			controller.value = controller.slider.value;
+			controller.label.innerText = controller.name + ': ' + controller.value;
+		}
 	},
 	label: function(view, label, val)
 	{
@@ -5268,7 +5311,35 @@ gb.debug_view =
 			}
 		}
 		LOG('No free observers available');
-	}
+	},
+	control: function(view, name, min, max, step, initial_value)
+	{
+		initial_value = initial_value || 0;
+
+		var label = document.createElement('div');
+		label.classList.add('gb-debug-label');
+		label.innerText = name + ': ' + initial_value;
+		view.container.appendChild(label);
+
+		var slider = document.createElement('input');
+		slider.setAttribute('type', 'range');
+
+		slider.classList.add('gb-debug-slider');
+		slider.min = min;
+		slider.max = max;
+		slider.step = step;
+		slider.defaultValue = initial_value;
+		slider.value = initial_value;
+		view.container.appendChild(slider);
+
+		var controller = new gb.Debug_Controller();
+		controller.name = name;
+		controller.label = label;
+		controller.slider = slider;
+		view.controllers.push(controller);
+
+		return controller;
+	},
 }
 //END
 

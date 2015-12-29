@@ -878,6 +878,7 @@ gb.quat =
 		r[1] = s * axis[1];
 		r[2] = s * axis[2];
 		r[3] = m.cos(s);
+		gb.quat.normalized(r,r);
 	},
 
 	get_angle_axis:function(q, angle, axis)
@@ -2069,6 +2070,7 @@ gb.Keys =
 
 gb.input = 
 {
+	root: null,
 	mouse_position: gb.vec3.new(),
 	last_mouse_position: gb.vec3.new(),
 	mouse_delta: gb.vec3.new(),
@@ -2096,6 +2098,7 @@ gb.input =
 		root.onmouseup   = _t.key_up;
 		root.onmousemove = _t.mouse_move;
 		root.addEventListener("wheel", _t.mouse_wheel, false);
+		//root.requestPointerLock = root.requestPointerLock || root.mozRequestPointerLock || root.webkitRequestPointerLock;
 
 		for(var i = 0; i < 256; ++i)
 		{
@@ -2120,6 +2123,8 @@ gb.input =
 		window.addEventListener("touchstart", _t.touch_start, false);
 	  	window.addEventListener("touchmove", _t.touch_move, false);
 	  	window.addEventListener("touchend", _t.touch_end, false);
+
+	  	_t.root = root;
 	},
 
 	update: function()
@@ -2149,6 +2154,18 @@ gb.input =
 		*/
 		gb.vec3.set(_t.mouse_delta, 0, 0, 0);
 	},
+
+	/*
+	lock_cursor: function(mode)
+	{
+		var _t = gb.input;
+		if(_t.root.requestPointerLock)
+		{
+			if(mode === true) _t.root.requestPointerLock();
+			else document.exitPointerLock();
+		}
+	},
+	*/
 
 	up: function(code)
 	{
@@ -3552,7 +3569,7 @@ gb.mesh.generate =
 		var vb = gb.vertex_buffer.new();
 		gb.vertex_buffer.add_attribute(vb, 'position', 3);
 		gb.vertex_buffer.add_attribute(vb, 'normal', 3);
-	    //gb.vertex_buffer.add_attribute(vb, 'uv', 2);
+	    gb.vertex_buffer.add_attribute(vb, 'uv', 2);
 	    gb.vertex_buffer.alloc(vb, rings * segments);
 
 		var i = 0;
@@ -4168,6 +4185,7 @@ gb.webgl =
 					 'OES_texture_float',
 					 'OES_element_index_uint'],
 	},
+	canvas: null,
 	extensions: {},
 	ctx: null,
 	view: null,
@@ -4201,6 +4219,7 @@ gb.webgl =
         _t.view = gb.rect.new(0,0,width,height);
 
         gl = canvas.getContext('webgl', _t.config);
+        _t.canvas = canvas;
 
         //DEBUG
         ASSERT(EXISTS(gl), "Could not load WebGL");
@@ -5339,6 +5358,7 @@ var fxaa_pass;
 
 var debug_view;
 var x_warp;
+var y_warp;
 
 function init()
 {
@@ -5362,7 +5382,8 @@ function init()
 function load_complete(asset_group)
 {
 	debug_view = gb.debug_view.new(document.body);
-	x_warp = gb.debug_view.control(debug_view, 'WarpX', 0, 1.0, 0.01);
+	x_warp = gb.debug_view.control(debug_view, 'WarpX', 0, 1.0, 0.01, 1.0);
+	y_warp = gb.debug_view.control(debug_view, 'WarpY', 0, 1.0, 0.01, 1.0);
 
 	assets = asset_group;
 	construct = scene.new(null, true);
@@ -5374,6 +5395,8 @@ function load_complete(asset_group)
 	camera = gb.camera.new();
 	camera.entity.position[2] = 3.0;
 	scene.add(camera);
+
+	input.lock_cursor(true);
 
 	/*
 	surface_target = gb.render_target.new();
@@ -5389,7 +5412,8 @@ function load_complete(asset_group)
 function update(dt)
 {
 	gb.debug_view.update(debug_view);
-
+	cube.material.warp_x = x_warp.value;
+	cube.material.warp_y = y_warp.value;
 }
 
 function render()

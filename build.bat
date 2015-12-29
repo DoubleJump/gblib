@@ -1,6 +1,6 @@
 @echo off
 
-set PROJECT=projection
+set PROJECT=basic
 
 call cls
 python tasks/tasks.py --build %PROJECT%

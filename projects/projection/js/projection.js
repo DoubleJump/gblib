@@ -17,6 +17,7 @@ var fxaa_pass;
 
 var debug_view;
 var x_warp;
+var y_warp;
 
 function init()
 {
@@ -40,7 +41,8 @@ function init()
 function load_complete(asset_group)
 {
 	debug_view = gb.debug_view.new(document.body);
-	x_warp = gb.debug_view.control(debug_view, 'WarpX', 0, 1.0, 0.01);
+	x_warp = gb.debug_view.control(debug_view, 'WarpX', 0, 1.0, 0.01, 1.0);
+	y_warp = gb.debug_view.control(debug_view, 'WarpY', 0, 1.0, 0.01, 1.0);
 
 	assets = asset_group;
 	construct = scene.new(null, true);
@@ -52,6 +54,8 @@ function load_complete(asset_group)
 	camera = gb.camera.new();
 	camera.entity.position[2] = 3.0;
 	scene.add(camera);
+
+	input.lock_cursor(true);
 
 	/*
 	surface_target = gb.render_target.new();
@@ -67,7 +71,8 @@ function load_complete(asset_group)
 function update(dt)
 {
 	gb.debug_view.update(debug_view);
-
+	cube.material.warp_x = x_warp.value;
+	cube.material.warp_y = y_warp.value;
 }
 
 function render()

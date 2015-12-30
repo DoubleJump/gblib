@@ -35,7 +35,6 @@ from math import radians
 from bpy_extras.io_utils import ExportHelper
 from struct import pack
 
-FP_PRECISION = 3
 
 OB_TYPE_CAMERA = 0
 OB_TYPE_LAMP = 1
@@ -55,11 +54,11 @@ ANIM_TYPE_ARMATURE = 2
 
 GB_MATRIX = mathutils.Matrix.Rotation(radians(-90.0), 4, 'X')
 
-def round_vec3(v):
-	return round(v[0], FP_PRECISION), round(v[1], FP_PRECISION), round(v[2], FP_PRECISION)
+def round_vec3(v, precision):
+	return round(v[0], precision), round(v[1], precision), round(v[2], precision)
 
-def round_vec2(v):
-	return round(v[0], FP_PRECISION), round(v[1], FP_PRECISION)
+def round_vec2(v, precision):
+	return round(v[0], precision), round(v[1], precision)
 
 class VertexAttribute:
 	def __init__(self, name, size, normalized):
@@ -134,7 +133,8 @@ class FileWriter:
 		self.vec3(transform.scale)
 		self.quaternion(transform.rotation_quaternion)
 
-	def material(self, material):
+	def material(self, ctx, material):
+		if ctx.export_materials is False: return
 		print("Exporting Material: " + material.name)
 		self.i32(OB_TYPE_MATERIAL)
 		self.string(material.name)
@@ -156,13 +156,15 @@ class FileWriter:
 			self.string(texture.image.name.split('.')[0])
 			self.string(texture['sampler'])
 
-	def empty(self, empty):
+	def empty(self, ctx, empty):
+		if ctx.export_entities is False: return
 		print("Exporting Empty: " + empty.name)
 		self.i32(OB_TYPE_EMPTY)
 		self.string(empty.name)
 		self.transform(empty)
 
-	def object(self, ob):
+	def object(self, ctx, ob):
+		if ctx.export_entities is False: return
 		print("Exporting Object: " + ob.name)
 		self.i32(OB_TYPE_OBJECT)
 		self.string(ob.name)
@@ -173,7 +175,8 @@ class FileWriter:
 			self.string('none')
 		self.string(ob.data.name) #our mesh
 
-	def lamp(self, ob, lamp):
+	def lamp(self, ctx, ob, lamp):
+		if ctx.export_lamps is False: return
 		print("Exporting Lamp: " + ob.name)
 		self.i32(OB_TYPE_LAMP)
 		self.string(ob.name)
@@ -196,7 +199,8 @@ class FileWriter:
 				self.vec3(point.handle_right)
 
 
-	def camera(self, ob, camera):
+	def camera(self, ctx, ob, camera):
+		if ctx.export_cameras is False: return
 		print("Exporting Camera: " + ob.name)
 		self.i32(OB_TYPE_CAMERA)
 		self.string(ob.name)
@@ -210,7 +214,8 @@ class FileWriter:
 		self.f32(camera.clip_end)
 		self.f32(camera.lens)
 
-	def armature(self, ob):
+	def armature(self, ctx, ob):
+		if ctx.export_armatures is False: return
 		print("Exporting Armature: " + ob.name)
 
 		self.i32(OB_TYPE_ARMATURE)
@@ -240,7 +245,7 @@ class FileWriter:
 			bone_ids[bone.name] = index
 			index += 1
 		
-	def mesh(self, ob, scene):
+	def mesh(self, ctx, ob, scene):
 		print("Exporting Mesh: " + ob.data.name)
 
 		modifiers = ob.modifiers
@@ -270,6 +275,9 @@ class FileWriter:
 
 		# Create a list for each vertex color layer
 		color_layers = mesh.tessface_vertex_colors
+		num_colors = ctx.color_channels
+		if num_colors < 1: num_colors = 1
+		elif num_colors > 4: num_colors = 4
 
 		# Create a list for each uv layer
 		uv_layers = mesh.tessface_uv_textures
@@ -277,37 +285,42 @@ class FileWriter:
 		for i, f in enumerate(mesh.tessfaces): # For each face on mesh
 			for j, v in enumerate(f.vertices): # For each vertex of face
 			
-				p = round_vec3(mesh.vertices[v].co)
+				p = round_vec3(mesh.vertices[v].co, ctx.vertex_precision)
 				vertex_buffer.append(p[0])
 				vertex_buffer.append(p[1])
-				vertex_buffer.append(p[2])
+				if ctx.export_2d is False:
+					vertex_buffer.append(p[2])
 
-				norm = round_vec3(mesh.vertices[v].normal)
-				vertex_buffer.append(norm[0])
-				vertex_buffer.append(norm[1])
-				vertex_buffer.append(norm[2])
+				if ctx.export_normals:
+					norm = round_vec3(mesh.vertices[v].normal, ctx.normal_precision)
+					vertex_buffer.append(norm[0])
+					vertex_buffer.append(norm[1])
+					vertex_buffer.append(norm[2])
 
-				for n, l in enumerate(uv_layers):
-					uv = uv_layers[n].data[i].uv[j]
-					uv = round_vec2(uv)
-					vertex_buffer.append(uv[0])
-					vertex_buffer.append(uv[1])
+				if ctx.export_uvs:
+					for n, l in enumerate(uv_layers):
+						uv = uv_layers[n].data[i].uv[j]
+						uv = round_vec2(uv, ctx.uv_precision)
+						vertex_buffer.append(uv[0])
+						vertex_buffer.append(uv[1])
 
-				for k, l in enumerate(color_layers):
-					c = None;
-					if(j == 0): c = color_layers[k].data[i].color1
-					elif(j == 1): c = color_layers[k].data[i].color2
-					elif(j == 2): c = color_layers[k].data[i].color3
-					else: c = color_layers[k].data[i].color4
-					c = round_vec3(c);
-					vertex_buffer.append(c[0])
-					vertex_buffer.append(c[1])
-					vertex_buffer.append(c[2])
-					vertex_buffer.append(1.0)
+				if ctx.export_vertex_colors:
+					for k, l in enumerate(color_layers):
+						c = None;
+						if(j == 0): c = color_layers[k].data[i].color1
+						elif(j == 1): c = color_layers[k].data[i].color2
+						elif(j == 2): c = color_layers[k].data[i].color3
+						else: c = color_layers[k].data[i].color4
+						c = round_vec3(c, ctx.color_precision);
+
+						vertex_buffer.append(c[0])
+						if num_colors > 1: vertex_buffer.append(c[1])
+						if num_colors > 2: vertex_buffer.append(c[2])
+						if num_colors > 3: vertex_buffer.append(1.0)
 																						  
 				index_buffer.append(vertex_count)
 
-				if armature:
+				if armature and ctx.export_armatures and ctx.export_weights:
 					groups = mesh.vertices[v].groups
 					num_groups = len(groups)
 					if num_groups is 0:
@@ -345,33 +358,43 @@ class FileWriter:
 				vertex_count += 1
 
 		attributes = []
-		num_attributes = 2
-		attributes.append(VertexAttribute('position', 3, False))
-		attributes.append(VertexAttribute('normal', 3, False))
+		num_attributes = 1
+		if ctx.export_2d:
+			attributes.append(VertexAttribute('position', 2, False))
+		else:
+			attributes.append(VertexAttribute('position', 3, False))
 
-		uv_ln = len(uv_layers)
-		num_attributes += uv_ln
-		for i in range(0, uv_ln):
-			if i is 0:
-				attributes.append(VertexAttribute('uv', 2, False))
-			else:
-				attributes.append(VertexAttribute('uv' + str(i+1), 2, False))
-		
-		color_ln = len(color_layers)
-		num_attributes += color_ln
-		for i in range(0, color_ln):
-			if i is 0:
-				attributes.append(VertexAttribute('color', 4, True))
-			else:
-				attributes.append(VertexAttribute('color' + str(i+1), 4, True))
 
-		weight_ln = len(ob.vertex_groups)
-		if weight_ln > 0:
-			attributes.append(VertexAttribute('weight', 4, False))
+		if ctx.export_normals:
 			num_attributes += 1
+			attributes.append(VertexAttribute('normal', 3, False))
+
+		if ctx.export_uvs:
+			uv_ln = len(uv_layers)
+			num_attributes += uv_ln
+			for i in range(0, uv_ln):
+				if i is 0:
+					attributes.append(VertexAttribute('uv', 2, False))
+				else:
+					attributes.append(VertexAttribute('uv' + str(i+1), 2, False))
+		
+		if ctx.export_vertex_colors:
+			color_ln = len(color_layers)
+			num_attributes += color_ln
+			for i in range(0, color_ln):
+				if i is 0:
+					attributes.append(VertexAttribute('color', num_colors, True))
+				else:
+					attributes.append(VertexAttribute('color' + str(i+1), num_colors, True))
+
+		if ctx.export_weights:
+			weight_ln = len(ob.vertex_groups)
+			if weight_ln > 0:
+				attributes.append(VertexAttribute('weight', 4, False))
+				num_attributes += 1
 
 		vertex_data_ln = len(vertex_buffer)
-		#index_data_ln = len(index_buffer)
+		index_data_ln = len(index_buffer)
 
 		self.i32(OB_TYPE_MESH)
 		self.string(ob.data.name)
@@ -380,11 +403,11 @@ class FileWriter:
 		for vertex in vertex_buffer:
 			self.f32(vertex)
 
-		'''
-		self.i32(index_data_ln)
-		for index in index_buffer:
-			self.i32(index)
-		'''
+		if ctx.export_indices:
+			self.i32(index_data_ln)
+			for index in index_buffer:
+				self.i32(index)
+		else: self.i32(0)
 
 		self.i32(num_attributes)
 		for attr in attributes:
@@ -406,7 +429,9 @@ class FileWriter:
 			self.f32(keyframe.handle_right[0] / fps)
 			self.f32(keyframe.handle_right[1])
 
-	def action(self, action, ob, owner, scene, anim_type):
+	def action(self, ctx, action, ob, owner, scene, anim_type):
+		if ctx.export_actions is False: return
+
 		print("Exporting Action: " + action.name)
 
 		self.i32(OB_TYPE_ACTION)
@@ -487,6 +512,51 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 	filename_ext = ".scene"
 	filter_glob = StringProperty(default = "*.scene", options = {'HIDDEN'})
 
+	vertex_precision = IntProperty(name="Vertex Precision", description="Vertex precision", default=3)
+	normal_precision = IntProperty(name="Normal Precision", description="Normal precision", default=3)
+	uv_precision = IntProperty(name="UV Precision", description="UV precision", default=3)
+	color_precision = IntProperty(name="Color Precision", description="Color precision", default=3)
+	color_channels = IntProperty(name="Color Channels", description="Color channels", default=4)
+
+	export_indices = BoolProperty(name="Export Indices", description="Export index buffer", default=False)
+	export_2d = BoolProperty(name="Export 2D", description="Only export X and Y coordinates", default=False)
+	export_normals = BoolProperty(name="Export Normals", description="Include normals as vertex attribute", default=True)
+	export_uvs = BoolProperty(name="Export Uvs", description="Include uvs as vertex attribute", default=True)
+	export_vertex_colors = BoolProperty(name="Export Vertex Colors", description="Include colors as vertex attribute", default=True)
+	export_weights = BoolProperty(name="Export Weights", description="Include weights as vertex attribute", default=True)
+
+	export_materials = BoolProperty(name="Export Materials", description="Include materials", default=True)
+	export_entities = BoolProperty(name="Export Entities", description="Include entities", default=True)
+	export_animations = BoolProperty(name="Export Animations", description="Include materials", default=True)
+	export_cameras = BoolProperty(name="Export Cameras", description="Include cameras", default=True)
+	export_lamps = BoolProperty(name="Export Lamps", description="Include lamps", default=True)
+	export_curves = BoolProperty(name="Export Curves", description="Include curves", default=True)
+	export_armatures = BoolProperty(name="Export Armatures", description="Include armatures", default=True)
+	export_actions = BoolProperty(name="Export Actions", description="Include actions", default=True)
+
+
+	def draw(self, context):
+		layout = self.layout
+		layout.prop(self, "vertex_precision")
+		layout.prop(self, "normal_precision")
+		layout.prop(self, "uv_precision")
+		layout.prop(self, "color_precision")
+		layout.prop(self, "color_channels")
+		layout.prop(self, "export_indices")
+		layout.prop(self, "export_2d")
+		layout.prop(self, "export_normals")
+		layout.prop(self, "export_uvs")
+		layout.prop(self, "export_vertex_colors")
+		layout.prop(self, "export_weights")
+		layout.prop(self, "export_materials")
+		layout.prop(self, "export_entities")
+		layout.prop(self, "export_animations")
+		layout.prop(self, "export_cameras")
+		layout.prop(self, "export_lamps")
+		layout.prop(self, "export_curves")
+		layout.prop(self, "export_armatures")
+		layout.prop(self, "export_actions")
+
 	def execute(self, context):
 			
 		scene = bpy.context.scene 
@@ -495,6 +565,8 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 		filepath = self.filepath
 		filepath = bpy.path.ensure_ext(filepath, self.filename_ext)
 		writer = FileWriter(filepath)
+
+		print(self.export_normals)
 
 		exported_meshes = []
 		exported_actions = []
@@ -515,88 +587,76 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 			if ob.type == 'ARMATURE':
 				armature = bpy.data.objects[ob.name]
 				if not armature in exported_armatures:
-					if not armature.animation_data is None:
-						action = armature.animation_data.action
-						if not action is None:
-							if not action in exported_actions:
-								writer.armature_action(action, ob, scene)
-								exported_actions.append(action)
-
-					writer.armature(ob)
-					exported_armatures.append(armature)
-
-			elif not ob.animation_data is None:
-				action = ob.animation_data.action
-				if not action is None:
-					if not action in exported_actions:
-						writer.action(action, ob, ob, scene, ANIM_TYPE_ENTITY)
+					action = self.find_action(armature)
+					if not action is None:
+						writer.armature_action(self, action, ob, scene)
 						exported_actions.append(action)
+
+					writer.armature(self, ob)
+					exported_armatures.append(armature)
+			else:
+				action = self.find_action(ob)
+				if not action is None:
+					writer.action(self, action, ob, ob, scene, ANIM_TYPE_ENTITY)
+					exported_actions.append(action)
 
 			if ob.type == 'CAMERA': 
 				camera = ob.data
 				if not camera in exported_cameras:
-					if not camera.animation_data is None:
-						action = camera.animation_data.action
-						if not action is None:
-							if not action in exported_actions:
-								writer.action(action, ob, ob, scene, ANIM_TYPE_ENTITY)
-								exported_actions.append(action)
+					action = self.find_action(camera)
+					if not action is None:
+						writer.action(self, action, ob, ob, scene, ANIM_TYPE_ENTITY)
+						exported_actions.append(action)
 
-					writer.camera(ob, camera)
+					writer.camera(self, ob, camera)
 					exported_cameras.append(camera)
 
-			elif ob.type == 'CURVE':
+			elif ob.type == 'CURVE' and self.export_curves is True:
 				curve = ob.data
 				if not curve in exported_curves:
-					if not curve.animation_data is None:
-						action = curve.animation_data.action
-						if not action is None:
-							if not action in exported_actions:
-								writer.action(action, ob, ob, scene, ANIM_TYPE_ENTITY)
-								exported_actions.append(action)
-
-					writer.curve(ob, curve)
+					action = self.find_action(curve)
+					if not action is None:
+						writer.action(self, action, ob, ob, scene, ANIM_TYPE_ENTITY)
+						exported_actions.append(action)
+							
+					writer.curve(self, ob, curve)
 					exported_cameras.append(curve)
 
 			elif ob.type == 'LAMP': 
 				lamp = ob.data
 				if not lamp in exported_lamps:
-					if not lamp.animation_data is None:
-						action = lamp.animation_data.action
-						if not action is None:
-							if not action in exported_actions:
-								writer.action(action, ob, ob, scene, ANIM_TYPE_ENTITY)
-								exported_actions.append(action)
+					action = self.find_action(lamp)
+					if not action is None:
+						writer.action(self, action, ob, ob, scene, ANIM_TYPE_ENTITY)
+						exported_actions.append(action)
 				
-					writer.lamp(ob, lamp)
+					writer.lamp(self, ob, lamp)
 					exported_lamps.append(lamp)
 
 			elif ob.type == 'MESH':
 				if len(ob.material_slots) > 0:
 					material = ob.material_slots[0].material
 					if not material in exported_materials:
-						if not material.animation_data is None:
-							action = material.animation_data.action
-							if not action is None:
-								if not action in exported_actions:
-									writer.action(action, ob, material, scene, ANIM_TYPE_MATERIAL)
-									exported_actions.append(action)
+						action = self.find_action(material)
+						if not action is None:
+							writer.action(action, ob, material, scene, ANIM_TYPE_MATERIAL)
+							exported_actions.append(action)
 
-						writer.material(material)
+						writer.material(self, material)
 						exported_materials.append(material)
 
 				if not ob.data.name in exported_meshes:
-					writer.mesh(ob, scene)
+					writer.mesh(self, ob, scene)
 					exported_meshes.append(ob.data.name)
 
-				writer.object(ob)
+				writer.object(self, ob)
 
 			elif ob.type == 'EMPTY':
-				writer.empty(ob)
+				writer.empty(self, ob)
 
 		writer.i32(OB_TYPE_FILE_END)
 		writer.close()
-		print(writer.offset)
+		#print(writer.offset)
 
 		print("")
 		print("######### EXPORT COMPLETED ###########")
@@ -604,6 +664,11 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 							
 		return {'FINISHED'}
 
+	def find_action(self, ob):
+		if ob.animation_data is None: return None
+		action = ob.animation_data.action
+		if action in self.exported_actions: return None
+		return action
 
 	def invoke(self, context, event):
 		wm = context.window_manager

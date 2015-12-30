@@ -1,4 +1,4 @@
-//INCLUDE projects/projection/js/gblib.js
+//INCLUDE projects/vector/js/gblib.js
 var v2 = gb.vec2;
 var v3 = gb.vec3;
 var qt = gb.quat;
@@ -8,16 +8,14 @@ var gl = gb.webgl;
 var input = gb.input;
 var scene = gb.scene;
 var assets;
+var debug_view;
 
 var construct;
 var cube;
 var camera;
 var surface_target;
 var fxaa_pass;
-
-var debug_view;
-var x_warp;
-var y_warp;
+var thickness;
 
 function init()
 {
@@ -25,13 +23,13 @@ function init()
 	{
 		config:
 		{
-			frame_skip: true,
+			frame_skip: false,
 			update: update, 
 			render: render,
 		},
 		gl:
 		{
-			antialias: true,
+			antialias: false,
 		}
 	});
 
@@ -41,27 +39,35 @@ function init()
 function load_complete(asset_group)
 {
 	debug_view = gb.debug_view.new(document.body);
-	x_warp = gb.debug_view.control(debug_view, 'WarpX', 0, 1.0, 0.01, 1.0);
-	y_warp = gb.debug_view.control(debug_view, 'WarpY', 0, 1.0, 0.01, 1.0);
+	thickness = gb.debug_view.control(debug_view, 'Thickness', 0.01, 0.5, 0.01, 0.01);
 
 	assets = asset_group;
 	construct = scene.new(null, true);
 
-	cube = gb.entity.mesh(assets.meshes.map, gb.material.new(assets.shaders.sphere));
-	cube.spin = 0;
+	//var vb = gb.vertex_buffer.new([0,0,0, 0,1,0, 1,1,0]);
+	var vb = gb.vertex_buffer.new(
+	[
+		0.0,0.8, 0.0,0.0, 
+		1.0,0.0, 1.0,1.0,
+		1.0,0.7, 0.5,0.0
+	]);
+	//var ib = gb.index_buffer.new([0,1,2]);
+	gb.vertex_buffer.add_attribute(vb, 'position', 2);
+	gb.vertex_buffer.add_attribute(vb, 'uv', 2);
+
+	var mesh = gb.mesh.new(vb, null);
+	cube = gb.entity.mesh(mesh, gb.material.new(assets.shaders.vector));
 	scene.add(cube);
 
 	camera = gb.camera.new();
 	camera.entity.position[2] = 3.0;
 	scene.add(camera);
 
-	/*
 	surface_target = gb.render_target.new();
 	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
 	fxaa_pass.material.texture = surface_target.color;
 	v2.set(fxaa_pass.material.resolution, gl.view.width, gl.view.height);
 	v2.set(fxaa_pass.material.inv_resolution, 1.0 / gl.view.width, 1.0 / gl.view.height);
-	*/
 
 	gb.allow_update = true;
 }
@@ -69,14 +75,14 @@ function load_complete(asset_group)
 function update(dt)
 {
 	gb.debug_view.update(debug_view);
-	cube.material.warp_x = x_warp.value;
-	cube.material.warp_y = y_warp.value;
+	cube.material.thickness = thickness.value;
 }
 
 function render()
 {
-	gl.render_scene(construct, camera, null);
-	//gl.render_post_call(fxaa_pass);
+	gl.render_scene(construct, camera, surface_target);
+	//gb.gl_draw.render(camera, null);
+	gl.render_post_call(fxaa_pass);
 }
 
 window.addEventListener('load', init, false);

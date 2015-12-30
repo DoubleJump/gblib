@@ -3409,14 +3409,11 @@ gb.binary_reader.mesh = function(br)
 	var vb_size = s.i32(br);
 	var vertices = s.f32_array(br, vb_size);
 	var vb = gb.vertex_buffer.new(vertices);
-	
-	var ib_size = s.i32(br);
-	if(ib_size > 0)
-	{
-		var indices = s.u32_array(br, ib_size);
-		var ib = gb.index_buffer.new(indices);
-	}
-
+	/*
+	var ib_size = s.r_i32(br);
+	var indices = s.r_u32_array(br, ib_size);
+	var ib = gb.index_buffer.new(indices);
+	*/
 	var num_attributes = s.i32(br);
 	for(var i = 0; i < num_attributes; ++i)
 	{
@@ -3507,15 +3504,15 @@ gb.mesh.generate =
 
 	    return gb.mesh.new(vb, ib);
 	},
-	/*
+
 	grid: function(width, height, res_x, res_y)
 	{
 		var num_cells = res_x * res_y;
 
 		var vb = gb.vertex_buffer.new();
 		gb.vertex_buffer.add_attribute(vb, 'position', 3);
-		gb.vertex_buffer.add_attribute(vb, 'normal', 3);
-	    gb.vertex_buffer.add_attribute(vb, 'uv', 2);
+		//gb.vertex_buffer.add_attribute(vb, 'normal', 3);
+	    //gb.vertex_buffer.add_attribute(vb, 'uv', 2);
 	    gb.vertex_buffer.alloc(vb, num_cells);
 
 	    var w = width / res_x;
@@ -3537,14 +3534,18 @@ gb.mesh.generate =
                 i += 3;
 
                 // normal
+                /*
                 vb.data[  i] = 0;
                 vb.data[i+1] = 0;
                 vb.data[i+2] = 1;
                 i += 3;
+                */
                 // uv
+                /*
                 vb.data[  i] = x * u;
                 vb.data[i+1] = x * v;
                 i += 2;
+                */
 	    	}
 	    }
 
@@ -3628,7 +3629,6 @@ gb.mesh.generate =
         }
         return gb.mesh.new(vb, ib);
 	}
-	*/
 }
 gb.Texture = function()
 {
@@ -5350,16 +5350,14 @@ var gl = gb.webgl;
 var input = gb.input;
 var scene = gb.scene;
 var assets;
+var debug_view;
 
 var construct;
 var cube;
 var camera;
 var surface_target;
 var fxaa_pass;
-
-var debug_view;
-var x_warp;
-var y_warp;
+var thickness;
 
 function init()
 {
@@ -5367,13 +5365,13 @@ function init()
 	{
 		config:
 		{
-			frame_skip: true,
+			frame_skip: false,
 			update: update, 
 			render: render,
 		},
 		gl:
 		{
-			antialias: true,
+			antialias: false,
 		}
 	});
 
@@ -5383,27 +5381,35 @@ function init()
 function load_complete(asset_group)
 {
 	debug_view = gb.debug_view.new(document.body);
-	x_warp = gb.debug_view.control(debug_view, 'WarpX', 0, 1.0, 0.01, 1.0);
-	y_warp = gb.debug_view.control(debug_view, 'WarpY', 0, 1.0, 0.01, 1.0);
+	thickness = gb.debug_view.control(debug_view, 'Thickness', 0.01, 0.5, 0.01, 0.01);
 
 	assets = asset_group;
 	construct = scene.new(null, true);
 
-	cube = gb.entity.mesh(assets.meshes.map, gb.material.new(assets.shaders.sphere));
-	cube.spin = 0;
+	//var vb = gb.vertex_buffer.new([0,0,0, 0,1,0, 1,1,0]);
+	var vb = gb.vertex_buffer.new(
+	[
+		0.0,0.8, 0.0,0.0, 
+		1.0,0.0, 1.0,1.0,
+		1.0,0.7, 0.5,0.0
+	]);
+	//var ib = gb.index_buffer.new([0,1,2]);
+	gb.vertex_buffer.add_attribute(vb, 'position', 2);
+	gb.vertex_buffer.add_attribute(vb, 'uv', 2);
+
+	var mesh = gb.mesh.new(vb, null);
+	cube = gb.entity.mesh(mesh, gb.material.new(assets.shaders.vector));
 	scene.add(cube);
 
 	camera = gb.camera.new();
 	camera.entity.position[2] = 3.0;
 	scene.add(camera);
 
-	/*
 	surface_target = gb.render_target.new();
 	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
 	fxaa_pass.material.texture = surface_target.color;
 	v2.set(fxaa_pass.material.resolution, gl.view.width, gl.view.height);
 	v2.set(fxaa_pass.material.inv_resolution, 1.0 / gl.view.width, 1.0 / gl.view.height);
-	*/
 
 	gb.allow_update = true;
 }
@@ -5411,14 +5417,14 @@ function load_complete(asset_group)
 function update(dt)
 {
 	gb.debug_view.update(debug_view);
-	cube.material.warp_x = x_warp.value;
-	cube.material.warp_y = y_warp.value;
+	cube.material.thickness = thickness.value;
 }
 
 function render()
 {
-	gl.render_scene(construct, camera, null);
-	//gl.render_post_call(fxaa_pass);
+	gl.render_scene(construct, camera, surface_target);
+	//gb.gl_draw.render(camera, null);
+	gl.render_post_call(fxaa_pass);
 }
 
 window.addEventListener('load', init, false);

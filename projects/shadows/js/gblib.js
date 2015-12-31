@@ -20,7 +20,8 @@
 //INCLUDE lib/js/gl/camera.js
 //INCLUDE lib/js/gl/scene.js
 //INCLUDE lib/js/gl/mesh.js
-//INCLUDE lib/js/gl/mesh_tools.js
+//INCLUDE lib/js/gl/mesh/quad.js
+//INCLUDE lib/js/gl/mesh/cube.js
 //INCLUDE lib/js/gl/texture.js
 //INCLUDE lib/js/gl/dds.js
 //INCLUDE lib/js/gl/shader.js

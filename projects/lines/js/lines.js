@@ -1,4 +1,5 @@
 //INCLUDE projects/lines/js/gblib.js
+//INCLUDE lib/js/gl/fps_camera.js
 //INCLUDE lib/js/gl/curve.js
 //INCLUDE lib/js/gl/line_mesh.js
 
@@ -42,14 +43,14 @@ function load_complete(ag)
 	construct = scene.new(null, true);
 
 	//line = gb.line_mesh.ellipse(2,2,60,0.1);
-	line = gb.line_mesh.curve(ag.curves['bob'], 15);
+	line = gb.line_mesh.curve(ag.curves['spiral'], 30, 0.1);
 
 	line.entity.material = gb.material.new(ag.shaders.line);
 	line.entity.material.line_width = line.thickness;
 	line.entity.material.cutoff = line.length;
 	line.entity.material.aspect = 1.0;
 	line.entity.material.mitre = 1;
-	gb.color.set(line.entity.material.color, 0.8,0.8,0.884,1.0);
+	//gb.color.set(line.entity.material.color, 0.8,0.8,0.884,1.0);
 	scene.add(line);
 
 	camera = gb.camera.new();
@@ -70,7 +71,10 @@ function update(dt)
 	line_cutoff += dt;
 	var sint = (gb.math.sin(line_cutoff) + 1) * 0.5;
 	//line.entity.material.line_width = sint;
-	//line.entity.material.cutoff = sint * line.length;
+	line.entity.material.cutoff = sint * line.length;
+	//line.entity.material.cutoff = sint * line_cutoff;
+
+	gb.camera.fly(camera, dt, 80);
 }
 
 function render()

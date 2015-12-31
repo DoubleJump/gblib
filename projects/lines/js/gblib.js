@@ -8,6 +8,7 @@
 //INCLUDE lib/js/vector.js
 //INCLUDE lib/js/quaternion.js
 //INCLUDE lib/js/matrix.js
+//INCLUDE lib/js/projections.js
 //INCLUDE lib/js/rect.js
 //INCLUDE lib/js/aabb.js
 //INCLUDE lib/js/color.js
@@ -17,7 +18,7 @@
 //INCLUDE lib/js/gl/camera.js
 //INCLUDE lib/js/gl/scene.js
 //INCLUDE lib/js/gl/mesh.js
-//INCLUDE lib/js/gl/mesh_tools.js
+//INCLUDE lib/js/gl/mesh/quad.js
 //INCLUDE lib/js/gl/texture.js
 //INCLUDE lib/js/gl/shader.js
 //INCLUDE lib/js/gl/material.js

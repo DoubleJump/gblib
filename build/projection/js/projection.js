@@ -21,6 +21,7 @@ var gb =
 	{
 		frame_skip: false,
 		update: null,
+		debug_update: null,
 		render: null,
 		gl:
 		{
@@ -31,7 +32,7 @@ var gb =
 		},
 		gl_draw:
 		{
-			buffer_size: 2048,
+			buffer_size: 4096,
 		},
 		input:
 		{
@@ -45,6 +46,7 @@ var gb =
 	do_skip_this_frame: false,
 
 	update: function(t){},
+	debug_update: function(t){},
 	render: function(){},
 
 	focus: function(e)
@@ -80,6 +82,7 @@ var gb =
 		//END
 
 		if(gb.config.update) gb.update = config.config.update;
+		if(gb.config.debug_update) gb.debug_update = config.config.debug_update;
 		if(gb.config.render) gb.render = config.config.render;
 
 		window.onfocus = gb.focus;
@@ -114,9 +117,12 @@ var gb =
 		}
 		gb.stack.clear_all();
 		
-		gb.update(gb.time.dt);
-		gb.scene.update(gb.time.dt);
-		
+		var dt = gb.time.dt;
+		gb.update(dt);
+		gb.scene.update(dt);
+		//DEBUG
+		gb.debug_update(dt);
+		//END
 		gb.input.update();
 		//DEBUG
 		gb.webgl.verify_context();
@@ -2801,10 +2807,6 @@ gb.Camera = function()
 	this.far;
 	this.fov;
 	this.scale;
-	//DEBUG
-	this.angle_x = 0;
-	this.angle_y = 0;
-	//END
 	return this;
 }
 gb.camera = 
@@ -2860,82 +2862,6 @@ gb.camera =
 		gb.mat3.inverse(c.normal, c.normal);
 		gb.mat3.transposed(c.normal, c.normal);
 	},
-
-	//DEBUG
-	fly: function(c, dt)
-	{
-		var e = c.entity;
-		var index = gb.vec3.stack.index;
-
-		var m_delta = gb.input.mouse_delta;
-		var ROTATE_SPEED = 30.0;
-		var X_LIMIT = 80.0;
-
-		c.angle_x -= m_delta[1] * ROTATE_SPEED * dt;
-		c.angle_y -= m_delta[0] * ROTATE_SPEED * dt;
-		
-		//if(c.angle_x > X_LIMIT) c.angle_x = X_LIMIT;
-		//else if(c.angle_x < -X_LIMIT) c.angle_x = -X_LIMIT;
-
-		var rot_x = gb.quat.tmp();
-		var rot_y = gb.quat.tmp();
-		var rot = gb.quat.tmp();
-		var right = gb.vec3.tmp(1,0,0);
-		var up = gb.vec3.tmp(0,1,0);
-
-		gb.quat.angle_axis(rot_x, c.angle_x, right);
-		gb.quat.angle_axis(rot_y, c.angle_y, up);
-
-		gb.quat.mul(rot, rot_y, rot_x);
-		gb.quat.mul(e.rotation, rot_y, rot_x);
-
-		var move = gb.vec3.tmp();
-		var MOVE_SPEED = 1.0;
-		if(gb.input.held(gb.Keys.a))
-		{
-			move[0] = -MOVE_SPEED * dt;
-		}
-		else if(gb.input.held(gb.Keys.d))
-		{
-			move[0] = MOVE_SPEED * dt;
-		}
-		if(gb.input.held(gb.Keys.w))
-		{
-			move[2] = -MOVE_SPEED * dt;
-		}
-		else if(gb.input.held(gb.Keys.s))
-		{
-			move[2] = MOVE_SPEED * dt;
-		}
-
-		gb.mat4.mul_dir(move, e.world_matrix, move);
-		gb.vec3.add(e.position, move, e.position);
-		e.dirty = true;
-
-		gb.entity.update(c.entity);
-
-
-		// Draw reticule cross... (yeah, I know)
-
-		var vx = gb.webgl.view.width / 2;
-		var vy = gb.webgl.view.height / 2;
-
-		var size = 5;
-		var ct = v3.tmp(vx, vy + size,0);
-		var cb = v3.tmp(vx, vy - size,0);
-		var cl = v3.tmp(vx - size, vy);
-		var cr = v3.tmp(vx + size, vy);
-		gb.projections.screen_to_world(ct, c.view_projection, ct, gb.webgl.view);
-		gb.projections.screen_to_world(cb, c.view_projection, cb, gb.webgl.view);
-		gb.projections.screen_to_world(cl, c.view_projection, cl, gb.webgl.view);
-		gb.projections.screen_to_world(cr, c.view_projection, cr, gb.webgl.view);
-		gb.gl_draw.line(ct, cb);
-		gb.gl_draw.line(cl, cr);
-
-		gb.vec3.stack.index = index;
-
-	}
-	//END
 }
 
 gb.Projection = 
@@ -2982,9 +2908,6 @@ gb.Scene = function()
 	this.draw_items;
 	this.num_draw_items;
 	this.animations = [];
-	//DEBUG
-	this.fly_mode = false;
-	//END
 }
 gb.scene = 
 {
@@ -3068,17 +2991,6 @@ gb.scene =
 				gb.animation.update(anim, dt);
 			}
 		}
-
-		//DEBUG
-		if(gb.input.down(gb.Keys.f))
-		{
-			s.fly_mode = !s.fly_mode;
-		}
-		if(s.active_camera && s.fly_mode === true)
-		{
-			gb.camera.fly(s.active_camera, dt);
-		}
-		//END
 
 		var n = s.num_entities;
 		s.num_draw_items = 0;
@@ -3430,205 +3342,28 @@ gb.binary_reader.mesh = function(br)
 	mesh.name = name;
 	return mesh;
 }
-gb.mesh.generate = 
+gb.mesh.quad = function(width, height, depth)
 {
-	quad: function(width, height, depth)
-	{
-	    var P = gb.vec3.tmp(width / 2, height / 2, depth / 2);
-	    var N = gb.vec3.tmp();
-	    gb.vec3.normalized(N, P);
+    var P = gb.vec3.tmp(width / 2, height / 2, depth / 2);
+    var N = gb.vec3.tmp();
+    gb.vec3.normalized(N, P);
 
-	    var vb = gb.vertex_buffer.new(
-	    [
-	    	// POS  NORMAL UV
-	        -P[0],-P[1], P[2], N[0], N[1], N[2], 0,0,
-	         P[0],-P[1], P[2], N[0], N[1], N[2], 1,0,
-	        -P[0], P[1],-P[2], N[0], N[1], N[2], 0,1,
-	         P[0], P[1],-P[2], N[0], N[1], N[2], 1,1
-	    ]);
+    var vb = gb.vertex_buffer.new(
+    [
+    	// POS  NORMAL UV
+        -P[0],-P[1], P[2], N[0], N[1], N[2], 0,0,
+         P[0],-P[1], P[2], N[0], N[1], N[2], 1,0,
+        -P[0], P[1],-P[2], N[0], N[1], N[2], 0,1,
+         P[0], P[1],-P[2], N[0], N[1], N[2], 1,1
+    ]);
 
-	    gb.vertex_buffer.add_attribute(vb, 'position', 3);
-	    gb.vertex_buffer.add_attribute(vb, 'normal', 3);
-	    gb.vertex_buffer.add_attribute(vb, 'uv', 2);
+    gb.vertex_buffer.add_attribute(vb, 'position', 3);
+    gb.vertex_buffer.add_attribute(vb, 'normal', 3);
+    gb.vertex_buffer.add_attribute(vb, 'uv', 2);
 
-	    var ib = gb.index_buffer.new([0,1,3,0,3,2]);
+    var ib = gb.index_buffer.new([0,1,3,0,3,2]);
 
-	    return gb.mesh.new(vb, ib);
-	},
-
-	cube: function(width, height, depth)
-	{
-		var x = width / 2;
-		var y = height / 2;
-		var z = depth / 2;
-
-		var vb = gb.vertex_buffer.new(
-		[
-			// POS    NORMAL  UV
-			-x,-y, z, 0,0,1, 0,0, 
-			 x,-y, z, 0,0,1, 1,0, 
-			-x, y, z, 0,0,1, 0,1, 
-			 x, y, z, 0,0,1, 1,1, 
-			 x,-y, z, 1,0,0, 0,0, 
-			 x,-y,-z, 1,0,0, 1,0, 
-			 x, y, z, 1,0,0, 0,1, 
-			 x, y,-z, 1,0,0, 1,1, 
-			-x,-y,-z, 0,-1,0,0,0, 
-			 x,-y,-z, 0,-1,0,1,0, 
-			-x,-y, z, 0,-1,0,0,1, 
-			 x,-y, z, 0,-1,0,1,1, 
-			-x,-y,-z, -1,0,0,0,0, 			
-			-x,-y, z, -1,0,0,1,0, 			
-			-x, y,-z, -1,0,0,0,1, 			
-			-x, y, z, -1,0,0,1,1, 			
-			-x, y, z, 0,1,1, 0,0, 
-			 x, y, z, 0,1,1, 1,0, 
-			-x, y,-z, 0,1,1, 0,1, 
-			 x, y,-z, 0,1,1, 1,1, 
-			 x,-y,-z, 0,0,-1,0,0, 
-			-x,-y,-z, 0,0,-1,1,0, 
-			 x, y,-z, 0,0,-1,0,1, 
-			-x, y,-z, 0,0,-1,1,1 		
-		]);
-
-		gb.vertex_buffer.add_attribute(vb, 'position', 3);
-		gb.vertex_buffer.add_attribute(vb, 'normal', 3);
-	    gb.vertex_buffer.add_attribute(vb, 'uv', 2);
-				
-		var ib = gb.index_buffer.new(
-		[
-			0,1,3,0,3,2, 
-			4,5,7,4,7,6, 
-			8,9,11,8,11,10, 
-			12,13,15,12,15,14, 
-			16,17,19,16,19,18, 
-			20,21,23,20,23,22 
-		]);
-
-	    return gb.mesh.new(vb, ib);
-	},
-	/*
-	grid: function(width, height, res_x, res_y)
-	{
-		var num_cells = res_x * res_y;
-
-		var vb = gb.vertex_buffer.new();
-		gb.vertex_buffer.add_attribute(vb, 'position', 3);
-		gb.vertex_buffer.add_attribute(vb, 'normal', 3);
-	    gb.vertex_buffer.add_attribute(vb, 'uv', 2);
-	    gb.vertex_buffer.alloc(vb, num_cells);
-
-	    var w = width / res_x;
-	    var h = height / res_y;
-	    var hw = w / 2;
-	    var hh = h / 2;
-	    var u = 1 / w;
-	    var v = 1 / h;
-
-	    var i = 0;
-	    for(var y = 0; y < res_y; ++y)
-	    {
-	    	for(var x = 0; x < res_x; ++x)
-	    	{
-	    		// position
-                vb.data[  i] = (x * w) - hw;
-                vb.data[i+1] = (y * h) - hh;
-                vb.data[i+2] = 0.0;
-                i += 3;
-
-                // normal
-                vb.data[  i] = 0;
-                vb.data[i+1] = 0;
-                vb.data[i+2] = 1;
-                i += 3;
-                // uv
-                vb.data[  i] = x * u;
-                vb.data[i+1] = x * v;
-                i += 2;
-	    	}
-	    }
-
-	    var ib = gb.index_buffer.new(num_cells * 6);
-	    for(var n = 0; n < num_cells; ++n)
-	    {
-	    	ib.data[  i] = n + 0;
-		    ib.data[i+1] = n + 1;
-		    ib.data[i+2] = n + 3;
-		    ib.data[i+3] = n + 0;
-		    ib.data[i+4] = n + 3;
-		    ib.data[i+5] = n + 2;
-		    i += 6
-	    }
-
-	    return gb.mesh.new(vb, ib);
-	},
-
-	sphere: function(radius, segments, rings)
-	{
-		var lat, lng;
-		var vb = gb.vertex_buffer.new();
-		gb.vertex_buffer.add_attribute(vb, 'position', 3);
-		gb.vertex_buffer.add_attribute(vb, 'normal', 3);
-	    gb.vertex_buffer.add_attribute(vb, 'uv', 2);
-	    gb.vertex_buffer.alloc(vb, rings * segments);
-
-		var i = 0;
-		for(lat = 0; lat <= rings; ++lat)
-		{      
-            var theta = lat * gb.math.PI / rings;
-            var sin_theta = gb.math.sin(theta);
-            var cos_theta = gb.math.cos(theta);
-
-            for(lng = 0; lng <= segments; ++lng)
-            {
-                var phi = lng * gb.math.TAU / segments;
-                var sin_phi = gb.math.sin(phi);
-                var cos_phi = gb.math.cos(phi);
-
-               	var x = cos_phi * sin_theta;
-              	var y = cos_theta;
-                var z = sin_phi * sin_theta;
-                
-                // position
-                vb.data[  i] = x * radius;
-                vb.data[i+1] = y * radius;
-                vb.data[i+2] = z * radius;
-                i += 3;
-
-                // normal
-                vb.data[  i] = x;
-                vb.data[i+1] = y;
-                vb.data[i+2] = z;
-                i += 3;
-
-                // uv
-                uvs[  i] = 1.0 - (lng / segments);
-                uvs[i+1] = 1.0 - (lat / rings);
-                i += 2;
-		    }
-        }
-
-	    var ib = gb.index_buffer.new(rings * segments * 6);
-        i = 0;
-        for(lat = 0; lat < rings; ++lat)
-		{ 
-			for(lng = 0; lng < segments; ++lng)
-            {
-            	var a = lat * (segments + 1) + lng;
-            	var b = a + segments + 1;
-
-			    ib.data[  i] = a;
-			    ib.data[i+1] = b;
-			    ib.data[i+2] = a+1;
-			    ib.data[i+3] = b;
-			    ib.data[i+4] = b+1;
-			    ib.data[i+5] = a+1;
-			    i += 6
-            }
-        }
-        return gb.mesh.new(vb, ib);
-	}
-	*/
+    return gb.mesh.new(vb, ib);
 }
 gb.Texture = function()
 {
@@ -4132,7 +3867,7 @@ gb.post_call =
 	new: function(material, target)
 	{
 		var r = new gb.PostCall();
-		r.mesh = gb.mesh.generate.quad(2,2);
+		r.mesh = gb.mesh.quad(2,2);
 		r.material = material;
 		r.target = target;
 		return r;
@@ -4191,6 +3926,7 @@ gb.webgl =
 	ctx: null,
 	view: null,
 	samplers: {},
+	attributes: null,
 
 	init: function(config)
 	{
@@ -4228,6 +3964,8 @@ gb.webgl =
         //END
 
 		_t.ctx = gl;
+
+		_t.attributes = gl.getContextAttributes();
 
         gl.enable(gl.BLEND);
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -5250,14 +4988,8 @@ gb.debug_view =
 				var target = observer.target;
 				var prop = observer.property;
 				var index = observer.index;
-				if(index === -1)
-				{
-					val = target[prop];
-				}
-				else
-				{
-					val = target[prop][index];
-				}
+				if(index === -1) val = target[prop];
+				else val = target[prop][index];
 				observer.element.innerText = observer.label + ": " + val;
 				continue;
 			}
@@ -5303,6 +5035,8 @@ gb.debug_view =
 				observer.target = target;
 				observer.property = property;
 				observer.index = index || -1;
+				if(index === -1) observer.value = target[property];
+				else observer.value = target[property][index];
 				observer.in_use = true;
 				observer.is_watching = true;
 				observer.element.classList.remove('gb-debug-hidden');
@@ -5335,12 +5069,118 @@ gb.debug_view =
 		controller.name = name;
 		controller.label = label;
 		controller.slider = slider;
+		controller.value = initial_value;
 		view.controllers.push(controller);
 
 		return controller;
 	},
 }
 //END
+gb.camera.fly = function(c, dt, vertical_limit)
+{
+	if(c.fly_mode === undefined) 
+	{
+		c.fly_mode = false;
+		c.angle_x = 0;
+		c.angle_y = 0;
+	}
+	if(gb.input.down(gb.Keys.f))
+	{
+		c.fly_mode = !c.fly_mode;
+	}
+	if(c.fly_mode === false) return;
+
+	var e = c.entity;
+	var index = gb.vec3.stack.index;
+
+	var m_delta = gb.input.mouse_delta;
+	var ROTATE_SPEED = 30.0;
+
+	c.angle_x -= m_delta[1] * ROTATE_SPEED * dt;
+	c.angle_y -= m_delta[0] * ROTATE_SPEED * dt;
+	
+	if(c.angle_x > vertical_limit) c.angle_x = vertical_limit;
+	if(c.angle_x < -vertical_limit) c.angle_x = -vertical_limit;
+
+	var rot_x = gb.quat.tmp();
+	var rot_y = gb.quat.tmp();
+	var right = gb.vec3.tmp(1,0,0);
+	var up = gb.vec3.tmp(0,1,0);
+
+	gb.quat.angle_axis(rot_x, c.angle_x, right);
+	gb.quat.angle_axis(rot_y, c.angle_y, up);
+	gb.quat.mul(e.rotation, rot_y, rot_x);
+
+	var move = gb.vec3.tmp();
+	var MOVE_SPEED = 1.0;
+	if(gb.input.held(gb.Keys.a))
+	{
+		move[0] = -MOVE_SPEED * dt;
+	}
+	else if(gb.input.held(gb.Keys.d))
+	{
+		move[0] = MOVE_SPEED * dt;
+	}
+	if(gb.input.held(gb.Keys.w))
+	{
+		move[2] = -MOVE_SPEED * dt;
+	}
+	else if(gb.input.held(gb.Keys.s))
+	{
+		move[2] = MOVE_SPEED * dt;
+	}
+
+	gb.mat4.mul_dir(move, e.world_matrix, move);
+	gb.vec3.add(e.position, move, e.position);
+	e.dirty = true;
+
+	gb.entity.update(c.entity);
+
+	// Draw reticule cross... (yeah, I know)
+
+	var vx = gb.webgl.view.width / 2;
+	var vy = gb.webgl.view.height / 2;
+
+	var size = 5;
+	var ct = v3.tmp(vx, vy + size,0);
+	var cb = v3.tmp(vx, vy - size,0);
+	var cl = v3.tmp(vx - size, vy);
+	var cr = v3.tmp(vx + size, vy);
+	gb.projections.screen_to_world(ct, c.view_projection, ct, gb.webgl.view);
+	gb.projections.screen_to_world(cb, c.view_projection, cb, gb.webgl.view);
+	gb.projections.screen_to_world(cl, c.view_projection, cl, gb.webgl.view);
+	gb.projections.screen_to_world(cr, c.view_projection, cr, gb.webgl.view);
+	gb.gl_draw.line(ct, cb);
+	gb.gl_draw.line(cl, cr);
+
+	gb.vec3.stack.index = index;
+}
+gb.socket = 
+{
+	new: function(url)
+	{
+		var connection = new WebSocket('ws://' + url, ['soap', 'xmpp']);
+		connection.open = gb.socket.event_open;
+		connection.error = gb.socket.event_error;
+		connection.message = gb.socket.event_message;
+		connection.binaryType = 'arraybuffer';
+		LOG(connection.extensions);
+		return connection;
+	},
+	event_open: function(e)
+	{
+		LOG(e);
+	},
+	event_error: function(error)
+	{
+		LOG(error);
+	},
+	event_message: function(e)
+	{
+		LOG(data);
+	},
+}
+
 var v2 = gb.vec2;
 var v3 = gb.vec3;
 var qt = gb.quat;
@@ -5354,6 +5194,7 @@ var assets;
 var construct;
 var cube;
 var camera;
+var camera_pivot;
 var surface_target;
 var fxaa_pass;
 
@@ -5368,7 +5209,8 @@ function init()
 		config:
 		{
 			frame_skip: true,
-			update: update, 
+			update: update,
+			debug_update: debug_update,
 			render: render,
 		},
 		gl:
@@ -5382,14 +5224,11 @@ function init()
 
 function load_complete(asset_group)
 {
-	debug_view = gb.debug_view.new(document.body);
-	x_warp = gb.debug_view.control(debug_view, 'WarpX', 0, 1.0, 0.01, 1.0);
-	y_warp = gb.debug_view.control(debug_view, 'WarpY', 0, 1.0, 0.01, 1.0);
-
 	assets = asset_group;
 	construct = scene.new(null, true);
 
 	cube = gb.entity.mesh(assets.meshes.map, gb.material.new(assets.shaders.sphere));
+	cube.material.warp_x = 1.0;
 	cube.spin = 0;
 	scene.add(cube);
 
@@ -5397,30 +5236,92 @@ function load_complete(asset_group)
 	camera.entity.position[2] = 3.0;
 	scene.add(camera);
 
-	/*
+	camera_pivot = gb.entity.new();
+	camera_pivot.angle_x = 0;
+	camera_pivot.angle_y = 0;
+	gb.entity.set_parent(camera.entity, camera_pivot);
+	scene.add(camera_pivot);
+
 	surface_target = gb.render_target.new();
 	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
 	fxaa_pass.material.texture = surface_target.color;
 	v2.set(fxaa_pass.material.resolution, gl.view.width, gl.view.height);
 	v2.set(fxaa_pass.material.inv_resolution, 1.0 / gl.view.width, 1.0 / gl.view.height);
-	*/
+
+	//var connection = gb.socket.new('192.168.0.4:8080/sockets');
+
+	//DEBUG
+	debug_view = gb.debug_view.new(document.body);
+	x_warp = gb.debug_view.control(debug_view, 'WarpX', 0, 1.0, 0.01, 1.0);
+	//y_warp = gb.debug_view.control(debug_view, 'WarpY', 0, 1.0, 0.01, 1.0);
+
+	gb.debug_view.watch(debug_view, 'AngleX', camera_pivot, 'angle_x');
+	gb.debug_view.watch(debug_view, 'AngleY', camera_pivot, 'angle_y');
+	//END
 
 	gb.allow_update = true;
 }
 
 function update(dt)
+{	
+	//gb.camera.fly(camera, dt, 85);
+
+	var ROTATE_SPEED = 1000 * dt;
+	var VERTICAL_LIMIT = 70;
+	if(gb.input.held(gb.Keys.a))
+	{
+		camera_pivot.angle_y -= ROTATE_SPEED * dt;
+	}
+	else if(gb.input.held(gb.Keys.d))
+	{
+		camera_pivot.angle_y += ROTATE_SPEED * dt;
+	}
+	if(gb.input.held(gb.Keys.w))
+	{
+		camera_pivot.angle_x -= ROTATE_SPEED * dt;
+	}
+	else if(gb.input.held(gb.Keys.s))
+	{
+		camera_pivot.angle_x += ROTATE_SPEED * dt;
+	}
+
+	camera_pivot.angle_x = gb.math.clamp(camera_pivot.angle_x, -VERTICAL_LIMIT, VERTICAL_LIMIT);
+
+	var rot_x = gb.quat.tmp();
+	var rot_y = gb.quat.tmp();
+	var right = gb.vec3.tmp(1,0,0);
+	var up = gb.vec3.tmp(0,1,0);
+
+	gb.quat.angle_axis(rot_x, camera_pivot.angle_x, right);
+	gb.quat.angle_axis(rot_y, camera_pivot.angle_y, up);
+
+	gb.quat.mul(camera_pivot.rotation, rot_y, rot_x);
+	camera_pivot.dirty = true;
+
+	cube.material.warp_x = x_warp.value;
+	//cube.material.warp_y = y_warp.value;	
+}
+
+function debug_update(dt)
 {
 	gb.debug_view.update(debug_view);
-	cube.material.warp_x = x_warp.value;
-	cube.material.warp_y = y_warp.value;
+	gb.gl_draw.transform(camera_pivot.world_matrix);
+	//gb.gl_draw.wire_mesh(cube.mesh, cube.world_matrix);
 }
 
 function render()
 {
-	gl.render_scene(construct, camera, null);
-	//gl.render_post_call(fxaa_pass);
+	if(gb.webgl.attributes.antialias || gb.webgl.config.antialias === false)
+	{
+		gl.render_scene(construct, camera, null);
+		gb.gl_draw.render(camera, null);
+	}
+	else
+	{
+		gl.render_scene(construct, camera, surface_target);
+		gb.gl_draw.render(camera, surface_target);
+		gl.render_post_call(fxaa_pass);
+	}
 }
 
 window.addEventListener('load', init, false);
-
-

@@ -12,6 +12,7 @@ uniform float line_width;
 uniform int mitre;
 
 varying float _distance;
+varying vec3 _position;
 
 void main()
 { 
@@ -56,13 +57,16 @@ void main()
 	}
 
 	float scale = 1.0 / current_projected.z;
-	vec2 normal = vec2(-v_direction.y, v_direction.x) * (len * 0.5 * scale);
-	//vec2 normal = vec2(-v_direction.y, v_direction.x) * (len * 0.5);
+	//vec2 normal = vec2(-v_direction.y, v_direction.x) * (len * 0.5 * scale);
+	vec2 normal = vec2(-v_direction.y, v_direction.x) * (len * 0.5);
 	normal.x /= aspect;
 
 	vec4 offset = vec4(normal * direction, 0.0,1.0);
-	gl_Position = current_projected + offset;
+	vec4 final = current_projected + offset;
+	gl_Position = final;
 	gl_PointSize = 1.0;
+
+	_position = current_projected.xyz;
 }
 
 #FRAGMENT
@@ -72,11 +76,19 @@ uniform vec4 color;
 uniform float cutoff;
 
 varying float _distance;
+varying vec3 _position;
 
 void main()
 { 
+	vec3 N = normalize(vec3(1.0, _position.y, _position.z));
+
+	/*
 	if(_distance < cutoff)
-    	gl_FragColor = color;
+    	gl_FragColor = vec4(N, 1.0);
     else 
-    	gl_FragColor = vec4(color.rgb, 0.0);
+    	gl_FragColor = vec4(N, 0.0);
+    */
+
+    gl_FragColor = vec4(N, cos(_distance * cutoff));
+    //gl_FragColor = vec4(N, 1.0);
 }

@@ -169,7 +169,7 @@ class FileWriter:
 		self.i32(OB_TYPE_OBJECT)
 		self.string(ob.name)
 		self.transform(ob)
-		if(len(ob.material_slots) > 0):
+		if(len(ob.material_slots) > 0 and ctx.export_materials is True):
 			self.string(ob.material_slots[0].material.name) #our material
 		else:
 			self.string('none')
@@ -184,7 +184,8 @@ class FileWriter:
 		self.f32(lamp.energy)
 		self.f32(lamp.distance)
 
-	def curve(self, ob, curve):
+	def curve(self, ctx, ob, curve):
+		if ctx.export_curves is False: return
 		print("Exporting Curve: " + ob.name)
 		self.i32(OB_TYPE_CURVE)
 		self.string(ob.name)
@@ -358,20 +359,16 @@ class FileWriter:
 				vertex_count += 1
 
 		attributes = []
-		num_attributes = 1
 		if ctx.export_2d:
 			attributes.append(VertexAttribute('position', 2, False))
 		else:
 			attributes.append(VertexAttribute('position', 3, False))
 
-
 		if ctx.export_normals:
-			num_attributes += 1
 			attributes.append(VertexAttribute('normal', 3, False))
 
 		if ctx.export_uvs:
 			uv_ln = len(uv_layers)
-			num_attributes += uv_ln
 			for i in range(0, uv_ln):
 				if i is 0:
 					attributes.append(VertexAttribute('uv', 2, False))
@@ -380,7 +377,6 @@ class FileWriter:
 		
 		if ctx.export_vertex_colors:
 			color_ln = len(color_layers)
-			num_attributes += color_ln
 			for i in range(0, color_ln):
 				if i is 0:
 					attributes.append(VertexAttribute('color', num_colors, True))
@@ -391,25 +387,21 @@ class FileWriter:
 			weight_ln = len(ob.vertex_groups)
 			if weight_ln > 0:
 				attributes.append(VertexAttribute('weight', 4, False))
-				num_attributes += 1
-
-		vertex_data_ln = len(vertex_buffer)
-		index_data_ln = len(index_buffer)
 
 		self.i32(OB_TYPE_MESH)
 		self.string(ob.data.name)
 
-		self.i32(vertex_data_ln)
+		self.i32(len(vertex_buffer))
 		for vertex in vertex_buffer:
 			self.f32(vertex)
 
 		if ctx.export_indices:
-			self.i32(index_data_ln)
+			self.i32(len(index_buffer))
 			for index in index_buffer:
 				self.i32(index)
 		else: self.i32(0)
 
-		self.i32(num_attributes)
+		self.i32(len(attributes))
 		for attr in attributes:
 			self.string(attr.name)
 			self.i32(attr.size)
@@ -467,7 +459,8 @@ class FileWriter:
 
 			self.animation_curve(curve, scene.render.fps)
 
-	def armature_action(self, action, ob, scene):
+	def armature_action(self, ctx, action, ob, scene):
+		if ctx.export_actions is False: return
 		print("Exporting Rig Action: " + action.name)
 
 		self.i32(OB_TYPE_ARMATURE_ACTION)
@@ -587,7 +580,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 			if ob.type == 'ARMATURE':
 				armature = bpy.data.objects[ob.name]
 				if not armature in exported_armatures:
-					action = self.find_action(armature)
+					action = self.find_action(armature, exported_actions)
 					if not action is None:
 						writer.armature_action(self, action, ob, scene)
 						exported_actions.append(action)
@@ -595,7 +588,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 					writer.armature(self, ob)
 					exported_armatures.append(armature)
 			else:
-				action = self.find_action(ob)
+				action = self.find_action(ob, exported_actions)
 				if not action is None:
 					writer.action(self, action, ob, ob, scene, ANIM_TYPE_ENTITY)
 					exported_actions.append(action)
@@ -603,7 +596,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 			if ob.type == 'CAMERA': 
 				camera = ob.data
 				if not camera in exported_cameras:
-					action = self.find_action(camera)
+					action = self.find_action(camera, exported_actions)
 					if not action is None:
 						writer.action(self, action, ob, ob, scene, ANIM_TYPE_ENTITY)
 						exported_actions.append(action)
@@ -614,7 +607,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 			elif ob.type == 'CURVE' and self.export_curves is True:
 				curve = ob.data
 				if not curve in exported_curves:
-					action = self.find_action(curve)
+					action = self.find_action(curve, exported_actions)
 					if not action is None:
 						writer.action(self, action, ob, ob, scene, ANIM_TYPE_ENTITY)
 						exported_actions.append(action)
@@ -625,7 +618,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 			elif ob.type == 'LAMP': 
 				lamp = ob.data
 				if not lamp in exported_lamps:
-					action = self.find_action(lamp)
+					action = self.find_action(lamp, exported_actions)
 					if not action is None:
 						writer.action(self, action, ob, ob, scene, ANIM_TYPE_ENTITY)
 						exported_actions.append(action)
@@ -637,7 +630,7 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 				if len(ob.material_slots) > 0:
 					material = ob.material_slots[0].material
 					if not material in exported_materials:
-						action = self.find_action(material)
+						action = self.find_action(material, exported_actions)
 						if not action is None:
 							writer.action(action, ob, material, scene, ANIM_TYPE_MATERIAL)
 							exported_actions.append(action)
@@ -664,10 +657,10 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 							
 		return {'FINISHED'}
 
-	def find_action(self, ob):
+	def find_action(self, ob, actions):
 		if ob.animation_data is None: return None
 		action = ob.animation_data.action
-		if action in self.exported_actions: return None
+		if action in actions: return None
 		return action
 
 	def invoke(self, context, event):

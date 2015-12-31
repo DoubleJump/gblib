@@ -1,4 +1,7 @@
 //INCLUDE projects/projection/js/gblib.js
+//INCLUDE lib/js/gl/fps_camera.js
+//INCLUDE lib/js/socket.js
+
 var v2 = gb.vec2;
 var v3 = gb.vec3;
 var qt = gb.quat;
@@ -12,6 +15,7 @@ var assets;
 var construct;
 var cube;
 var camera;
+var camera_pivot;
 var surface_target;
 var fxaa_pass;
 
@@ -26,7 +30,8 @@ function init()
 		config:
 		{
 			frame_skip: true,
-			update: update, 
+			update: update,
+			debug_update: debug_update,
 			render: render,
 		},
 		gl:
@@ -40,14 +45,11 @@ function init()
 
 function load_complete(asset_group)
 {
-	debug_view = gb.debug_view.new(document.body);
-	x_warp = gb.debug_view.control(debug_view, 'WarpX', 0, 1.0, 0.01, 1.0);
-	y_warp = gb.debug_view.control(debug_view, 'WarpY', 0, 1.0, 0.01, 1.0);
-
 	assets = asset_group;
 	construct = scene.new(null, true);
 
 	cube = gb.entity.mesh(assets.meshes.map, gb.material.new(assets.shaders.sphere));
+	cube.material.warp_x = 1.0;
 	cube.spin = 0;
 	scene.add(cube);
 
@@ -55,29 +57,92 @@ function load_complete(asset_group)
 	camera.entity.position[2] = 3.0;
 	scene.add(camera);
 
-	/*
+	camera_pivot = gb.entity.new();
+	camera_pivot.angle_x = 0;
+	camera_pivot.angle_y = 0;
+	gb.entity.set_parent(camera.entity, camera_pivot);
+	scene.add(camera_pivot);
+
 	surface_target = gb.render_target.new();
 	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
 	fxaa_pass.material.texture = surface_target.color;
 	v2.set(fxaa_pass.material.resolution, gl.view.width, gl.view.height);
 	v2.set(fxaa_pass.material.inv_resolution, 1.0 / gl.view.width, 1.0 / gl.view.height);
-	*/
+
+	//var connection = gb.socket.new('192.168.0.4:8080/sockets');
+
+	//DEBUG
+	debug_view = gb.debug_view.new(document.body);
+	x_warp = gb.debug_view.control(debug_view, 'WarpX', 0, 1.0, 0.01, 1.0);
+	//y_warp = gb.debug_view.control(debug_view, 'WarpY', 0, 1.0, 0.01, 1.0);
+
+	gb.debug_view.watch(debug_view, 'AngleX', camera_pivot, 'angle_x');
+	gb.debug_view.watch(debug_view, 'AngleY', camera_pivot, 'angle_y');
+	//END
 
 	gb.allow_update = true;
 }
 
 function update(dt)
+{	
+	//gb.camera.fly(camera, dt, 85);
+
+	var ROTATE_SPEED = 1000 * dt;
+	var VERTICAL_LIMIT = 70;
+	if(gb.input.held(gb.Keys.a))
+	{
+		camera_pivot.angle_y -= ROTATE_SPEED * dt;
+	}
+	else if(gb.input.held(gb.Keys.d))
+	{
+		camera_pivot.angle_y += ROTATE_SPEED * dt;
+	}
+	if(gb.input.held(gb.Keys.w))
+	{
+		camera_pivot.angle_x -= ROTATE_SPEED * dt;
+	}
+	else if(gb.input.held(gb.Keys.s))
+	{
+		camera_pivot.angle_x += ROTATE_SPEED * dt;
+	}
+
+	camera_pivot.angle_x = gb.math.clamp(camera_pivot.angle_x, -VERTICAL_LIMIT, VERTICAL_LIMIT);
+
+	var rot_x = gb.quat.tmp();
+	var rot_y = gb.quat.tmp();
+	var right = gb.vec3.tmp(1,0,0);
+	var up = gb.vec3.tmp(0,1,0);
+
+	gb.quat.angle_axis(rot_x, camera_pivot.angle_x, right);
+	gb.quat.angle_axis(rot_y, camera_pivot.angle_y, up);
+
+	gb.quat.mul(camera_pivot.rotation, rot_y, rot_x);
+	camera_pivot.dirty = true;
+
+	cube.material.warp_x = x_warp.value;
+	//cube.material.warp_y = y_warp.value;	
+}
+
+function debug_update(dt)
 {
 	gb.debug_view.update(debug_view);
-	cube.material.warp_x = x_warp.value;
-	cube.material.warp_y = y_warp.value;
+	gb.gl_draw.transform(camera_pivot.world_matrix);
+	//gb.gl_draw.wire_mesh(cube.mesh, cube.world_matrix);
 }
 
 function render()
 {
-	gl.render_scene(construct, camera, null);
-	//gl.render_post_call(fxaa_pass);
+	if(gb.webgl.attributes.antialias || gb.webgl.config.antialias === false)
+	{
+		gl.render_scene(construct, camera, null);
+		gb.gl_draw.render(camera, null);
+	}
+	else
+	{
+		gl.render_scene(construct, camera, surface_target);
+		gb.gl_draw.render(camera, surface_target);
+		gl.render_post_call(fxaa_pass);
+	}
 }
 
 window.addEventListener('load', init, false);
-

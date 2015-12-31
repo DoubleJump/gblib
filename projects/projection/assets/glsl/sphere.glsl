@@ -4,7 +4,7 @@ attribute float color;
 
 uniform mat4 mvp;
 uniform float warp_x;
-uniform float warp_y;
+//uniform float warp_y;
 
 varying float _color;
 
@@ -14,8 +14,8 @@ vec3 grid_to_sphere(vec3 p, float width, float height)
 {
     float radius = width / (2.0 * PI);
 
-	float phi = ((p.y / height)-0.5) * PI * warp_y;
-	float theta = (p.x / width) * 2.0 * PI * warp_x;
+	float phi = ((p.y / height)-0.5) * PI;
+	float theta = (p.x / width) * 2.0 * PI;
 
 	float x = radius * sin(theta) * sin(phi);
 	float y = radius * cos(phi);
@@ -26,8 +26,13 @@ vec3 grid_to_sphere(vec3 p, float width, float height)
 
 void main()
 {
-	vec3 polar = grid_to_sphere(position, 4.0, 2.0);
-	gl_Position = mvp * vec4(polar, 1.0);
+	vec3 sphere = grid_to_sphere(position, 4.0, 2.0);
+
+	float x = mix(position.x, sphere.x, warp_x);
+	float y = mix(position.y, sphere.y, warp_x);
+	float z = mix(position.z, sphere.z, warp_x);
+
+	gl_Position = mvp * vec4(vec3(x,y,z), 1.0);
     _color = color;
 }
 

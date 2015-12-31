@@ -1,4 +1,6 @@
 //INCLUDE projects/rig/js/gblib.js
+//INCLUDE lib/js/gl/fps_camera.js
+
 var v2 = gb.vec2;
 var v3 = gb.vec3;
 var qt = gb.quat;
@@ -43,6 +45,7 @@ function load_complete(ag)
 
 function update(dt)
 {
+	gb.camera.fly(scene.current.active_camera, dt, 80);
 	gb.gl_draw.rig_transforms(character.rig);
 }
 

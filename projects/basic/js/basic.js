@@ -1,4 +1,5 @@
 //INCLUDE projects/basic/js/gblib.js
+//INCLUDE lib/js/gl/fps_camera.js
 
 var v2 = gb.vec2;
 var v3 = gb.vec3;
@@ -8,6 +9,7 @@ var math = gb.math;
 var gl = gb.webgl;
 var input = gb.input;
 var scene = gb.scene;
+var plane;
 var camera;
 var surface_target;
 var fxaa_pass;
@@ -21,6 +23,7 @@ function init()
 		{
 			frame_skip: false,
 			update: update, 
+			debug_update: debug_update,
 			render: render,
 		}
 	});
@@ -34,12 +37,12 @@ function load_complete(ag)
 
 	scene.current = scene.scenes['basic'];
 
-	var plane = scene.find('plane');
+	plane = scene.find('plane');
 	gb.mesh.set_vertex(plane.mesh, 'position', 0, gb.vec3.tmp(0,0,0));
 	gb.mesh.update(plane.mesh);
 	plane.material = gb.material.new(ag.shaders.basic);
 	plane.material.diffuse = ag.textures.orange;
-	//gb.animation.play(assets.animations.planeaction, -1);
+	gb.animation.play(ag.animations.planeaction, -1);
 
 	camera = gb.camera.new();
 	camera.entity.position[2] = 2.0;
@@ -60,12 +63,15 @@ function load_complete(ag)
 
 function update(dt)
 {
+	gb.camera.fly(camera, dt, 80);
+}
+
+function debug_update(dt)
+{
 	gb.debug_view.update(debug_view);
-	//gb.debug_view.label(debug_view, "Position", 3.0);
-
-
 	gb.gl_draw.thickness = 3.0;
 	gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(3,3,3));
+	gb.gl_draw.wire_mesh(plane.mesh, plane.world_matrix);
 }
 
 function render()

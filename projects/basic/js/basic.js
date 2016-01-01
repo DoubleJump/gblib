@@ -49,7 +49,7 @@ function load_complete(ag)
 	anim.auto_play = false;
 	//anim.is_playing = false;
 	//anim.loops = -1;
-	gb.animation.from_to(anim, 'position', v3.tmp(0,0,0), v3.tmp(2,0,0), 1.5, 0.5);
+	gb.animation.from_to(anim, 'position', v3.tmp(0,0,0), v3.tmp(2,0,0), 1.5, 0.5, gb.easing.ping_pong);
 	gb.animation.play(anim, -1);
 
 	camera = gb.camera.new();

@@ -3337,6 +3337,15 @@ gb.post_call =
 }
 gb.webgl = 
 {
+	blend_mode:
+	{
+		MIX: 0,
+		ADD: 1,
+		SUBTRACT: 2,
+		MULTIPLY: 3,
+		SCREEN: 4,
+		OVERLAY: 5,
+	},
 	types:
 	{
         0x8B50: 'FLOAT_VEC2',
@@ -3530,6 +3539,9 @@ gb.webgl =
 	    _t.shader_link_status(id);
 	    //END
 
+	    gl.detachShader(id, vs);
+	    gl.detachShader(id, fs);
+
 	    ASSERT(s.id === 0, "Shader already bound to id " + s.id); 
 	    s.id = id;
 	    s.num_attributes = gl.getProgramParameter(id, gl.ACTIVE_ATTRIBUTES);
@@ -3570,7 +3582,9 @@ gb.webgl =
 	},
 	delete_shader: function(s)
 	{
-		//detachShader
+		var gl = gb.webgl.ctx;
+		
+		//delete program
 	},
 
 	set_state: function(val, state)
@@ -3630,6 +3644,43 @@ gb.webgl =
 		var gl = gb.webgl.ctx;
 		gl.viewport(v.x, v.y, v.width, v.height);
 		gl.scissor(v.x, v.y, v.width, v.height);
+	},
+
+	enable_alpha_blending: function()
+	{
+		var gl = gb.webgl.ctx;
+		gl.enable(gl.BLEND);
+	},
+	set_blend_mode: function(mode)
+	{
+		var _t = gb.webgl;
+		switch(mode)
+		{
+			case _t.MIX:
+			{
+				break;
+			}
+			case _t.ADD:
+			{
+				break;
+			}
+			case _t.SUBTRACT:
+			{
+				break;
+			}
+			case _t.OVERLAY:
+			{
+				break;
+			}
+			case _t.SCREEN:
+			{
+				break;
+			}
+			case _t.MULTIPLY:
+			{
+				break;
+			}
+		}
 	},
 
 	new_render_buffer: function(width, height)

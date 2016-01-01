@@ -2988,6 +2988,7 @@ gb.scene =
 	update: function(dt, s)
 	{
 		s = s || gb.scene.current;
+		if(!s) return;
 
 		var n = s.animations.length;
 		for(var i = 0; i < n; ++i) 
@@ -3329,11 +3330,12 @@ gb.binary_reader.mesh = function(br)
 	var vertices = s.f32_array(br, vb_size);
 	var vb = gb.vertex_buffer.new(vertices);
 	
+	var ib = null;
 	var ib_size = s.i32(br);
 	if(ib_size > 0)
 	{
 		var indices = s.u32_array(br, ib_size);
-		var ib = gb.index_buffer.new(indices);
+		ib = gb.index_buffer.new(indices);
 	}
 
 	var num_attributes = s.i32(br);
@@ -3345,7 +3347,7 @@ gb.binary_reader.mesh = function(br)
 		gb.vertex_buffer.add_attribute(vb, attr_name, attr_size, attr_norm);
 	}
 
-	var mesh = gb.mesh.new(vb, null);
+	var mesh = gb.mesh.new(vb, ib);
 	mesh.name = name;
 	return mesh;
 }
@@ -3954,6 +3956,15 @@ gb.post_call =
 }
 gb.webgl = 
 {
+	blend_mode:
+	{
+		DEFAULT: 0,
+		DARKEN: 1,
+		LIGHTEN: 2,
+		DIFFERENCE: 3,
+		MULTIPLY: 4,
+		SCREEN: 5,
+	},
 	types:
 	{
         0x8B50: 'FLOAT_VEC2',
@@ -4149,6 +4160,8 @@ gb.webgl =
 
 	    ASSERT(s.id === 0, "Shader already bound to id " + s.id); 
 	    s.id = id;
+	    s.vs = vs;
+	    s.fs = fs;
 	    s.num_attributes = gl.getProgramParameter(id, gl.ACTIVE_ATTRIBUTES);
 	    s.num_uniforms = gl.getProgramParameter(id, gl.ACTIVE_UNIFORMS);
 
@@ -4187,7 +4200,13 @@ gb.webgl =
 	},
 	delete_shader: function(s)
 	{
-		//detachShader
+		var gl = gb.webgl.ctx;
+		ASSERT(gl.getParameter(gl.CURRENT_PROGRAM) !== s.id, 'Cannot delete shader as it is in use');
+	    gl.detachShader(s.vs);
+	    gl.detachShader(s.fs);
+	    gl.deleteShader(s.vs);
+	    gl.deleteShader(s.fs);
+	    gl.deleteProgram(s.id);
 	},
 
 	set_state: function(val, state)
@@ -4239,7 +4258,7 @@ gb.webgl =
 	},
 	delete_texture: function(t)
 	{
-
+		gb.webgl.ctx.deleteTexture(t.id);
 	},
 
 	set_viewport: function(v)
@@ -4247,6 +4266,56 @@ gb.webgl =
 		var gl = gb.webgl.ctx;
 		gl.viewport(v.x, v.y, v.width, v.height);
 		gl.scissor(v.x, v.y, v.width, v.height);
+	},
+
+	use_alpha_blending: function(state)
+	{
+		gb.webgl.set_state(gl.webgl.ctx.BLEND, state);
+	},
+	set_blend_mode: function(mode)
+	{
+		// sourceColor * sourceFactor + destinationClor * destinationFactor
+
+		var _t = gb.webgl;
+		switch(mode)
+		{
+			case _t.blend_mode.DARKEN:
+			{
+				gl.blendEquation(gl.FUNC_MIN);
+				gl.blendFunc(gl.ONE, gl.ONE);
+				break;
+			}
+			case _t.blend_mode.LIGHTEN:
+			{
+				gl.blendEquation(gl.FUNC_MAX);
+				gl.blendFunc(gl.ONE, gl.ONE);
+				break;
+			}
+			case _t.blend_mode.DIFFERENCE:
+			{
+				gl.blendEquation(gl.FUNC_SUBTRACT);
+				gl.blendFunc(gl.ONE, gl.ONE);
+				break;
+			}
+			case _t.blend_mode.MULTIPLY:
+			{
+				gl.blendEquation(gl.FUNC_ADD);
+				gl.blendFunc(gl.DST_COLOR, gl.ZERO);
+				break;
+			}
+			case _t.blend_mode.SCREEN:
+			{
+				gl.blendEquation(gl.FUNC_ADD);
+				gl.blendFunc(gl.MINUS_DST_COLOR, gl.ONE);
+				break;
+			}
+			default:
+			{
+				gl.blendEquation(gl.FUNC_ADD);
+				gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+				break;
+			}
+		}
 	},
 
 	new_render_buffer: function(width, height)
@@ -4318,6 +4387,16 @@ gb.webgl =
 		//END
 
 		rt.linked = true;
+	},
+
+	delete_render_target: function(rt)
+	{
+		var gl = gb.webgl.ctx;
+		gl.deleteFrameBuffer(rt.frame_buffer);
+		if(rt.render_buffer)
+		{
+			gl.deleteRenderBuffer(rt.render_buffer);
+		}
 	},
 
 	draw_mesh: function(mesh)
@@ -5283,7 +5362,7 @@ function load_complete(ag)
 	anim.auto_play = false;
 	//anim.is_playing = false;
 	//anim.loops = -1;
-	gb.animation.from_to(anim, 'position', v3.tmp(0,0,0), v3.tmp(2,0,0), 1.5, 0.5);
+	gb.animation.from_to(anim, 'position', v3.tmp(0,0,0), v3.tmp(2,0,0), 1.5, 0.5, gb.easing.ping_pong);
 	gb.animation.play(anim, -1);
 
 	camera = gb.camera.new();

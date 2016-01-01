@@ -42,6 +42,7 @@ def read_glsl(file_path, out_buffer):
 		else:
 			out_buffer.append(line)
 	src_file.close()
+	print(file_path)
 
 def compile_glsl(name, file_path, writer):
 	out_buffer = []
@@ -76,7 +77,7 @@ def compile_glsl(name, file_path, writer):
 		print "Could not find fragment shader in file: " + name
 		return False
 
-	print(file_path)
+	#print(file_path)
 	writer.i32(ASSET_TYPE_GLSL)
 	writer.string(name)
 	writer.string(vertex_src)

@@ -296,6 +296,7 @@ class FileWriter:
 			if(mod.type == 'ARMATURE'):
 				armature = mod.object
 
+		vertex_map = {}
 		vertex_buffer = []
 		index_buffer = []
 		vertex_count = 0
@@ -317,13 +318,23 @@ class FileWriter:
 			for j, v in enumerate(f.vertices): # For each vertex of face
 			
 				p = round_vec3(mesh.vertices[v].co, ctx.vertex_precision)
+				norm = round_vec3(mesh.vertices[v].normal, ctx.normal_precision)
+
+				if ctx.export_indices:
+					key = p,norm
+					index = vertex_map.get(key)
+					if not index is None:
+						index_buffer.append(index)
+						continue
+					else:
+						vertex_map[key] = vertex_count
+
 				vertex_buffer.append(p[0])
 				vertex_buffer.append(p[1])
 				if ctx.export_2d is False:
 					vertex_buffer.append(p[2])
 
 				if ctx.export_normals:
-					norm = round_vec3(mesh.vertices[v].normal, ctx.normal_precision)
 					vertex_buffer.append(norm[0])
 					vertex_buffer.append(norm[1])
 					vertex_buffer.append(norm[2])

@@ -37,7 +37,11 @@ function init()
 		gl:
 		{
 			antialias: true,
-		}
+		},
+		gl_draw:
+		{
+			buffer_size: 32000,
+		},
 	});
 
 	gb.assets.load("assets/assets.gl", load_complete);
@@ -60,6 +64,8 @@ function load_complete(asset_group)
 	camera_pivot = gb.entity.new();
 	camera_pivot.angle_x = 0;
 	camera_pivot.angle_y = 0;
+	camera_pivot.vx = 0;
+	camera_pivot.vy = 0;
 	gb.entity.set_parent(camera.entity, camera_pivot);
 	scene.add(camera_pivot);
 
@@ -89,22 +95,46 @@ function update(dt)
 
 	var ROTATE_SPEED = 1000 * dt;
 	var VERTICAL_LIMIT = 70;
-	if(gb.input.held(gb.Keys.a))
+	var ax = 0;
+	var ay = 0;
+	if(input.held(gb.Keys.a))
 	{
-		camera_pivot.angle_y -= ROTATE_SPEED * dt;
+		ay -= ROTATE_SPEED * dt;
 	}
-	else if(gb.input.held(gb.Keys.d))
+	else if(input.held(gb.Keys.d))
 	{
-		camera_pivot.angle_y += ROTATE_SPEED * dt;
+		ay += ROTATE_SPEED * dt;
 	}
-	if(gb.input.held(gb.Keys.w))
+	if(input.held(gb.Keys.w))
 	{
-		camera_pivot.angle_x -= ROTATE_SPEED * dt;
+		ax -= ROTATE_SPEED * dt;
 	}
-	else if(gb.input.held(gb.Keys.s))
+	else if(input.held(gb.Keys.s))
 	{
-		camera_pivot.angle_x += ROTATE_SPEED * dt;
+		ax += ROTATE_SPEED * dt;
 	}
+
+	for(var i = 0; i < input.MAX_TOUCHES; ++i)
+	{
+		if(input.touches[i].is_touching === true)
+		{
+			ay -= input.touches[0].delta[0] * 2 * dt;
+			ax -= input.touches[0].delta[1] * 2 * dt;
+			break;
+		}
+	}
+
+	camera_pivot.vx *= 0.90;
+	camera_pivot.vy *= 0.90;
+
+	camera_pivot.vx += ax;
+	camera_pivot.vy += ay;
+
+	camera_pivot.vx = gb.math.clamp(camera_pivot.vx, -5.0, 5.0);
+	camera_pivot.vy = gb.math.clamp(camera_pivot.vy, -5.0, 5.0);
+
+	camera_pivot.angle_x += camera_pivot.vx;
+	camera_pivot.angle_y += camera_pivot.vy;
 
 	camera_pivot.angle_x = gb.math.clamp(camera_pivot.angle_x, -VERTICAL_LIMIT, VERTICAL_LIMIT);
 
@@ -126,7 +156,8 @@ function update(dt)
 function debug_update(dt)
 {
 	gb.debug_view.update(debug_view);
-	gb.gl_draw.transform(camera_pivot.world_matrix);
+	//gb.gl_draw.transform(camera_pivot.world_matrix);
+	//gb.gl_draw.set_color(0.5,0.5,0.5,0.5);
 	//gb.gl_draw.wire_mesh(cube.mesh, cube.world_matrix);
 }
 

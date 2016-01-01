@@ -57,8 +57,8 @@ void main()
 	}
 
 	float scale = 1.0 / current_projected.z;
-	//vec2 normal = vec2(-v_direction.y, v_direction.x) * (len * 0.5 * scale);
-	vec2 normal = vec2(-v_direction.y, v_direction.x) * (len * 0.5);
+	vec2 normal = vec2(-v_direction.y, v_direction.x) * (len * 0.5 * scale);
+	//vec2 normal = vec2(-v_direction.y, v_direction.x) * (len * 0.5);
 	normal.x /= aspect;
 
 	vec4 offset = vec4(normal * direction, 0.0,1.0);

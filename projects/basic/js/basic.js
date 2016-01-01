@@ -14,6 +14,7 @@ var camera;
 var surface_target;
 var fxaa_pass;
 var debug_view;
+var anim;
 
 function init()
 {
@@ -42,14 +43,22 @@ function load_complete(ag)
 	gb.mesh.update(plane.mesh);
 	plane.material = gb.material.new(ag.shaders.basic);
 	plane.material.diffuse = ag.textures.orange;
-	gb.animation.play(ag.animations.planeaction, -1);
+	//gb.animation.play(ag.animations.planeaction, -1);
+
+	anim = gb.animation.new(plane);
+	anim.auto_play = false;
+	//anim.is_playing = false;
+	//anim.loops = -1;
+	gb.animation.from_to(anim, 'position', v3.tmp(0,0,0), v3.tmp(2,0,0), 1.5, 0.5);
+	gb.animation.play(anim, -1);
 
 	camera = gb.camera.new();
 	camera.entity.position[2] = 2.0;
+	camera.angle_x = 0;
+	camera.angle_y = 0;
 	scene.add(camera);
 
-	gb.debug_view.watch(debug_view, 'AngleX', camera, 'angle_x');
-	gb.debug_view.watch(debug_view, 'AngleY', camera, 'angle_y');
+	gb.debug_view.watch(debug_view, 'Anim', anim, 't');
 
 
 	surface_target = gb.render_target.new();
@@ -64,6 +73,12 @@ function load_complete(ag)
 function update(dt)
 {
 	gb.camera.fly(camera, dt, 80);
+
+	if(input.held(gb.Keys.a))
+	{
+		anim.t += dt;
+	}
+	gb.animation.update(anim, dt);
 }
 
 function debug_update(dt)

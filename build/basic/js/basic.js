@@ -141,7 +141,9 @@ var gb =
 		LOG('Loaded: ' + e.loaded + ' / ' + e.total + ' bytes');
 	},
 }
-
+//DEBUG
+gb.debug = {};
+//END
 gb.stack_array = [];
 gb.Stack = function(type, count)
 {
@@ -1999,7 +2001,7 @@ gb.color =
 gb.Touch = function()
 {
 	this.id = -1;
-	this.touching = false;
+	this.is_touching = false;
 	this.position = gb.vec3.new();
 	this.last_position = gb.vec3.new();
 	this.delta = gb.vec3.new();
@@ -2121,9 +2123,9 @@ gb.input =
 
 		window.addEventListener('devicemotion', _t.device_motion);
 		window.addEventListener('deviceorientation', _t.device_rotation);
-		window.addEventListener("touchstart", _t.touch_start, false);
-	  	window.addEventListener("touchmove", _t.touch_move, false);
-	  	window.addEventListener("touchend", _t.touch_end, false);
+		root.addEventListener("touchstart", _t.touch_start, false);
+	  	root.addEventListener("touchmove", _t.touch_move, false);
+	  	root.addEventListener("touchend", _t.touch_end, false);
 
 	  	_t.root = root;
 	},
@@ -2249,13 +2251,13 @@ gb.input =
 			for(var j = 0; j < _t.MAX_TOUCHES; ++j)
 			{
 				var t = _t.touches[j];
-				if(t.touching === true) continue;
+				if(t.is_touching === true) continue;
 				var x = it.screenX;
 				var y = it.screenY;
 				gb.vec3.set(t.position, x, y, 0);
 				gb.vec3.set(t.last_position, x,y,0);
 				gb.vec3.set(t.delta, 0,0,0);
-				t.touching = true;
+				t.is_touching = true;
 				t.id = it.identifier;
 				break;
 			}
@@ -2275,7 +2277,7 @@ gb.input =
 				var t = gb.input.touches[j];
 				if(it.identifier === t.id)
 				{
-					t.touching = true;
+					t.is_touching = true;
 					var x = it.screenX;
 					var y = it.screenY;
 					var dx = x - t.last_position[0];
@@ -2301,7 +2303,7 @@ gb.input =
 				var t = gb.input.touches[j];
 				if(id === t.id)
 				{
-					t.touching = false;
+					t.is_touching = false;
 					t.id = -1;
 					break;
 				}
@@ -2310,6 +2312,21 @@ gb.input =
 		e.preventDefault();
 	},
 	
+}
+gb.easing = 
+{
+	linear: 
+	[
+		0.0,0.0,0.0,0.0,
+		1.0,1.0,1.0,1.0
+	],
+	ping_pong: 
+	[
+		 0.0,0.0, 0.25,0.0,
+		0.25,1.0, 0.50,1.0, 0.75,1.0,
+		0.75,0.0,  1.0,0.0,
+	],
+
 }
 gb.Animation = function()
 {
@@ -2346,17 +2363,21 @@ gb.animation =
 	},
 	from_to: function(animation, property, from, to, duration, delay, easing)
 	{
+		easing = easing || gb.easing.linear;
 		var components = 1;
 		if(from.length) 
 		{
 			components = from.length;
 			ASSERT(from.length === to.length, 'Animatable properties must be of same component length');
 		}
+		animation.duration = delay + duration;
 
+		var ease_length = easing.length;
+		var n_frames = (ease_length / 3)-1;
 		for(var i = 0; i < components; ++i)
 		{
 			var t = new gb.Tween();
-			t.num_frames = 2;
+			t.num_frames = n_frames;
 			t.property = property;
 			
 			var A,B;
@@ -2375,24 +2396,28 @@ gb.animation =
 
 			var A = from[i];
 			var B = to[i];
-			var D = B - A;
+			var dy = B - A;
+			var dt = duration;
 
-			t.curve = new Float32Array(
-			[
-				-duration * easing[0], A - (D * easing[1]),
-				delay, A,
-				duration * easing[0], A + (D * easing[1]),
-				(delay + duration) - (duration * easing[2]), B - (D * easing[3]),
-				delay + duration, B,
-				(delay + duration) + (duration * easing[2]), B + (D * easing[3])
-			]);
-			a.tweens.push(t);
+			t.curve = new Float32Array(ease_length + 4);
+			t.curve[0] = easing[0];
+			t.curve[1] = easing[1];
+			var dest_index = 2;
+			for(var j = 0; j < ease_length; j+=2)
+			{
+				t.curve[dest_index] = delay + (easing[j] * dt);
+				t.curve[dest_index + 1] = A + (easing[j+1] * dy);
+				dest_index += 2;
+			}
+			t.curve[dest_index] = easing[j];
+			t.curve[dest_index + 1] = easing[j+1];
+			animation.tweens.push(t);
 		}
 	},
 	play: function(anim, loops)
 	{
 		anim.is_playing = true;
-		anim.t = 0;
+		anim.t = 0.0;
 		anim.loops = loops || 1;
 		anim.loop_count = 0;
 	},
@@ -2507,11 +2532,13 @@ gb.animation =
 			}
 			if(animation.target.dirty !== undefined) animation.target.dirty = true;
 		}
-		if(in_range === false)
+		//if(in_range === false)
+		if(animation.t > gb.animation.get_duration(animation))
 		{
 			if(animation.loops === -1)
 			{
-				animation.t = gb.animation.get_start_time(animation);
+				//animation.t = gb.animation.get_start_time(animation);
+				animation.t = 0;
 			}
 			else
 			{
@@ -2524,7 +2551,8 @@ gb.animation =
 				}
 				else
 				{
-					animation.t = gb.animation.get_start_time(animation);
+					//animation.t = gb.animation.get_start_time(animation);
+					animation.t = 0;
 				}
 			}
 		}
@@ -2553,27 +2581,6 @@ gb.binary_reader.action = function(br)
     gb.animation.get_start_time(animation);
     gb.animation.get_duration(animation);
     return animation;	
-}
-gb.binary_reader.rig_action = function(br)
-{
-	var s = gb.binary_reader;
-    var animation = new gb.Animation();
-    animation.target_type = 2;
-    animation.name = s.string(br);
-
-    var num_curves = s.i32(br);
-    for(var i = 0; i < num_curves; ++i)
-    {
-    	var tween = new gb.Tween();
-    	tween.bone_index = s.i32(br);
-    	tween.property = s.string(br);
-    	tween.index = s.i32(br);
-
-    	tween.num_frames = s.i32(br);
-    	tween.curve = s.f32_array(br, tween.num_frames * 6);
-    	animation.tweens.push(tween);
-    }
-    return animation;
 }
 gb.EntityType = 
 {
@@ -3843,6 +3850,27 @@ gb.binary_reader.rig = function(br, ag)
     } 
     return rig;
 }
+gb.binary_reader.rig_action = function(br)
+{
+	var s = gb.binary_reader;
+    var animation = new gb.Animation();
+    animation.target_type = 2;
+    animation.name = s.string(br);
+
+    var num_curves = s.i32(br);
+    for(var i = 0; i < num_curves; ++i)
+    {
+    	var tween = new gb.Tween();
+    	tween.bone_index = s.i32(br);
+    	tween.property = s.string(br);
+    	tween.index = s.i32(br);
+
+    	tween.num_frames = s.i32(br);
+    	tween.curve = s.f32_array(br, tween.num_frames * 6);
+    	animation.tweens.push(tween);
+    }
+    return animation;
+}
 gb.Render_Target = function()
 {
 	this.bounds;
@@ -5039,14 +5067,8 @@ gb.debug_view =
 				var target = observer.target;
 				var prop = observer.property;
 				var index = observer.index;
-				if(index === -1)
-				{
-					val = target[prop];
-				}
-				else
-				{
-					val = target[prop][index];
-				}
+				if(index === -1) val = target[prop];
+				else val = target[prop][index];
 				observer.element.innerText = observer.label + ": " + val;
 				continue;
 			}
@@ -5092,6 +5114,8 @@ gb.debug_view =
 				observer.target = target;
 				observer.property = property;
 				observer.index = index || -1;
+				if(index === -1) observer.value = target[property];
+				else observer.value = target[property][index];
 				observer.in_use = true;
 				observer.is_watching = true;
 				observer.element.classList.remove('gb-debug-hidden');
@@ -5124,6 +5148,7 @@ gb.debug_view =
 		controller.name = name;
 		controller.label = label;
 		controller.slider = slider;
+		controller.value = initial_value;
 		view.controllers.push(controller);
 
 		return controller;
@@ -5223,6 +5248,7 @@ var camera;
 var surface_target;
 var fxaa_pass;
 var debug_view;
+var anim;
 
 function init()
 {
@@ -5251,14 +5277,22 @@ function load_complete(ag)
 	gb.mesh.update(plane.mesh);
 	plane.material = gb.material.new(ag.shaders.basic);
 	plane.material.diffuse = ag.textures.orange;
-	gb.animation.play(ag.animations.planeaction, -1);
+	//gb.animation.play(ag.animations.planeaction, -1);
+
+	anim = gb.animation.new(plane);
+	anim.auto_play = false;
+	//anim.is_playing = false;
+	//anim.loops = -1;
+	gb.animation.from_to(anim, 'position', v3.tmp(0,0,0), v3.tmp(2,0,0), 1.5, 0.5);
+	gb.animation.play(anim, -1);
 
 	camera = gb.camera.new();
 	camera.entity.position[2] = 2.0;
+	camera.angle_x = 0;
+	camera.angle_y = 0;
 	scene.add(camera);
 
-	gb.debug_view.watch(debug_view, 'AngleX', camera, 'angle_x');
-	gb.debug_view.watch(debug_view, 'AngleY', camera, 'angle_y');
+	gb.debug_view.watch(debug_view, 'Anim', anim, 't');
 
 
 	surface_target = gb.render_target.new();
@@ -5273,6 +5307,12 @@ function load_complete(ag)
 function update(dt)
 {
 	gb.camera.fly(camera, dt, 80);
+
+	if(input.held(gb.Keys.a))
+	{
+		anim.t += dt;
+	}
+	gb.animation.update(anim, dt);
 }
 
 function debug_update(dt)

@@ -4723,9 +4723,12 @@ gb.curve =
 gb.binary_reader.curve = function(br)
 {
 	var s = gb.binary_reader;
-    var res = s.i32(br);
+    //var res = s.i32(br);
+    var is_2d = s.b32(br);
     var num_points = s.i32(br);
-    var points = s.f32_array(br, num_points * 9);
+    var points;
+    if(is_2d === true) points = s.f32_array(br, num_points * 6);
+    else points = s.f32_array(br, num_points * 9);
     return points;
 }
 gb.LineMesh = function()
@@ -4986,7 +4989,7 @@ function load_complete(ag)
 	construct = scene.new(null, true);
 
 	//line = gb.line_mesh.ellipse(2,2,60,0.1);
-	line = gb.line_mesh.curve(ag.curves['spiral'], 30, 0.1);
+	line = gb.line_mesh.curve(ag.curves['spiral'], 15, 0.1);
 
 	line.entity.material = gb.material.new(ag.shaders.line);
 	line.entity.material.line_width = line.thickness;

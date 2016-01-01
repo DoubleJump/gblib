@@ -11,7 +11,8 @@ def create_html_boilerplate(project_path, name):
 	<meta name='viewport' content='width=device-width, initial-scale=1.0, user-scalable=no'>
 	<title>"""+name+"""</title> 
 	<link rel='stylesheet' href='css/style.css' type='text/css'>
-	
+	<link rel='stylesheet' href='../../lib/css/debug.css' type='text/css'>
+
 </head>
 <body>
 	<div class='webgl'></div>

@@ -189,15 +189,45 @@ class FileWriter:
 		print("Exporting Curve: " + ob.name)
 		self.i32(OB_TYPE_CURVE)
 		self.string(ob.name)
-		self.i32(curve.resolution_u)
+		self.b32(ctx.curve_2d)
+		#self.i32(curve.resolution_u)
+		points = []
 
+		num_bezier_points = 0
 		for spline in curve.splines:
-			num_bezier_points = len(spline.bezier_points)
-			self.i32(num_bezier_points)
-			for point in spline.bezier_points:
-				self.vec3(point.handle_left)
-				self.vec3(point.co)
-				self.vec3(point.handle_right)
+			num_bezier_points += len(spline.bezier_points)
+
+		self.i32(num_bezier_points)
+		
+		for spline in curve.splines:
+			if ctx.curve_2d is True:
+				for point in spline.bezier_points:
+					left = round_vec2(point.handle_left, ctx.curve_precision)
+					co = round_vec2(point.co, ctx.curve_precision)
+					right = round_vec2(point.handle_right, ctx.curve_precision)
+
+					self.f32(left[0])
+					self.f32(left[1])
+					self.f32(co[0])
+					self.f32(co[1])
+					self.f32(right[0])
+					self.f32(right[1])
+
+			else:
+				for point in spline.bezier_points:
+					left = round_vec3(point.handle_left, ctx.curve_precision)
+					co = round_vec3(point.co, ctx.curve_precision)
+					right = round_vec3(point.handle_right, ctx.curve_precision)
+						
+					self.f32(left[0])
+					self.f32(left[1])
+					self.f32(left[2])
+					self.f32(co[0])
+					self.f32(co[1])
+					self.f32(co[2])
+					self.f32(right[0])
+					self.f32(right[1])
+					self.f32(right[2])
 
 
 	def camera(self, ctx, ob, camera):
@@ -505,6 +535,15 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 	filename_ext = ".scene"
 	filter_glob = StringProperty(default = "*.scene", options = {'HIDDEN'})
 
+	ui_tab = EnumProperty(
+            items=(('MAIN', "Main", "Main basic settings"),
+                   ('MESH', "Mesh", "Mesh related settings"),
+                   ('CURVE', "Curve", "Curve related settings")
+                   ),
+            name="ui_tab",
+            description="Import options categories",
+            )
+
 	vertex_precision = IntProperty(name="Vertex Precision", description="Vertex precision", default=3)
 	normal_precision = IntProperty(name="Normal Precision", description="Normal precision", default=3)
 	uv_precision = IntProperty(name="UV Precision", description="UV precision", default=3)
@@ -527,29 +566,38 @@ class ExportTest(bpy.types.Operator, ExportHelper):
 	export_armatures = BoolProperty(name="Export Armatures", description="Include armatures", default=True)
 	export_actions = BoolProperty(name="Export Actions", description="Include actions", default=True)
 
+	curve_2d = BoolProperty(name="2D Curves", description="Only export curve xy coords", default=False)
+	curve_precision = IntProperty(name="Curve Precision", description="Curve precision", default=3)
 
 	def draw(self, context):
 		layout = self.layout
-		layout.prop(self, "vertex_precision")
-		layout.prop(self, "normal_precision")
-		layout.prop(self, "uv_precision")
-		layout.prop(self, "color_precision")
-		layout.prop(self, "color_channels")
-		layout.prop(self, "export_indices")
-		layout.prop(self, "export_2d")
-		layout.prop(self, "export_normals")
-		layout.prop(self, "export_uvs")
-		layout.prop(self, "export_vertex_colors")
-		layout.prop(self, "export_weights")
-		layout.prop(self, "export_materials")
-		layout.prop(self, "export_entities")
-		layout.prop(self, "export_animations")
-		layout.prop(self, "export_cameras")
-		layout.prop(self, "export_lamps")
-		layout.prop(self, "export_curves")
-		layout.prop(self, "export_armatures")
-		layout.prop(self, "export_actions")
 
+		layout.prop(self, "ui_tab", expand=True)
+		if self.ui_tab == 'MAIN':
+			layout.prop(self, "export_materials")
+			layout.prop(self, "export_entities")
+			layout.prop(self, "export_animations")
+			layout.prop(self, "export_cameras")
+			layout.prop(self, "export_lamps")
+			layout.prop(self, "export_curves")
+			layout.prop(self, "export_armatures")
+			layout.prop(self, "export_actions")
+		elif self.ui_tab == 'MESH':
+			layout.prop(self, "vertex_precision")
+			layout.prop(self, "normal_precision")
+			layout.prop(self, "uv_precision")
+			layout.prop(self, "color_precision")
+			layout.prop(self, "color_channels")
+			layout.prop(self, "export_indices")
+			layout.prop(self, "export_2d")
+			layout.prop(self, "export_normals")
+			layout.prop(self, "export_uvs")
+			layout.prop(self, "export_vertex_colors")
+			layout.prop(self, "export_weights")
+		elif self.ui_tab == 'CURVE':
+			layout.prop(self, "curve_2d")
+			layout.prop(self, "curve_precision")
+		
 	def execute(self, context):
 			
 		scene = bpy.context.scene 

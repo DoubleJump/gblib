@@ -43,7 +43,7 @@ function load_complete(ag)
 	construct = scene.new(null, true);
 
 	//line = gb.line_mesh.ellipse(2,2,60,0.1);
-	line = gb.line_mesh.curve(ag.curves['spiral'], 30, 0.1);
+	line = gb.line_mesh.curve(ag.curves['spiral'], 15, 0.1);
 
 	line.entity.material = gb.material.new(ag.shaders.line);
 	line.entity.material.line_width = line.thickness;

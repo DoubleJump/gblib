@@ -144,6 +144,19 @@ var gb =
 //DEBUG
 gb.debug = {};
 //END
+gb.ajax = 
+{
+	GET: function(url, on_load, on_progress)
+	{
+		var request = new XMLHttpRequest();
+		request.open('GET', url, true);
+		request.onload = on_load;
+		request.onprogress = on_progress || gb.event_load_progress;
+		request.responseType = 'arraybuffer';
+		request.upload.callback = on_load;
+		return request;
+	}
+}
 gb.stack_array = [];
 gb.Stack = function(type, count)
 {
@@ -1667,6 +1680,293 @@ gb.aabb =
         v3.pop(stack);
     },
 }
+gb.Ray = function()
+{
+	this.point = gb.vec3.new();
+	this.dir = gb.vec3.new();
+}
+gb.ray = 
+{
+	stack: new gb.Stack(gb.Ray, 5),
+
+	new: function()
+	{
+		return new gb.Ray();
+	},
+	tmp: function(point, dir)
+	{
+		var r = gb.stack.get(gb.ray.stack);
+		gb.ray.set(v, point,dir);
+		return v;
+	},
+	set: function(r, point, dir)
+	{
+		gb.vec3.eq(r.point, point);
+		gb.vec3.eq(r.dir, dir);
+	},
+	eq: function(a,b)
+	{
+		gb.ray.set(a, b.point, b.dir);
+	},
+}
+gb.Hit = function()
+{
+	this.hit = false;
+	this.point = gb.vec3.new();
+	this.normal = gb.vec3.new();
+	this.t = 0;
+}
+gb.hit = 
+{
+	stack: new gb.Stack(gb.Hit, 5),
+
+	eq: function(a,b)
+	{
+		a.hit = b.hit;
+		gb.vec3.eq(a.point, b.point);
+		gb.vec3.eq(a.normal, b.normal);
+		a.t = b.t;
+	},
+	tmp: function()
+	{
+		var r = gb.stack.get(gb.hit.stack);
+		r.hit = false;
+		gb.vec3.set(r.point, 0,0,0);
+		gb.vec3.set(r.normal, 0,0,0);
+		r.t = 0;
+		return r;
+	},
+}
+
+
+gb.intersect = 
+{
+	point_circle: function(h, p, c, r)
+	{
+		var v2 = gb.vec2;
+		var delta = v2.tmp();
+		v2.sub(delta, c, p);
+		var l = v2.sqr_length(delta);
+		if(l < r * r)
+		{
+			var nl = gb.math.sqrt(l);
+			h.hit = true;
+			h.t = nl - r;
+			var nd = v2.tmp();
+			v2.mulf(nd, delta, 1/nl);
+			v2.eq(h.normal, nd);
+		}
+		else 
+		{
+			h.hit = false;
+		}
+	},
+
+	line_circle: function(h, c,r, a,b)
+	{
+		var lax = a[0] - c[0];
+		var lay = a[1] - c[1];
+		var lbx = b[0] - c[0];
+		var lby = b[1] - c[1];
+
+		var sx = lbx - lax;
+		var sy = lby - lay;
+
+		var a = sx * sx + sy * sy;
+		var b = 2 * ((sx * lax) + (sy * lay));
+		var c = (lax * lax) + (lay * lay) - (r * r);
+		var delta = b * b - (4 * a * c);
+		if(delta < 0)
+		{
+			h.hit = false;
+			return;
+		} 
+
+		var sd = gb.math.sqrt(delta);
+		var ta = (-b - sd) / (2 * a);
+
+		if(ta < 0 || ta > 1)
+		{
+			h.hit = false;
+			return;
+		}
+
+		h.point[0] = a[0] * (1 - ta) + ta * b[0];
+        h.point[1] = a[1] * (1 - ta) + ta * b[1];
+
+        /*
+		if(delta === 0)
+		{
+			h.hit = true;
+			h.t = t;
+            return;
+		}
+		*/
+
+		var tb = (-b + sd) / (2 * a);
+
+		//draw.text("TA: " + ta, 10, 30)
+		//draw.text("TB: " + tb, 10, 60);
+
+		if(gb.math.abs(ta - 0.5) < gb.math.abs(tb - 0.5))
+        {
+        	h.hit = true;
+            h.point[0] = a[0] * (1 - tb) + tb * b[0];
+        	h.point[1] = a[1] * (1 - tb) + tb * b[1];
+        	return;
+        }
+
+        //TODO: Get normals etc
+
+	},
+
+	line_line: function(h, a,b,c,d)
+	{
+		var lax = b[0] - a[0];
+		var lay = b[1] - a[1];
+		var lbx = d[0] - c[0];  
+		var lby = d[1] - c[1];
+
+		var d = -lbx * lay + lax * lby;
+
+		var s = (-lay * (a[0] - c[0]) + lax * (a[1] - c[1])) / d;
+		var t = ( lbx * (a[1] - c[1]) - lby * (a[0] - c[0])) / d;
+
+		if(s >= 0 && s <= 1 && t >= 0 && t <= 1)
+		{
+			h.hit = true;
+			h.point[0] = a[0] + (t * lbx);
+			h.point[1] = a[1] + (t * lby);
+			return 1;
+		}
+		else
+		{
+			h.hit = false;
+		}
+	},
+
+	aabb_aabb: function(a, b)
+    {
+       	if(a.min[0] > b.max[0]) return false;
+       	if(a.max[0] < b.min[0]) return false;
+
+       	if(a.min[1] > b.max[1]) return false;
+       	if(a.max[1] < b.min[1]) return false;
+
+       	if(a.min[2] > b.max[2]) return false;
+       	if(a.max[2] < b.min[2]) return false;
+
+        return true;
+    },
+
+    aabb_ray: function(h, a, r)
+	{
+		var fx = 1 / r.dir[0];
+		var fy = 1 / r.dir[1];
+		var fz = 1 / r.dir[2];
+
+		var t1 = (a.min[0] - r.point[0]) * fx;
+		var t2 = (a.max[0] - r.point[0]) * fx;
+		var t3 = (a.min[1] - r.point[1]) * fy;
+		var t4 = (a.max[1] - r.point[1]) * fy;
+		var t5 = (a.min[2] - r.point[2]) * fz;
+		var t6 = (a.max[2] - r.point[2]) * fz;
+
+		var m = gb.math;
+		var tmin = m.max(m.max(m.min(t1, t2), m.min(t3, t4)), m.min(t5, t6));
+		var tmax = m.min(m.min(m.max(t1, t2), m.max(t3, t4)), m.max(t5, t6));
+
+		if(tmax < 0 || tmin > tmax)
+		{
+			h.hit = false;
+			return;
+		}
+
+		var v = gb.vec3.tmp();
+		gb.vec3.mulf(v, r.dir, tmin);
+		gb.vec3.add(h.point, r.point, v);
+		h.hit = true;
+		gb.vec3.set(h.normal, 0,1,0);
+		h.t = tmin;
+	},
+
+	point_triangle: function(p, a,b,c)
+	{
+		var A =  (-b[1] * c[0] + a[1] * (-b[0] + c[0]) + a[0] * (b[1] - c[1]) + b[0] * c[1]) / 2;
+		var sign = A < 0 ? -1 : 1;
+		var s = (a[1] * c[0] - a[0] * c[1] + (c[1] - a[1]) * p[0] + (a[0] - c[0]) * p[1]) * sign;
+		var t = (a[0] * b[1] - a[1] * b[0] + (a[1] - b[1]) * p[0] + (b[0] - a[0]) * p[1]) * sign;
+		return s > 0 && t > 0 && s + t < 2 * A * sign;
+	},
+
+	triangle_ray: function(h, a,b,c, r)
+	{
+		var v3 = gb.vec3;
+		var e0 = v3.tmp();
+		var e1 = v3.tmp();
+		var cross = v3.tmp();
+		var n = v3.tmp();
+
+		v3.sub(e0, b,a);
+		v3.sub(e1, c,a);
+
+		v3.cross(cross, e0, e1);
+		v3.normalized(n, cross);
+		v3.inverse(n, n);
+
+		var ndot = v3.dot(n, r.dir);
+		var t = -(v3.dot(n,r.point) + v3.dot(n,a)) / ndot;
+
+		v3.mulf(e0, r.dir, t);
+		v3.add(e1, r.point, e0);
+
+		if(gb.intersect.point_triangle(e1, a,b,c) === true)
+		{
+			h.hit = true;
+			v3.eq(h.point, e1);
+			v3.eq(h.normal, n);
+			h.t = t;
+		}
+		else
+		{
+			h.hit = false;
+		}
+	},
+
+	mesh_ray: function(h, m, matrix, r)
+	{
+		var _t = gb.intersect;
+		var stride = gb.mesh.get_stride(m);
+		h.t = gb.math.MAX_F32;
+
+		var hit = gb.hit.tmp();
+
+		var n = m.vertex_count / 3;
+		var d = m.vertex_buffer.data;
+		var c = 0;
+		for(var i = 0; i < n; ++i)
+		{
+			var stack = gb.vec3.push();
+			var ta = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			gb.mat4.mul_point(ta, matrix, ta);
+			c += stride;
+			var tb = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			gb.mat4.mul_point(tb, matrix, tb);
+			c += stride;
+			var tc = gb.vec3.tmp(d[c], d[c+1], d[c+2]);
+			gb.mat4.mul_point(tc, matrix, tc);
+			c += stride;
+
+			_t.triangle_ray(hit, ta,tb,tc, r);
+			gb.vec3.pop(stack);
+			if(hit.hit === true && hit.t < h.t)
+			{
+				gb.hit.eq(h, hit);
+			}
+		}
+	},
+}
+
 gb.Color = function(r,g,b,a)
 {
 	return new Float32Array(4);
@@ -2470,6 +2770,154 @@ gb.binary_reader.entity = function(br, ag)
     entity.rotation = s.vec4(br);
     return entity;
 }
+gb.Lamp = function()
+{
+	this.entity;
+	this.type = gb.LampType.POINT;
+	this.energy = 1;
+	this.distance = 1;
+	this.projection = gb.mat4.new();
+}
+
+gb.lamp = 
+{
+	new: function(type, energy, distance)
+	{
+		var e = gb.entity.new();
+	    var l = new gb.Lamp();
+	    l.type = type;
+	    l.energy = energy;
+	    l.distance = distance;
+	    e.lamp = l;
+	    l.entity = e;
+	    return e;
+	},
+}
+
+gb.LampType = 
+{
+    POINT: 0,
+    SUN: 1,
+}
+
+gb.binary_reader.lamp = function(br, ag)
+{
+    var s = gb.binary_reader;
+    var entity = s.entity(br, ag);
+    entity.type = gb.EntityType.LAMP;
+    var lamp = new gb.Lamp();
+    lamp.energy = s.f32(br);
+    lamp.distance = s.f32(br);
+    entity.lamp = lamp;
+    lamp.entity = entity;
+    return lamp;
+}
+gb.Camera = function()
+{
+	this.entity;
+	this.projection_type = null;
+	this.projection = gb.mat4.new();
+	this.view = gb.mat4.new();
+	this.view_projection = gb.mat4.new();
+	this.normal = gb.mat3.new();
+	this.mask = 0;
+	this.dirty = true;
+	this.aspect;
+	this.near;
+	this.far;
+	this.fov;
+	this.scale;
+	return this;
+}
+gb.camera = 
+{
+	new: function(projection, near, far, fov, mask, scale)
+	{
+		var e = gb.entity.new();
+		e.entity_type = gb.EntityType.CAMERA;
+		e.update = gb.camera.update;
+	    var c = new gb.Camera();
+	    c.projection_type = projection || gb.Projection.PERSPECTIVE;
+	    c.near = near || 0.1;
+	    c.far = far || 100;
+	    c.fov = fov || 60;
+	    c.mask = mask || 0;
+	    c.scale = scale || 1;
+	    c.entity = e;
+	    e.camera = c;
+	    return c;
+	},
+	update_projection: function(c, view)
+	{
+		c.aspect = view.width / view.height;
+		if(c.projection_type === gb.Projection.ORTHO)
+		{
+			gb.mat4.ortho_projection(c.projection, c.scale * c.aspect, c.scale, c.near, c.far);
+		}
+		else
+		{
+			gb.mat4.perspective_projection(c.projection, c.far, c.near, c.aspect, c.fov);
+		}
+		c.dirty = false;
+	},
+
+	set_clip_range: function(c, near, far)
+	{
+		c.near = near;
+		c.far = far;
+		c.dirty = true;
+	},
+
+	update: function(e)
+	{
+		ASSERT(e.camera, 'Entity is not a camera');
+		var c = e.camera;
+		if(c.dirty === true)
+		{
+			gb.camera.update_projection(c, gb.webgl.view);
+		}
+		gb.mat4.inverse(c.view, e.world_matrix);
+		gb.mat4.mul(c.view_projection, c.view, c.projection);
+		gb.mat3.from_mat4(c.normal, c.view);
+		gb.mat3.inverse(c.normal, c.normal);
+		gb.mat3.transposed(c.normal, c.normal);
+	},
+}
+
+gb.Projection = 
+{
+    ORTHO: 0,
+    PERSPECTIVE: 1,
+}
+
+gb.binary_reader.camera = function(br, ag)
+{
+    var s = gb.binary_reader;
+
+    var e = s.entity(br, ag);
+    e.entity_type = gb.EntityType.CAMERA;
+    e.update = gb.camera.update;
+
+    var c = new gb.Camera();
+    e.camera = c;
+
+    var camera_type = s.i32(br);
+    if(camera_type === 0) 
+    {
+    	c.projection_type = gb.Projection.PERSPECTIVE;
+    }
+    else 
+    {
+    	c.projection_type = gb.Projection.ORTHO;
+    	c.scale = s.f32(br);
+    }
+    c.near = s.f32(br);
+    c.far  = s.f32(br);
+    c.fov  = s.f32(br);
+    c.mask = 0;
+    c.entity = e;
+    return c;
+}
 gb.Scene = function()
 {
 	this.name;
@@ -3253,6 +3701,139 @@ gb.binary_reader.material = function(br, ag)
         material[sampler_name] = ag.textures[tex_name];
     }
     return material;
+}
+gb.Rig = function()
+{
+	this.joints;	
+}
+gb.Joint = function()
+{
+	this.parent;
+	this.position;
+	this.scale;
+	this.rotation;
+	this.local_matrix;
+	this.world_matrix; 
+	this.inverse_bind_pose;
+	this.offset_matrix;
+	this.bind_pose;
+}
+
+gb.rig = 
+{
+	MAX_JOINTS: 18,
+
+	new: function()
+	{
+		var r = new gb.Rig();
+		r.joints = [];
+		return r;
+	},
+	copy: function(src)
+	{
+		var r = new gb.Rig();
+		var m4 = gb.mat4;
+		var v3 = gb.vec3;
+		r.joints = [];
+		var n = src.joints.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var sj = src.joints[i];
+			var j = gb.rig.joint();
+			j.parent = sj.parent;
+			v3.eq(j.postition, sj.position);
+			v3.eq(j.scale, sj.scale);
+			gb.quat.eq(j.rotation, sj.rotation);
+			m4.eq(j.local_matrix, sj.local_matrix);
+			m4.eq(j.world_matrix, sj.world_matrix);
+			m4.eq(j.bind_pose, sj.bind_pose);
+			m4.eq(j.inverse_bind_pose, sj.inverse_bind_pose);
+			m4.eq(j.offset_matrix, sj.offset_matrix);
+			r.joints.push(j);
+		}
+		return r;
+	},
+	joint: function()
+	{
+		var j = new gb.Joint();
+		j.parent = -1;
+		j.position = gb.vec3.new();
+		j.scale = gb.vec3.new(1,1,1);
+		j.rotation = gb.quat.new();
+		j.local_matrix = gb.mat4.new();
+		j.world_matrix = gb.mat4.new(); 
+		j.bind_pose = gb.mat4.new();
+		j.inverse_bind_pose = gb.mat4.new();
+		j.offset_matrix = gb.mat4.new();
+		return j;
+	},
+	update: function(rig, scene)
+	{
+		var qt = gb.quat.tmp();
+
+		var n = rig.joints.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var j = rig.joints[i];
+			gb.mat4.compose(j.local_matrix, j.position, j.scale, j.rotation);
+			gb.mat4.mul(j.local_matrix, j.local_matrix, j.bind_pose);
+			if(j.parent === -1)
+			{
+				gb.mat4.eq(j.world_matrix, j.local_matrix);
+			}
+			else
+			{
+				var parent = rig.joints[j.parent];
+				gb.mat4.mul(j.world_matrix, j.local_matrix, parent.world_matrix);
+			}
+
+			gb.mat4.mul(j.offset_matrix, j.inverse_bind_pose, j.world_matrix);
+		}
+	},
+}
+gb.binary_reader.rig = function(br, ag)
+{
+    var s = gb.binary_reader;
+    var rig = gb.rig.new();
+    rig.name = s.string(br);
+    var num_joints = s.i32(br);
+    ASSERT(num_joints <= gb.rig.MAX_JOINTS, "Rig has too many joints!");
+    for(var i = 0; i < num_joints; ++i)
+    {
+    	var j = new gb.Joint();
+		j.position = gb.vec3.new();
+		j.scale = gb.vec3.new(1,1,1);
+		j.rotation = gb.quat.new();
+		j.local_matrix = gb.mat4.new();
+		j.world_matrix = gb.mat4.new(); 
+		j.offset_matrix = gb.mat4.new();
+    	j.parent = s.i32(br);
+    	j.bind_pose = s.mat4(br);
+    	j.inverse_bind_pose = s.mat4(br);
+    	rig.joints.push(j);
+    } 
+    return rig;
+}
+gb.binary_reader.rig_action = function(br)
+{
+	var s = gb.binary_reader;
+    var animation = new gb.Animation();
+    animation.target_type = 2;
+    animation.name = s.string(br);
+
+    var num_curves = s.i32(br);
+    for(var i = 0; i < num_curves; ++i)
+    {
+    	var tween = new gb.Tween();
+    	tween.bone_index = s.i32(br);
+    	tween.property = s.string(br);
+    	tween.index = s.i32(br);
+
+    	tween.num_frames = s.i32(br);
+    	tween.curve = s.f32_array(br, tween.num_frames * 6);
+    	animation.tweens.push(tween);
+    }
+    return animation;
 }
 gb.Render_Target = function()
 {
@@ -4050,11 +4631,7 @@ gb.assets =
 {
     load: function(url, on_load, on_progress)
     {
-        var request = new XMLHttpRequest();
-        request.open('GET', url, true);
-        request.onload = gb.assets.event_asset_load;
-        request.onprogress = on_progress || gb.event_load_progress;
-        request.responseType = 'arraybuffer';
+        var request = gb.ajax.GET(url, gb.assets.event_asset_load)
         request.upload.callback = on_load;
         request.send();
     },
@@ -4615,6 +5192,379 @@ gb.debug_view =
 	},
 }
 //END
+var lv = 
+{
+	launch_count: 0,
+	nations: [],
+	rockets: [],
+	operators: [],
+	orbits: [],
+	sites: [],
+	providers: [],
+	launches: [],
+	outcomes: [],
+};
+
+gb.LatLng = function()
+{
+	this.lat;
+	this.lng;
+}
+lv.Orbit = function()
+{
+	this.name;
+	this.apogee;
+	this.perigee;
+}
+lv.Rocket = function()
+{
+	this.name;
+}
+lv.Payload = function()
+{
+	this.name;
+	this.operator;
+	this.mission;
+	this.orbit;
+	this.decay;
+}
+lv.Nation = function()
+{
+	this.name;
+	this.flag;
+}
+lv.Operator = function()
+{
+	this.name;
+	this.nation;
+}
+lv.Provider = function()
+{
+	this.name;
+	this.nation;
+}
+lv.Launch_Site = function()
+{
+	this.name;
+	this.location;
+	this.nation;
+}
+lv.Outcome = function()
+{
+	this.name;
+}
+lv.Date = function()
+{
+	this.day;
+	this.month;
+	this.year;
+	this.hour;
+	this.minute;
+	this.second;
+}
+lv.Launch = function()
+{
+	this.id;
+	this.date;
+	this.rocket;
+	this.operator;
+	this.site;
+	this.orbit;
+	this.payloads = [];
+	this.description;
+	this.provider;
+	this.video;
+	this.outcome;
+}
+
+
+lv.load_data = function(br)
+{
+	var s = gb.binary_reader;
+	var n;
+
+	// NATIONS
+	n = s.i32(br);
+	for(var i = 0; i < n; ++i) lv.nations.push(s.nation(br));
+
+	// ROCKETS
+	n = s.i32(br);
+	for(var i = 0; i < n; ++i) lv.rockets.push(s.rocket(br));
+
+	// LAUNCH SITES
+	n = s.i32(br);
+	for(var i = 0; i < n; ++i) lv.sites.push(s.launch_site(br));
+
+	// ORBITS
+	n = s.i32(br);
+	for(var i = 0; i < n; ++i) lv.orbits.push(s.orbit(br));
+
+	// OPERATORS
+	n = s.i32(br);
+	for(var i = 0; i < n; ++i) lv.operators.push(s.operator(br));
+	
+	//PROVIDERS
+	n = s.i32(br);
+	for(var i = 0; i < n; ++i) lv.providers.push(s.provider(br));
+
+	//OUTCOMES
+	n = s.i32(br);
+	for(var i = 0; i < n; ++i) lv.outcomes.push(s.outcome(br));
+
+	//LAUCHES
+	n = s.i32(br);
+	for(var i = 0; i < n; ++i) lv.launches.push(s.launch(br));
+}
+
+gb.binary_reader.date = function(br)
+{
+	var s = gb.binary_reader;
+	var d = new lv.Date();
+	d.day = s.i32(br);
+	d.month = s.i32(br);
+	d.year = s.i32(br);
+	d.hour = s.i32(br);
+	d.minute = s.i32(br);
+	d.second = s.i32(br);
+	return d;	
+}
+gb.binary_reader.latlng = function(br)
+{
+	var s = gb.binary_reader;
+	var c = new gb.LatLng();
+	c.lat = s.f32(br);
+	c.lng = s.f32(br);
+	return c;
+}
+gb.binary_reader.orbit = function(br)
+{
+	var s = gb.binary_reader;
+	var c = new lv.Orbit();
+	c.name = s.string(br);
+	c.apogee = s.f32(br);
+	c.perogee = s.f32(br);
+	return c;
+}
+gb.binary_reader.nation = function(br)
+{
+	var s = gb.binary_reader;
+	var n = new lv.Nation();
+	n.name = s.string(br);
+	return n;
+}
+gb.binary_reader.rocket = function(br)
+{
+	var s = gb.binary_reader;
+	var r = new lv.Rocket();
+	r.name = s.string(br);
+	return r;
+}
+gb.binary_reader.operator = function(br)
+{
+	var s = gb.binary_reader;
+	var o = new lv.Operator();
+	o.name = s.string(br);
+	o.nation = lv.nations[s.i32(br)];
+	return o;
+}
+gb.binary_reader.provider = function(br)
+{
+	var s = gb.binary_reader;
+	var p = new lv.Provider();
+	p.name = s.string(br);
+	p.nation = lv.nations[s.i32(br)];
+	return p;	
+}
+gb.binary_reader.launch_site = function(br)
+{
+	var s = gb.binary_reader;
+	var site = new lv.Launch_Site();
+	site.name = s.string(br);
+	site.location = s.latlng(br);
+	site.nation = lv.nations[s.i32(br)];
+	return site;
+}
+gb.binary_reader.payload = function(br)
+{
+	var s = gb.binary_reader;
+	var pl = new lv.Payload();
+	pl.name = s.string(br);
+	pl.operator = lv.operators[s.i32(br)];
+	pl.orbit = lv.orbits[s.i32(br)];
+	pl.mission = s.string(br);
+	var will_decay = s.b32(br);
+	if(will_decay === true)
+	{
+		pl.decay = s.date(br);
+	}
+	pl.outcome = lv.outcomes[s.i32(br)];
+	return pl;
+}
+gb.binary_reader.outcome = function(br)
+{
+	var s = gb.binary_reader;
+	var o = new lv.Outcome();
+	o.name = s.string(br);
+	LOG(o);
+	return o;
+}
+gb.binary_reader.launch = function(br)
+{
+	var s = gb.binary_reader;
+	var l = new lv.Launch();
+	l.id = lv.launch_count;
+	lv.launch_count++;
+
+	l.date = s.date(br);
+	l.rocket = lv.rockets[s.i32(br)];
+	l.provider = lv.providers[s.i32(br)];
+	l.site = lv.sites[s.i32(br)];
+
+	var n_payloads = s.i32(br);
+	for(var i = 0; i < n_payloads; ++i)
+	{
+		l.payloads.push(s.payload(br));
+	}
+
+	var has_video = s.b32(br);
+	if(has_video === true)
+	{
+		l.video = s.string(br);
+	}
+	l.details = s.string(br);
+	LOG(l);
+	return l;
+}
+gb.camera.fly = function(c, dt, vertical_limit)
+{
+	if(c.fly_mode === undefined) 
+	{
+		c.fly_mode = false;
+		c.angle_x = 0;
+		c.angle_y = 0;
+	}
+	if(gb.input.down(gb.Keys.f))
+	{
+		c.fly_mode = !c.fly_mode;
+	}
+	if(c.fly_mode === false) return;
+
+	var e = c.entity;
+	var index = gb.vec3.stack.index;
+
+	var m_delta = gb.input.mouse_delta;
+	var ROTATE_SPEED = 30.0;
+
+	c.angle_x -= m_delta[1] * ROTATE_SPEED * dt;
+	c.angle_y -= m_delta[0] * ROTATE_SPEED * dt;
+	
+	if(c.angle_x > vertical_limit) c.angle_x = vertical_limit;
+	if(c.angle_x < -vertical_limit) c.angle_x = -vertical_limit;
+
+	var rot_x = gb.quat.tmp();
+	var rot_y = gb.quat.tmp();
+	var right = gb.vec3.tmp(1,0,0);
+	var up = gb.vec3.tmp(0,1,0);
+
+	gb.quat.angle_axis(rot_x, c.angle_x, right);
+	gb.quat.angle_axis(rot_y, c.angle_y, up);
+	gb.quat.mul(e.rotation, rot_y, rot_x);
+
+	var move = gb.vec3.tmp();
+	var MOVE_SPEED = 1.0;
+	if(gb.input.held(gb.Keys.a))
+	{
+		move[0] = -MOVE_SPEED * dt;
+	}
+	else if(gb.input.held(gb.Keys.d))
+	{
+		move[0] = MOVE_SPEED * dt;
+	}
+	if(gb.input.held(gb.Keys.w))
+	{
+		move[2] = -MOVE_SPEED * dt;
+	}
+	else if(gb.input.held(gb.Keys.s))
+	{
+		move[2] = MOVE_SPEED * dt;
+	}
+
+	gb.mat4.mul_dir(move, e.world_matrix, move);
+	gb.vec3.add(e.position, move, e.position);
+	e.dirty = true;
+
+	gb.entity.update(c.entity);
+
+	// Draw reticule cross... (yeah, I know)
+
+	var vx = gb.webgl.view.width / 2;
+	var vy = gb.webgl.view.height / 2;
+
+	var size = 5;
+	var ct = v3.tmp(vx, vy + size,0);
+	var cb = v3.tmp(vx, vy - size,0);
+	var cl = v3.tmp(vx - size, vy);
+	var cr = v3.tmp(vx + size, vy);
+	gb.projections.screen_to_world(ct, c.view_projection, ct, gb.webgl.view);
+	gb.projections.screen_to_world(cb, c.view_projection, cb, gb.webgl.view);
+	gb.projections.screen_to_world(cl, c.view_projection, cl, gb.webgl.view);
+	gb.projections.screen_to_world(cr, c.view_projection, cr, gb.webgl.view);
+	gb.gl_draw.line(ct, cb);
+	gb.gl_draw.line(cl, cr);
+
+	gb.vec3.stack.index = index;
+}
+gb.mesh.cube = function(width, height, depth)
+{
+	var x = width / 2;
+	var y = height / 2;
+	var z = depth / 2;
+
+	var vb = gb.vertex_buffer.new(
+	[
+		// POS    NORMAL  UV
+		-x,-y, z, 0,0,1, 0,0, 
+		 x,-y, z, 0,0,1, 1,0, 
+		-x, y, z, 0,0,1, 0,1, 
+		 x, y, z, 0,0,1, 1,1, 
+		 x,-y, z, 1,0,0, 0,0, 
+		 x,-y,-z, 1,0,0, 1,0, 
+		 x, y, z, 1,0,0, 0,1, 
+		 x, y,-z, 1,0,0, 1,1, 
+		-x,-y,-z, 0,-1,0,0,0, 
+		 x,-y,-z, 0,-1,0,1,0, 
+		-x,-y, z, 0,-1,0,0,1, 
+		 x,-y, z, 0,-1,0,1,1, 
+		-x,-y,-z, -1,0,0,0,0, 			
+		-x,-y, z, -1,0,0,1,0, 			
+		-x, y,-z, -1,0,0,0,1, 			
+		-x, y, z, -1,0,0,1,1, 			
+		-x, y, z, 0,1,1, 0,0, 
+		 x, y, z, 0,1,1, 1,0, 
+		-x, y,-z, 0,1,1, 0,1, 
+		 x, y,-z, 0,1,1, 1,1, 
+		 x,-y,-z, 0,0,-1,0,0, 
+		-x,-y,-z, 0,0,-1,1,0, 
+		 x, y,-z, 0,0,-1,0,1, 
+		-x, y,-z, 0,0,-1,1,1 		
+	]);
+
+	gb.vertex_buffer.add_attribute(vb, 'position', 3);
+	gb.vertex_buffer.add_attribute(vb, 'normal', 3);
+    gb.vertex_buffer.add_attribute(vb, 'uv', 2);
+			
+	var ib = gb.index_buffer.new(
+	[
+		0,1,3,0,3,2, 
+		4,5,7,4,7,6, 
+		8,9,11,8,11,10, 
+		12,13,15,12,15,14, 
+		16,17,19,16,19,18, 
+		20,21,23,20,23,22 
+	]);
+
+    return gb.mesh.new(vb, ib);
+}
 
 var v2 = gb.vec2;
 var v3 = gb.vec3;
@@ -4626,7 +5576,12 @@ var input = gb.input;
 var scene = gb.scene;
 var assets;
 var debug_view;
+
+var construct;
 var cube;
+var camera;
+var surface_target;
+var fxaa_pass;
 
 function init()
 {
@@ -4636,22 +5591,46 @@ function init()
 		{
 			frame_skip: false,
 			update: update, 
-			/*render: render,*/
+			render: render,
 		}
 	});
 
-	gb.assets.load("assets/assets.gl", load_complete);
+	gb.assets.load('assets/assets.gl', event_asset_load);
+	var request = gb.ajax.GET('assets/launch_data.data', event_data_load);
+	request.send();
 }
 
-function load_complete(asset_group)
+function event_data_load(e)
 {
+	if(e.target.status === 200)
+    {
+        var s = gb.binary_reader;
+        var br = new gb.Binary_Reader(e.target.response);
+        LOG("Asset File Size: " + br.buffer.byteLength + " bytes");
+        lv.load_data(br);
+    }
+}
+
+function event_asset_load(asset_group)
+{
+	debug_view = gb.debug_view.new(document.body);
 
 	assets = asset_group;
-	cube = gb.entity.mesh(gb.mesh.quad(2,2,0), gb.material.new(assets.shaders.shapes));
-	v2.set(cube.material.resolution, 512, 512);
+	construct = scene.new(null, true);
 
-	debug_view = gb.debug_view.new(document.body);
-	gb.debug_view.watch(debug_view, 'Mouse', cube.material, 'mouse');
+	cube = gb.entity.mesh(gb.mesh.cube(2,1,1), gb.material.new(assets.shaders.surface));
+	cube.spin = 0;
+	scene.add(cube);
+
+	camera = gb.camera.new();
+	camera.entity.position[2] = 3.0;
+	scene.add(camera);
+
+	surface_target = gb.render_target.new();
+	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
+	fxaa_pass.material.texture = surface_target.color;
+	v2.set(fxaa_pass.material.resolution, gl.view.width, gl.view.height);
+	v2.set(fxaa_pass.material.inv_resolution, 1.0 / gl.view.width, 1.0 / gl.view.height);
 
 	gb.allow_update = true;
 }
@@ -4659,21 +5638,17 @@ function load_complete(asset_group)
 function update(dt)
 {
 	gb.debug_view.update(debug_view);
-	cube.material.t += dt;
-	v2.set(cube.material.mouse, input.mouse_position[0], input.mouse_position[1]);
-	if(input.down(gb.Keys.a))
-	{
-		render();
-	}
+
+	gb.camera.fly(camera, dt, 80);
+	
+	cube.spin += 30 * dt;
+	gb.entity.set_rotation(cube, cube.spin, cube.spin, cube.spin);
 }
 
 function render()
 {
-	var gl = gb.webgl;
-	gl.use_shader(cube.material.shader);
-	gl.link_attributes(cube.material.shader, cube.mesh);
-	gl.set_uniforms(cube.material);
-	gl.draw_mesh(cube.mesh);
+	gl.render_scene(construct, camera, surface_target);
+	gl.render_post_call(fxaa_pass);
 }
 
 window.addEventListener('load', init, false);

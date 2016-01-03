@@ -1,6 +1,7 @@
 'use strict';
 
 //INCLUDE lib/js/gb.js
+//INCLUDE lib/js/ajax.js
 //INCLUDE lib/js/stack.js
 //INCLUDE lib/js/time.js
 //INCLUDE lib/js/math.js

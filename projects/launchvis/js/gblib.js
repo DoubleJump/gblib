@@ -19,16 +19,15 @@
 //INCLUDE lib/js/easing.js
 //INCLUDE lib/js/animate.js
 //INCLUDE lib/js/gl/entity.js
-//INCLUDE lib/js/gl/lamp.js
 //INCLUDE lib/js/gl/camera.js
 //INCLUDE lib/js/gl/scene.js
 //INCLUDE lib/js/gl/mesh.js
 //INCLUDE lib/js/gl/mesh/quad.js
+//INCLUDE lib/js/gl/line_mesh.js
 //INCLUDE lib/js/gl/texture.js
 //INCLUDE lib/js/gl/dds.js
 //INCLUDE lib/js/gl/shader.js
 //INCLUDE lib/js/gl/material.js
-//INCLUDE lib/js/gl/rig.js
 //INCLUDE lib/js/gl/render_target.js
 //INCLUDE lib/js/gl/draw_call.js
 //INCLUDE lib/js/gl/webgl.js

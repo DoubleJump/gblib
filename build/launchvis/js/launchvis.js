@@ -2393,17 +2393,17 @@ gb.animation =
 			t.num_frames = n_frames;
 			t.property = property;
 			
-			var A,B;
+			//var A,B;
 			if(components > 1) 
 			{
-				A = from[i];
-				B = to[i];
+				//A = from[i];
+				//B = to[i];
 				t.index = i;
 			}
 			else
 			{
-				A = from;
-				B = to;
+				//A = from;
+				//B = to;
 				t.index = -1;
 			}
 
@@ -2769,48 +2769,6 @@ gb.binary_reader.entity = function(br, ag)
     entity.scale 	= s.vec3(br);
     entity.rotation = s.vec4(br);
     return entity;
-}
-gb.Lamp = function()
-{
-	this.entity;
-	this.type = gb.LampType.POINT;
-	this.energy = 1;
-	this.distance = 1;
-	this.projection = gb.mat4.new();
-}
-
-gb.lamp = 
-{
-	new: function(type, energy, distance)
-	{
-		var e = gb.entity.new();
-	    var l = new gb.Lamp();
-	    l.type = type;
-	    l.energy = energy;
-	    l.distance = distance;
-	    e.lamp = l;
-	    l.entity = e;
-	    return e;
-	},
-}
-
-gb.LampType = 
-{
-    POINT: 0,
-    SUN: 1,
-}
-
-gb.binary_reader.lamp = function(br, ag)
-{
-    var s = gb.binary_reader;
-    var entity = s.entity(br, ag);
-    entity.type = gb.EntityType.LAMP;
-    var lamp = new gb.Lamp();
-    lamp.energy = s.f32(br);
-    lamp.distance = s.f32(br);
-    entity.lamp = lamp;
-    lamp.entity = entity;
-    return lamp;
 }
 gb.Camera = function()
 {
@@ -3387,6 +3345,223 @@ gb.mesh.quad = function(width, height, depth)
 
     return gb.mesh.new(vb, ib);
 }
+gb.LineMesh = function()
+{
+	this.entity;
+	this.thickness;
+	this.color;
+	this.num_points;
+	this.points = [];
+	this.length;
+}
+
+gb.line_mesh = 
+{
+	new: function(points, thickness, color)
+	{
+		var lm = new gb.LineMesh();
+		lm.thickness = thickness || 0.2;
+		lm.color = gb.color.new();
+		lm.length = 0;
+		if(color) lm.color.eq(color);
+
+		var e = gb.entity.new();
+		e.entity_type = gb.EntityType.ENTITY;
+		//e.update = gb.line_mesh.update;
+	    lm.entity = e;
+	    e.line_mesh = lm;
+
+		if(points)
+	    {
+	    	lm.points = points;
+	    	gb.line_mesh.update(e);
+	    }
+	    return lm;
+	},
+	update: function(e)
+	{
+		var lm = e.line_mesh;
+
+		ASSERT(lm.points.length > 1, "Line does not contain enought points");
+
+		var VS = 3;
+		var v3 = gb.vec3;
+		var vb, ib, m;
+		var num_points = lm.points.length / VS;
+		var num_faces = num_points - 1;
+		var num_node_verts = 2;
+		var vertex_count = num_faces * 4;
+		var index_count = num_faces * 6;
+
+		if(!lm.entity.mesh)
+		{
+			vb = gb.vertex_buffer.new();
+			gb.vertex_buffer.add_attribute(vb, 'position', VS);
+			gb.vertex_buffer.add_attribute(vb, 'previous', VS);
+			gb.vertex_buffer.add_attribute(vb, 'next', VS);
+			gb.vertex_buffer.add_attribute(vb, 'direction', 1);
+			gb.vertex_buffer.add_attribute(vb, 'dist', 1);
+			gb.vertex_buffer.alloc(vb, vertex_count);
+
+			ib = gb.index_buffer.new(index_count);
+			m = gb.mesh.new(vb, ib, 'TRIANGLES', 'DYNAMIC_DRAW');
+			lm.entity.mesh = m;
+		}
+		else
+		{
+			vb = m.vertex_buffer;
+			ib = m.index_buffer;
+			m = lm.entity.mesh;
+
+			if(lm.num_points !== lm.points.length)
+			{
+				gb.vertex_buffer.resize(vb, vertex_count, false);
+				gb.index_buffer.resize(index_buffer, index_count, false);
+				lm.num_points = lm.points.length;
+			}
+		}
+
+		var stack = v3.stack.index;
+		var current = v3.tmp();
+		var previous = v3.tmp();
+		var next = v3.tmp();
+		var segment = v3.tmp();
+		var distance = 0;
+		var flip = 1;
+
+		var index = 0;
+		for(var i = 0; i < num_points; ++i)
+		{
+			var ii = i * VS;
+	
+			v3.set(current, lm.points[ii], lm.points[ii+1], lm.points[ii+2])
+
+			if(i === 0) //first
+			{
+				v3.set(previous, lm.points[0], lm.points[1], lm.points[2]);
+				v3.set(next, lm.points[3], lm.points[4], lm.points[5]);
+			}
+			else if(i === num_points - 1) //last
+			{
+				v3.set(previous, lm.points[ii-3], lm.points[ii-2], lm.points[ii-1]);
+				v3.set(next, lm.points[ii], lm.points[ii+1], lm.points[ii+2]);
+			}
+			else
+			{
+				v3.set(previous, lm.points[ii-3], lm.points[ii-2], lm.points[ii-1]);
+				v3.set(next, lm.points[ii+3], lm.points[ii+4], lm.points[ii+5]);
+			}
+
+			v3.sub(segment, current, previous);
+			distance += v3.length(segment);
+
+			for(var j = 0; j < num_node_verts; ++j)
+			{
+				//current
+				for(var k = 0; k < VS; ++k)
+				{
+					vb.data[index] = current[k];
+					index++;
+				}
+				//previous
+				for(var k = 0; k < VS; ++k)
+				{
+					vb.data[index] = previous[k];
+					index++;
+				}
+				//next
+				for(var k = 0; k < VS; ++k)
+				{
+					vb.data[index] = next[k];
+					index++;
+				}
+				//direction
+				vb.data[index] = flip;
+				index++;
+				flip *= -1;
+
+				vb.data[index] = distance;
+				index++;
+			}
+		}
+		lm.length = distance;
+
+		index = 0;
+		var offset = 0;
+		for(var i = 0; i < num_faces; ++i)
+		{
+			ib.data[index  ] = offset + 0;
+			ib.data[index+1] = offset + 1;
+			ib.data[index+2] = offset + 3;
+			ib.data[index+3] = offset + 0;
+			ib.data[index+4] = offset + 3;
+			ib.data[index+5] = offset + 2;
+			offset += 2;
+			index += 6;
+		}
+	    gb.mesh.update(m);
+		v3.stack.index = stack;
+	},
+	ellipse: function(rx, ry, res, thickness, color)
+	{
+		var points = [];
+		var theta = gb.math.TAU / res;
+		for(var i = 0; i < res + 1; ++i)
+		{
+			var sin_theta = gb.math.sin(theta * i);
+			var cos_theta = gb.math.cos(theta * i);
+			points.push(sin_theta * rx);
+			points.push(cos_theta * ry);
+			points.push(0.0);
+		}
+		return gb.line_mesh.new(points, thickness, color);
+	},
+	circle: function(r, res, thickness, color)
+	{
+		return gb.line_mesh.ellipse(r, r, res, thickness, color)
+	},
+	curve: function(curve, res, thickness, color)
+	{
+		var stride = 9;
+		var num_curve_nodes = curve.length / 9;
+		var num_curve_segments = num_curve_nodes - 1;
+		var points = new Float32Array(num_curve_segments * res * 3);
+
+		var src_index = 3;
+		var dest_index = 0;
+		var step = 1 / res;
+		for(var i = 0; i < num_curve_segments; ++i)
+		{
+			var t = 0;
+			var ca = src_index + 0;
+			var cb = src_index + 3;
+			var cc = src_index + 6;
+			var cd = src_index + 9;
+
+			for(var j = 0; j < res+1; ++j)
+			{
+				var u = 1.0 - t;
+				var tt = t * t;
+				var uu = u * u;
+				var uuu = uu * u;
+				var ttt = tt * t;
+
+				for(var k = 0; k < 3; ++k)
+				{
+					points[dest_index] = (uuu * curve[ca+k]) + 
+										 (3 * uu * t * curve[cb+k]) + 
+										 (3 * u * tt * curve[cc+k]) + 
+						   				 (ttt * curve[cd+k]); 
+
+					dest_index++;
+				}
+				t += step;
+			}
+			src_index += stride;
+		}
+		return gb.line_mesh.new(points, thickness, color);
+	},
+}
 gb.Texture = function()
 {
 	this.id = 0;
@@ -3659,7 +3834,7 @@ gb.material =
         {
             gb.mat4.mul(material.model_view, entity.world_matrix, camera.view);
         }
-        if(material.model_matrix !== undefined)
+        if(material.model !== undefined)
         {
             material.model = entity.world_matrix;
         }
@@ -3701,139 +3876,6 @@ gb.binary_reader.material = function(br, ag)
         material[sampler_name] = ag.textures[tex_name];
     }
     return material;
-}
-gb.Rig = function()
-{
-	this.joints;	
-}
-gb.Joint = function()
-{
-	this.parent;
-	this.position;
-	this.scale;
-	this.rotation;
-	this.local_matrix;
-	this.world_matrix; 
-	this.inverse_bind_pose;
-	this.offset_matrix;
-	this.bind_pose;
-}
-
-gb.rig = 
-{
-	MAX_JOINTS: 18,
-
-	new: function()
-	{
-		var r = new gb.Rig();
-		r.joints = [];
-		return r;
-	},
-	copy: function(src)
-	{
-		var r = new gb.Rig();
-		var m4 = gb.mat4;
-		var v3 = gb.vec3;
-		r.joints = [];
-		var n = src.joints.length;
-		for(var i = 0; i < n; ++i)
-		{
-			var sj = src.joints[i];
-			var j = gb.rig.joint();
-			j.parent = sj.parent;
-			v3.eq(j.postition, sj.position);
-			v3.eq(j.scale, sj.scale);
-			gb.quat.eq(j.rotation, sj.rotation);
-			m4.eq(j.local_matrix, sj.local_matrix);
-			m4.eq(j.world_matrix, sj.world_matrix);
-			m4.eq(j.bind_pose, sj.bind_pose);
-			m4.eq(j.inverse_bind_pose, sj.inverse_bind_pose);
-			m4.eq(j.offset_matrix, sj.offset_matrix);
-			r.joints.push(j);
-		}
-		return r;
-	},
-	joint: function()
-	{
-		var j = new gb.Joint();
-		j.parent = -1;
-		j.position = gb.vec3.new();
-		j.scale = gb.vec3.new(1,1,1);
-		j.rotation = gb.quat.new();
-		j.local_matrix = gb.mat4.new();
-		j.world_matrix = gb.mat4.new(); 
-		j.bind_pose = gb.mat4.new();
-		j.inverse_bind_pose = gb.mat4.new();
-		j.offset_matrix = gb.mat4.new();
-		return j;
-	},
-	update: function(rig, scene)
-	{
-		var qt = gb.quat.tmp();
-
-		var n = rig.joints.length;
-		for(var i = 0; i < n; ++i)
-		{
-			var j = rig.joints[i];
-			gb.mat4.compose(j.local_matrix, j.position, j.scale, j.rotation);
-			gb.mat4.mul(j.local_matrix, j.local_matrix, j.bind_pose);
-			if(j.parent === -1)
-			{
-				gb.mat4.eq(j.world_matrix, j.local_matrix);
-			}
-			else
-			{
-				var parent = rig.joints[j.parent];
-				gb.mat4.mul(j.world_matrix, j.local_matrix, parent.world_matrix);
-			}
-
-			gb.mat4.mul(j.offset_matrix, j.inverse_bind_pose, j.world_matrix);
-		}
-	},
-}
-gb.binary_reader.rig = function(br, ag)
-{
-    var s = gb.binary_reader;
-    var rig = gb.rig.new();
-    rig.name = s.string(br);
-    var num_joints = s.i32(br);
-    ASSERT(num_joints <= gb.rig.MAX_JOINTS, "Rig has too many joints!");
-    for(var i = 0; i < num_joints; ++i)
-    {
-    	var j = new gb.Joint();
-		j.position = gb.vec3.new();
-		j.scale = gb.vec3.new(1,1,1);
-		j.rotation = gb.quat.new();
-		j.local_matrix = gb.mat4.new();
-		j.world_matrix = gb.mat4.new(); 
-		j.offset_matrix = gb.mat4.new();
-    	j.parent = s.i32(br);
-    	j.bind_pose = s.mat4(br);
-    	j.inverse_bind_pose = s.mat4(br);
-    	rig.joints.push(j);
-    } 
-    return rig;
-}
-gb.binary_reader.rig_action = function(br)
-{
-	var s = gb.binary_reader;
-    var animation = new gb.Animation();
-    animation.target_type = 2;
-    animation.name = s.string(br);
-
-    var num_curves = s.i32(br);
-    for(var i = 0; i < num_curves; ++i)
-    {
-    	var tween = new gb.Tween();
-    	tween.bone_index = s.i32(br);
-    	tween.property = s.string(br);
-    	tween.index = s.i32(br);
-
-    	tween.num_frames = s.i32(br);
-    	tween.curve = s.f32_array(br, tween.num_frames * 6);
-    	animation.tweens.push(tween);
-    }
-    return animation;
 }
 gb.Render_Target = function()
 {
@@ -4239,6 +4281,7 @@ gb.webgl =
 		// sourceColor * sourceFactor + destinationClor * destinationFactor
 
 		var _t = gb.webgl;
+		var gl = _t.ctx;
 		switch(mode)
 		{
 			case _t.blend_mode.DARKEN:
@@ -4487,10 +4530,10 @@ gb.webgl =
 		}
 	},
 
-	render_scene: function(scene, camera, target)
+	render_scene: function(scene, camera, target, clear)
 	{
 		var _t = gb.webgl;
-		_t.render_draw_call(camera, scene, scene.draw_items, scene.num_draw_items, null, target, true, true);
+		_t.render_draw_call(camera, scene, scene.draw_items, scene.num_draw_items, null, target, clear, true);
 	},
 
 	render_draw_call: function(camera, scene, ids, count, material, target, clear, depth)
@@ -5405,7 +5448,7 @@ gb.binary_reader.outcome = function(br)
 	var s = gb.binary_reader;
 	var o = new lv.Outcome();
 	o.name = s.string(br);
-	LOG(o);
+	//LOG(o);
 	return o;
 }
 gb.binary_reader.launch = function(br)
@@ -5432,7 +5475,7 @@ gb.binary_reader.launch = function(br)
 		l.video = s.string(br);
 	}
 	l.details = s.string(br);
-	LOG(l);
+	//LOG(l);
 	return l;
 }
 gb.camera.fly = function(c, dt, vertical_limit)
@@ -5578,10 +5621,17 @@ var assets;
 var debug_view;
 
 var construct;
-var cube;
 var camera;
 var surface_target;
 var fxaa_pass;
+
+var globe;
+var material;
+var ocean;
+var country_meshes = [];
+var rotw;
+var mesh;
+var atmosphere;
 
 function init()
 {
@@ -5590,14 +5640,19 @@ function init()
 		config:
 		{
 			frame_skip: false,
-			update: update, 
+			update: update,
+			debug_update: debug_update,
 			render: render,
+		},
+		gl:
+		{
+			antialias: false,
 		}
 	});
 
 	gb.assets.load('assets/assets.gl', event_asset_load);
-	var request = gb.ajax.GET('assets/launch_data.data', event_data_load);
-	request.send();
+	//var request = gb.ajax.GET('assets/launch_data.data', event_data_load);
+	//request.send();
 }
 
 function event_data_load(e)
@@ -5618,9 +5673,33 @@ function event_asset_load(asset_group)
 	assets = asset_group;
 	construct = scene.new(null, true);
 
-	cube = gb.entity.mesh(gb.mesh.cube(2,1,1), gb.material.new(assets.shaders.surface));
-	cube.spin = 0;
-	scene.add(cube);
+	material = gb.material.new(assets.shaders.sphere);
+	material.warp = 1.0;
+	material.offset = 1.0;
+	gb.color.set(material.color, 1.0,1.0,1.0,1.0);
+
+	ocean = assets.meshes['ocean'];
+	rotw = assets.meshes['rotw'];
+	for(var k in assets.meshes)
+	{
+		if(k === 'ocean' || k === 'rotw' || k === 'european union') continue;
+		country_meshes.push(assets.meshes[k]);
+	}
+
+	globe = gb.entity.new();
+	scene.add(globe);
+
+	atmosphere = gb.line_mesh.ellipse(0.65,0.65,60,0.025);
+	atmosphere.entity.material = gb.material.new(asset_group.shaders.line);
+	atmosphere.entity.material.line_width = atmosphere.thickness;
+	//atmosphere.entity.material.cutoff = atmosphere.length;
+	atmosphere.entity.material.cutoff = 2.5;
+	
+	atmosphere.entity.material.aspect = 1.0;
+	atmosphere.entity.material.mitre = 0;
+	atmosphere.spin = 0;
+	//gb.color.set(line.entity.material.color, 0.8,0.8,0.884,1.0);
+	scene.add(atmosphere);
 
 	camera = gb.camera.new();
 	camera.entity.position[2] = 3.0;
@@ -5638,17 +5717,64 @@ function event_asset_load(asset_group)
 function update(dt)
 {
 	gb.debug_view.update(debug_view);
-
 	gb.camera.fly(camera, dt, 80);
-	
-	cube.spin += 30 * dt;
-	gb.entity.set_rotation(cube, cube.spin, cube.spin, cube.spin);
+	atmosphere.spin += 30 * dt;
+	gb.entity.set_rotation(atmosphere.entity, 0, atmosphere.spin, 0);
+}
+
+function debug_update(dt)
+{
+	//gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(2,2,2));
+}
+
+function render_globe_mesh(mesh, mat)
+{
+	gl.link_attributes(mat.shader, mesh);
+	gl.set_uniforms(mat);
+	gl.draw_mesh(mesh);
 }
 
 function render()
 {
-	gl.render_scene(construct, camera, surface_target);
-	gl.render_post_call(fxaa_pass);
+	gl.set_state(gl.ctx.DEPTH_TEST, true);
+
+	
+
+	//gl.set_blend_mode();
+	//gl.ctx.depthMask(true);
+
+	gl.set_render_target(null, false);
+    m4.mul(material.mvp, globe.world_matrix, camera.view_projection);
+	gl.use_shader(material.shader);
+	gb.material.set_camera_uniforms(material, camera);
+
+    gb.color.set(material.color, 0.0,0.0,0.0,1.0);
+    render_globe_mesh(ocean, material);
+
+    gb.color.set(material.color, 0.4,0.4,0.4,1.0);
+    render_globe_mesh(rotw, material);
+	
+	var n = country_meshes.length;
+	for(var i = 0; i < n; ++i)
+	{
+		render_globe_mesh(country_meshes[i], material);
+	}
+
+	//gl.set_blend_mode(gl.blend_mode.MULTIPLY);
+	//gl.set_state(gl.ctx.DEPTH_TEST, false);
+	//gl.ctx.depthMask(false);
+	gl.use_shader(atmosphere.entity.material.shader);
+    m4.mul(atmosphere.entity.material.mvp, globe.world_matrix, camera.view_projection);
+	gb.material.set_camera_uniforms(atmosphere.entity.material, camera);
+	gl.link_attributes(atmosphere.entity.material.shader, atmosphere.entity.mesh);
+	gl.set_uniforms(atmosphere.entity.material);
+	gl.draw_mesh(atmosphere.entity.mesh);
+	//gl.render_scene(construct, camera, null, false);
+
+
+	gb.gl_draw.render(camera, null);
+
+	//gl.render_post_call(fxaa_pass);
 }
 
 window.addEventListener('load', init, false);

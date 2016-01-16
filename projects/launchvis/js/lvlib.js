@@ -211,7 +211,7 @@ gb.binary_reader.outcome = function(br)
 	var s = gb.binary_reader;
 	var o = new lv.Outcome();
 	o.name = s.string(br);
-	LOG(o);
+	//LOG(o);
 	return o;
 }
 gb.binary_reader.launch = function(br)
@@ -238,6 +238,6 @@ gb.binary_reader.launch = function(br)
 		l.video = s.string(br);
 	}
 	l.details = s.string(br);
-	LOG(l);
+	//LOG(l);
 	return l;
 }

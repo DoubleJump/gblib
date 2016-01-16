@@ -41,13 +41,12 @@ void main()
 	}
 	else
 	{
-		v_direction = normalize(current_screen - previous_screen);
-		/*
-		vec2 A = normalize(current_projected - previous_projected);
+		//v_direction = normalize(current_screen - previous_screen);
+		vec2 A = normalize(current_screen - previous_screen);
 
 		if(mitre == 1)
 		{
-			vec2 B = normalize(next_projected - current_projected);
+			vec2 B = normalize(next_screen - current_screen);
 			vec2 tangent = normalize(A + B);
 			vec2 perp = vec2(-A.y, A.x);
 			vec2 mitre = vec2(-tangent.y, tangent.x);
@@ -58,11 +57,11 @@ void main()
 		{
 			v_direction = A;			
 		}
-		*/
 	}
 
+	len = clamp(len, line_width * 0.5, line_width * 1.5);
 	vec2 normal = vec2(-v_direction.y, v_direction.x) * (len * direction);
-	//normal.x /= aspect;
+	normal.x /= aspect;
 
 	gl_Position = vec4(current_projected.xy + normal, current_projected.z, current_projected.w);
 }
@@ -81,9 +80,9 @@ void main()
 	vec3 N = normalize((_position / 2.0) + 0.5);
 
 	if(_distance < cutoff)
-    	gl_FragColor = vec4(N, 1.0);
+    	gl_FragColor = vec4(color);
     else 
-    	gl_FragColor = vec4(N, 0.0);
+    	gl_FragColor = vec4(color.rgb, 0.0);
 
     //gl_FragColor = vec4(N, 0.5);
 }

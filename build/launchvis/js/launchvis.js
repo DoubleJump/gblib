@@ -2740,8 +2740,8 @@ gb.entity =
 	{
 		if(e.rig) gb.rig.update(e.rig, scene);
 
-		if(e.dirty === true)
-		{
+		//if(e.dirty === true)
+		//{
 			gb.mat4.compose(e.local_matrix, e.position, e.scale, e.rotation);
 			if(e.parent === null)
 			{
@@ -2749,9 +2749,10 @@ gb.entity =
 			}
 			else
 			{
+				//LOG('whoop');
 				gb.mat4.mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
 			}
-		}
+		//}
 	
 		if(e.update !== null) e.update(e); //updates component
 
@@ -5697,6 +5698,7 @@ function event_asset_load(asset_group)
 	material.warp = 1.0;
 	material.offset = 1.0;
 	gb.color.set(material.color, 1.0,1.0,1.0,1.0);
+	gb.vec3.set(material.light, 10.0,10.0,10.0);
 
 	ocean = assets.meshes['ocean'];
 	rotw = assets.meshes['rotw'];
@@ -5711,33 +5713,38 @@ function event_asset_load(asset_group)
 	globe.spin = 0;
 
 	atmos_shift = gb.entity.new();
+	scene.add(atmos_shift);
 
-	atmosphere = gb.line_mesh.ellipse(0.61,0.61,80,0.0085);
+	atmosphere = gb.line_mesh.ellipse(0.61,0.61,80,0.0089);
 	atmosphere.entity.material = gb.material.new(asset_group.shaders.line);
 	atmosphere.entity.material.line_width = atmosphere.thickness;
 	atmosphere.entity.material.cutoff = atmosphere.length;
 	atmosphere.entity.material.aspect = gl.aspect;
 	atmosphere.entity.material.mitre = 1;
-	gb.color.set(atmosphere.entity.material.color, 0.8,0.8,0.8,1.0);
+	gb.color.set(atmosphere.entity.material.color, 0.3,0.3,0.3,1.0);
 	scene.add(atmosphere);
 
 	atmosphere.entity.position[2] = 0.2;
 	gb.entity.set_parent(atmosphere.entity, atmos_shift);
-	LOG(atmosphere.entity);
 
-	orbit = gb.line_mesh.ellipse(1.0,1.0,120,0.005);
+	orbit = gb.line_mesh.ellipse(1.0,0.8,120,0.005);
 	orbit.entity.material = gb.material.new(asset_group.shaders.line);
 	orbit.entity.material.line_width = orbit.thickness;
 	orbit.entity.material.cutoff = orbit.length;
 	orbit.entity.material.aspect = gl.aspect;
 	orbit.entity.material.mitre = 1;
-	gb.entity.set_rotation(orbit.entity, 30,30,0);
-	gb.color.set(orbit.entity.material.color, 0.6,0.6,0.6,1.0);
+	gb.entity.set_rotation(orbit.entity, 30,60,0);
+	gb.color.set(orbit.entity.material.color, 0.95,0.75,0.15,1.0);
 	scene.add(orbit);
 	
 	camera = gb.camera.new();
 	camera.entity.position[2] = 3.0;
 	scene.add(camera);
+
+	material.model = globe.world_matrix;
+    material.view = camera.view;
+    material.projection = camera.projection;
+    material.normal_matrix = camera.normal;
 
 	surface_target = gb.render_target.new();
 	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
@@ -5760,14 +5767,11 @@ function update(dt)
 	v3.sub(to_camera, v3.tmp(0,0,0), camera.entity.position);
 	v3.normalized(to_camera, to_camera);
 
-	//qt.from_to(atmos_shift.rotation, v3.tmp(0,0,-1), to_camera);
-	//atmos_shift.dirty = true;
+	qt.from_to(atmos_shift.rotation, v3.tmp(0,0,-1), to_camera);
+	atmos_shift.dirty = true;
 
-	globe.spin += 30 * dt;
+	globe.spin += 35 * dt;
 	gb.entity.set_rotation(globe, 23.5, globe.spin, 0);
-
-	gb.entity.set_rotation(atmos_shift, 0, globe.spin, 0);
-
 
 	//TODO: need to modulate atmosphere thickness to be the inverse of the distance
 	//of the camera to atmosphere
@@ -5776,6 +5780,7 @@ function update(dt)
 function debug_update(dt)
 {
 	//gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(2,2,2));
+	//gb.gl_draw.transform(atmos_shift.world_matrix);
 }
 
 function render_globe_mesh(mesh, mat)
@@ -5791,16 +5796,22 @@ function render()
 
 
 	gl.set_render_target(null, false);
-    m4.mul(material.mvp, globe.world_matrix, camera.view_projection);
+    //m4.mul(material.mvp, globe.world_matrix, camera.view_projection);
+
+    
+
 	gl.use_shader(material.shader);
 	gb.material.set_camera_uniforms(material, camera);
 
     gb.color.set(material.color, 0.0,0.0,0.0,1.0);
+    //gb.color.set(material.color, 1.0,1.0,1.0,1.0);
+    
     render_globe_mesh(ocean, material);
 
-    gb.color.set(material.color, 0.4,0.4,0.4,1.0);
+    gb.color.set(material.color, 0.2,0.2,0.2,1.0);
     render_globe_mesh(rotw, material);
 	
+	gb.color.set(material.color, 0.4,0.4,0.4,1.0);
 	var n = country_meshes.length;
 	for(var i = 0; i < n; ++i)
 	{

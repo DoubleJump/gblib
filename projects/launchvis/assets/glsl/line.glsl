@@ -80,7 +80,7 @@ void main()
 	vec3 N = normalize((_position / 2.0) + 0.5);
 
 	if(_distance < cutoff)
-    	gl_FragColor = vec4(color);
+    	gl_FragColor = vec4(color.rgb, 1.0);
     else 
     	gl_FragColor = vec4(color.rgb, 0.0);
 

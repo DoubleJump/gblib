@@ -70,17 +70,20 @@ void main()
 precision highp float;
 
 uniform vec4 color;
-uniform float cutoff;
+uniform float start;
+uniform float end;
 
 varying float _distance;
 varying vec3 _position;
 
 void main()
 { 
-	vec3 N = normalize((_position / 2.0) + 0.5);
+	//vec3 C = _position.yxz + 0.5;
+	vec3 C = color.rgb * gl_FragCoord.w;
+	//vec3 N = normalize((_position / 2.0) + 0.5);
 
-	if(_distance < cutoff)
-    	gl_FragColor = vec4(color.rgb, 1.0);
+	if(_distance > start && _distance < end)
+    	gl_FragColor = vec4(C, 1.0);
     else 
     	gl_FragColor = vec4(color.rgb, 0.0);
 

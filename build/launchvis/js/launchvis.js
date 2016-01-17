@@ -317,6 +317,64 @@ gb.math =
     }
     */
 }
+gb.random = 
+{
+	int: function(min, max)
+	{
+    	return Math.floor(Math.random() * (max - min + 1)) + min;
+	},
+	float: function(min, max)
+	{
+    	return Math.random() * (max - min) + min;
+	},
+	float_fuzzy: function(f, fuzz)
+	{
+		return gb.random.float(f-fuzz, f+fuzz);
+	},
+	vec2: function(r, min_x, max_x, min_y, max_y)
+	{
+		r[0] = Math.random() * (max_x - min_x) + min_x;
+		r[1] = Math.random() * (max_y - min_x) + min_y;
+	},
+	vec2_fuzzy: function(r, x,y, fuzz)
+	{
+		gb.random.vec2(r, x-fuzz, x+fuzz, y-fuzz, y+fuzz);
+	},
+	vec3: function(r, min_x, max_x, min_y, max_y, min_z, max_z)
+	{
+		r[0] = Math.random() * (max_x - min_x) + min_x;
+		r[1] = Math.random() * (max_y - min_x) + min_y;
+		r[2] = Math.random() * (max_z - min_x) + min_z;
+	},
+	rotation: function(r, min_x, max_x, min_y, max_y, min_z, max_z)
+	{
+		var x = Math.random() * (max_x - min_x) + min_x;
+		var y = Math.random() * (max_y - min_x) + min_y;
+		var z = Math.random() * (max_z - min_x) + min_z;
+		gb.quat.euler(r, x,y,z);
+	},
+	fill: function(r)
+	{
+		var n = r.length;
+		for(var i = 0; i < n; ++i)
+			r[i] = Math.random();
+	},
+	color: function(r, min_r, max_r, min_g, max_g, min_b, max_b, min_a, max_a)
+	{
+		r[0] = Math.random() * (max_r - min_r) + min_r;
+		r[1] = Math.random() * (max_g - min_g) + min_g;
+		r[2] = Math.random() * (max_b - min_b) + min_b;
+		r[3] = Math.random() * (max_a - min_a) + min_a;
+	},
+	unit_circle: function(r)
+	{
+		var x = gb.rand.float(-1,1);
+		var y = gb.rand.float(-1,1);
+		var l = 1 / gb.math.sqrt(x * x + y * y);
+		r[0] = x * l;
+		r[1] = y * l;
+	}
+}
 gb.Binary_Reader = function(buffer)
 {
 	this.buffer = buffer;
@@ -5651,7 +5709,9 @@ var rotw;
 var mesh;
 var atmosphere;
 var atmos_shift;
-var orbit;
+var orbits = [];
+var cutoff;
+var pulse;
 
 function init()
 {
@@ -5666,8 +5726,8 @@ function init()
 		},
 		gl:
 		{
-			antialias: true,
-			fill_container: true,
+			antialias: false,
+			fill_container: false,
 		}
 	});
 
@@ -5696,9 +5756,9 @@ function event_asset_load(asset_group)
 
 	material = gb.material.new(assets.shaders.sphere);
 	material.warp = 1.0;
-	material.offset = 1.0;
+	//material.offset = 1.0;
 	gb.color.set(material.color, 1.0,1.0,1.0,1.0);
-	gb.vec3.set(material.light, 10.0,10.0,10.0);
+	gb.vec3.set(material.light, 10.0,5.0,5.0);
 
 	ocean = assets.meshes['ocean'];
 	rotw = assets.meshes['rotw'];
@@ -5715,27 +5775,69 @@ function event_asset_load(asset_group)
 	atmos_shift = gb.entity.new();
 	scene.add(atmos_shift);
 
-	atmosphere = gb.line_mesh.ellipse(0.61,0.61,80,0.0089);
+	atmosphere = gb.line_mesh.ellipse(0.592,0.592,80,0.01);
 	atmosphere.entity.material = gb.material.new(asset_group.shaders.line);
 	atmosphere.entity.material.line_width = atmosphere.thickness;
-	atmosphere.entity.material.cutoff = atmosphere.length;
+	atmosphere.entity.material.start = 0;
+	atmosphere.entity.material.end = atmosphere.length;
 	atmosphere.entity.material.aspect = gl.aspect;
 	atmosphere.entity.material.mitre = 1;
-	gb.color.set(atmosphere.entity.material.color, 0.3,0.3,0.3,1.0);
+	gb.color.set(atmosphere.entity.material.color, 0.5,0.5,0.5,1.0);
 	scene.add(atmosphere);
 
-	atmosphere.entity.position[2] = 0.2;
+	atmosphere.entity.position[2] = 0.25;
 	gb.entity.set_parent(atmosphere.entity, atmos_shift);
 
-	orbit = gb.line_mesh.ellipse(1.0,0.8,120,0.005);
-	orbit.entity.material = gb.material.new(asset_group.shaders.line);
-	orbit.entity.material.line_width = orbit.thickness;
-	orbit.entity.material.cutoff = orbit.length;
-	orbit.entity.material.aspect = gl.aspect;
-	orbit.entity.material.mitre = 1;
-	gb.entity.set_rotation(orbit.entity, 30,60,0);
-	gb.color.set(orbit.entity.material.color, 0.95,0.75,0.15,1.0);
-	scene.add(orbit);
+	for(var i = 0; i < 10; ++i)
+	{
+		var rx = gb.random.float(0.6,1.5);
+		var ry = gb.random.float(0.6,1.5);
+		var tx = gb.random.float(-120, 120);
+		var ty = gb.random.float(-120, 120);
+
+		var orbit = gb.line_mesh.ellipse(rx,ry, 90,0.004);
+		orbit.entity.material = gb.material.new(asset_group.shaders.line);
+		orbit.entity.material.line_width = orbit.thickness;
+		orbit.entity.material.start = 0;
+		orbit.entity.material.end = orbit.length;// * gb.random.float(0.5,1.0);
+		orbit.entity.material.aspect = gl.aspect;
+		orbit.entity.material.mitre = 1;
+		gb.entity.set_rotation(orbit.entity, tx,ty,0);
+
+		scene.add(orbit);
+		orbits.push(orbit);
+	}
+
+	for(var i = 0; i < 5; ++i)
+	{
+		var orbit = orbits[i];
+
+		var cr = gb.random.float(0.6,0.6);
+		var cg = gb.random.float(0.5,0.5);
+		var cb = gb.random.float(0.5,0.6);
+
+		gb.color.set(orbit.entity.material.color, cr,cg,cb,1.0);
+	}
+	for(var i = 5; i < 10; ++i)
+	{
+		var orbit = orbits[i];
+
+		var cr = gb.random.float(0.3,0.5);
+		var cg = gb.random.float(0.4,0.6);
+		var cb = gb.random.float(0.8,0.9);
+		
+		gb.color.set(orbit.entity.material.color, cr,cg,cb,1.0);
+	}
+
+
+	cutoff = 0.0;
+	pulse = 0.0;
+
+	gb.color.set(orbits[3].entity.material.color, 1.0,1.0,1.0, 1.0);
+	orbits[3].entity.material.line_width = 0.009;
+
+
+	
 	
 	camera = gb.camera.new();
 	camera.entity.position[2] = 3.0;
@@ -5770,8 +5872,25 @@ function update(dt)
 	qt.from_to(atmos_shift.rotation, v3.tmp(0,0,-1), to_camera);
 	atmos_shift.dirty = true;
 
-	globe.spin += 35 * dt;
+	globe.spin += 1 * dt;
 	gb.entity.set_rotation(globe, 23.5, globe.spin, 0);
+
+	pulse += dt * 0.1;
+	if(pulse > 1.0) pulse = 0.0;
+
+	cutoff += dt * 0.1;
+	if(cutoff > 2.0) cutoff = 0.0;
+	for(var i = 0; i < 10; ++i)
+	{
+		var orbit = orbits[i];
+		//var offset = 10.0 / i;
+		if(cutoff > 1.0) orbit.entity.material.start = orbit.length * (cutoff - 1.0);
+		else 
+		{
+			orbit.entity.material.start = 0;
+			orbit.entity.material.end = orbit.length * cutoff;// + offset;
+		}
+	}
 
 	//TODO: need to modulate atmosphere thickness to be the inverse of the distance
 	//of the camera to atmosphere
@@ -5798,39 +5917,28 @@ function render()
 	gl.set_render_target(null, false);
     //m4.mul(material.mvp, globe.world_matrix, camera.view_projection);
 
-    
-
 	gl.use_shader(material.shader);
 	gb.material.set_camera_uniforms(material, camera);
 
-    gb.color.set(material.color, 0.0,0.0,0.0,1.0);
+    gb.color.set(material.color, 0.15,0.15,0.15,1.0);
     //gb.color.set(material.color, 1.0,1.0,1.0,1.0);
-    
     render_globe_mesh(ocean, material);
 
-    gb.color.set(material.color, 0.2,0.2,0.2,1.0);
+	gb.color.set(material.color, 0.0,0.0,0.0,1.0);
     render_globe_mesh(rotw, material);
 	
-	gb.color.set(material.color, 0.4,0.4,0.4,1.0);
 	var n = country_meshes.length;
 	for(var i = 0; i < n; ++i)
 	{
+		var sp = gb.math.sin(pulse * i);
+   		gb.color.set(material.color, sp,sp,sp,1.0);
 		render_globe_mesh(country_meshes[i], material);
 	}
 
-	/*
-	gl.use_shader(atmosphere.entity.material.shader);
-    m4.mul(atmosphere.entity.material.mvp, globe.world_matrix, camera.view_projection);
-	gb.material.set_camera_uniforms(atmosphere.entity.material, camera);
-	gl.link_attributes(atmosphere.entity.material.shader, atmosphere.entity.mesh);
-	gl.set_uniforms(atmosphere.entity.material);
-	gl.draw_mesh(atmosphere.entity.mesh);
-	*/
+
 	gl.render_scene(construct, camera, null, false);
 
-
 	gb.gl_draw.render(camera, null);
-
 	//gl.render_post_call(fxaa_pass);
 }
 

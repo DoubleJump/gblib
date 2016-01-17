@@ -5,6 +5,7 @@
 //INCLUDE lib/js/stack.js
 //INCLUDE lib/js/time.js
 //INCLUDE lib/js/math.js
+//INCLUDE lib/js/random.js
 //INCLUDE lib/js/serialize.js
 //INCLUDE lib/js/vector.js
 //INCLUDE lib/js/quaternion.js

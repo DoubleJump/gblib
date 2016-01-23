@@ -68,24 +68,35 @@ void main()
 #FRAGMENT
 precision highp float;
 
-uniform vec4 color;
+//uniform vec4 color;
 uniform float start;
 uniform float end;
 
 varying float _distance;
 varying vec3 _position;
 
+//INCLUDE lib/glsl/gamma.glsl
+
 void main()
 { 
-	//vec3 C = _position.yxz + 0.5;
-	float depth = clamp(gl_FragCoord.w, 0.2, 1.0);
-	vec3 C = color.rgb * depth;
+	//float depth = clamp(gl_FragCoord.w / 100.0, 0.0, 1.0);
+	float depth = (gl_FragCoord.z / gl_FragCoord.w) / 2.0;
+	depth = clamp(depth, 0.0, 1.0);
+
 	//vec3 N = normalize((_position / 2.0) + 0.5);
 
-	if(_distance > start && _distance < end)
+	vec3 A = to_linear(vec3(0.05,0.1,0.4));
+	vec3 B = to_linear(vec3(0.3,0.6,0.7));
+
+	//C = mix(C * 0.5, C * 3.0, depth);
+	vec3 C = to_gamma(mix(A, B, 1.0 - depth));
+
+
+    if(_distance > start && _distance < end)
     	gl_FragColor = vec4(C, 1.0);
     else 
-    	gl_FragColor = vec4(color.rgb, 0.2);
+    	discard;
+    	//gl_FragColor = vec4(C, 0.1);
 
     //gl_FragColor = vec4(N, 0.5);
 }

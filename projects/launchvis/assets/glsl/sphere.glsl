@@ -66,7 +66,6 @@ void main()
 	
 	diffuse = clamp(diffuse, 0.05, 1.0);
 
-
 	vec4 color_linear = to_linear(color);
 	color_linear.rgb *= diffuse;
 

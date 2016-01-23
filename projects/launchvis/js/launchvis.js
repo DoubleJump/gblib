@@ -37,15 +37,15 @@ function init()
 	{
 		config:
 		{
-			frame_skip: false,
+			frame_skip: true,
 			update: update,
 			debug_update: debug_update,
 			render: render,
 		},
 		gl:
 		{
-			antialias: false,
-			fill_container: false,
+			antialias: true,
+			fill_container: true,
 		}
 	});
 
@@ -93,14 +93,14 @@ function event_asset_load(asset_group)
 	atmos_shift = gb.entity.new();
 	scene.add(atmos_shift);
 
-	atmosphere = gb.line_mesh.ellipse(0.592,0.592,80,0.01);
+	atmosphere = gb.line_mesh.ellipse(0.591,0.591,80,0.01);
 	atmosphere.entity.material = gb.material.new(asset_group.shaders.line);
 	atmosphere.entity.material.line_width = atmosphere.thickness;
 	atmosphere.entity.material.start = 0;
 	atmosphere.entity.material.end = atmosphere.length;
 	atmosphere.entity.material.aspect = gl.aspect;
 	atmosphere.entity.material.mitre = 1;
-	gb.color.set(atmosphere.entity.material.color, 0.5,0.5,0.5,1.0);
+	gb.color.set(atmosphere.entity.material.color, 0.35,0.35,0.35,1.0);
 	scene.add(atmosphere);
 
 	atmosphere.entity.position[2] = 0.25;
@@ -154,8 +154,6 @@ function event_asset_load(asset_group)
 	gb.color.set(orbits[3].entity.material.color, 1.0,1.0,1.0, 1.0);
 	orbits[3].entity.material.line_width = 0.009;
 
-
-	
 	
 	camera = gb.camera.new();
 	camera.entity.position[2] = 3.0;
@@ -165,6 +163,28 @@ function event_asset_load(asset_group)
     material.view = camera.view;
     material.projection = camera.projection;
     material.normal_matrix = camera.normal;
+
+
+    var star_buffer = new gb.Vertex_Buffer();
+    star_buffer.data = new Float32Array(900);
+    for(var i = 0; i < 300; i+=3)
+    {
+    	star_buffer.data[i] = gb.random.float(15,16) * gb.random.sign();
+    	star_buffer.data[i+1] = gb.random.float(15,16) * gb.random.sign();
+    	star_buffer.data[i+2] = gb.random.float(15,16) * gb.random.sign();
+    }
+    gb.random.fill(star_buffer.data, -5, 5);
+    gb.vertex_buffer.add_attribute(star_buffer, 'position', 3);
+
+    var star_mesh = new gb.Mesh();
+	star_mesh.layout = gb.webgl.ctx.POINTS;
+	star_mesh.update_mode = gb.webgl.ctx.STATIC_DRAW;
+    star_mesh.vertex_buffer = star_buffer;
+    gb.mesh.update(star_mesh);
+
+    var star_material = gb.material.new(asset_group.shaders.stars);
+    var stars = gb.entity.mesh(star_mesh, star_material);
+    scene.add(stars);
 
 	surface_target = gb.render_target.new();
 	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);

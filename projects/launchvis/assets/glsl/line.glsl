@@ -41,7 +41,6 @@ void main()
 	}
 	else
 	{
-		//v_direction = normalize(current_screen - previous_screen);
 		vec2 A = normalize(current_screen - previous_screen);
 
 		if(mitre == 1)
@@ -79,13 +78,14 @@ varying vec3 _position;
 void main()
 { 
 	//vec3 C = _position.yxz + 0.5;
-	vec3 C = color.rgb * gl_FragCoord.w;
+	float depth = clamp(gl_FragCoord.w, 0.2, 1.0);
+	vec3 C = color.rgb * depth;
 	//vec3 N = normalize((_position / 2.0) + 0.5);
 
 	if(_distance > start && _distance < end)
     	gl_FragColor = vec4(C, 1.0);
     else 
-    	gl_FragColor = vec4(color.rgb, 0.0);
+    	gl_FragColor = vec4(color.rgb, 0.2);
 
     //gl_FragColor = vec4(N, 0.5);
 }

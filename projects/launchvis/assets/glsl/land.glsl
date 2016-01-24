@@ -46,33 +46,41 @@ precision highp float;
 
 uniform float pulse;
 uniform vec3 light;
+uniform vec3 eye;
+
+uniform float F_bias;
+uniform float F_scale;
+uniform float F_power;
 
 varying vec3 _position;
 //varying vec3 _light;
 
 //INCLUDE lib/glsl/gamma.glsl
 //INCLUDE lib/glsl/lambert.glsl
-/*
-float exp_step(float x, float k, float n)
-{
-    return exp(-k * pow(x,n));
-}
-*/
+//INCLUDE lib/glsl/fresnel.glsl
+
 void main()
 {
 	vec3 N = normalize(_position);
 	vec3 L = normalize(light - _position);
+	vec3 E = normalize(eye - _position);
 
-	vec3 A = to_linear(vec3(0.8,0.8,0.9));
-	vec3 B = to_linear(vec3(0.2, 0.4, 0.8));
+	float fr = fresnel(E, N, F_bias, F_scale, F_power);
+
+	vec3 A = to_linear(vec3(1.0));
+	vec3 B = to_linear(vec3(0.349,0.669,0.792));
 	
 
 	float id = lambert(L, N);
+	id = clamp(id, 0.13,1.0);
 
+	//vec3 final = mix(A, B, fr);
+	vec3 final = vec3(1.0);
+	
+	//vec3 final = to_gamma(mix(A, B, pulse) * id);
 
-	vec3 final = to_gamma(mix(A, B, pulse) * id);
+	gl_FragColor = to_gamma(vec4(final, id * pulse));
 
-	gl_FragColor = vec4(final, 1.0);
 
 	/*
 	float diffuse = exp_step(1.0 - id, 16000.0, 30.0); 

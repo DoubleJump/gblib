@@ -3903,29 +3903,33 @@ gb.material =
         gb.material.set_uniform(material, 'view', camera.view);
         gb.material.set_uniform(material, 'view_projection', camera.view_projection);
         gb.material.set_uniform(material, 'normal_matrix', camera.normal);
+        gb.material.set_uniform(material, 'eye', camera.entity.position);
     },
-    set_entity_uniforms: function(material, entity, camera)
+    set_matrix_uniforms: function(material, matrix, camera)
     {
         if(material.mvp !== undefined)
         {
-            gb.mat4.mul(material.mvp, entity.world_matrix, camera.view_projection);
+            gb.mat4.mul(material.mvp, matrix, camera.view_projection);
         }
         if(material.model_view !== undefined)
         {
-            gb.mat4.mul(material.model_view, entity.world_matrix, camera.view);
+            gb.mat4.mul(material.model_view, matrix, camera.view);
         }
         if(material.model !== undefined)
         {
-            material.model = entity.world_matrix;
+            material.model = matrix;
         }
+    },
+    set_rig_uniforms: function(material, rig)
+    {
         if(material['rig[0]'] !== undefined)
         {
             var rig = material['rig[0]'];
-            var n = entity.rig.joints.length;
+            var n = rig.joints.length;
             var t = 0;
             for(var i = 0; i < n; ++i)
             {
-                var joint = entity.rig.joints[i];
+                var joint = rig.joints[i];
                 for(var j = 0; j < 16; ++j)
                 {
                     rig[t+j] = joint.offset_matrix[j];
@@ -4368,13 +4372,13 @@ gb.webgl =
 		{
 			case _t.blend_mode.DARKEN:
 			{
-				gl.blendEquation(gl.FUNC_MIN);
+				gl.blendEquation(gl.FUNC_SUBTRACT);
 				gl.blendFunc(gl.ONE, gl.ONE);
 				break;
 			}
 			case _t.blend_mode.LIGHTEN:
 			{
-				gl.blendEquation(gl.FUNC_MAX);
+				gl.blendEquation(gl.FUNC_ADD);
 				gl.blendFunc(gl.ONE, gl.ONE);
 				break;
 			}
@@ -4618,6 +4622,23 @@ gb.webgl =
 		_t.render_draw_call(camera, scene, scene.draw_items, scene.num_draw_items, null, target, clear, true);
 	},
 
+	render_mesh: function(mesh, material, camera, matrix)
+	{
+		var _t = gb.webgl;
+		gb.material.set_camera_uniforms(material, camera);
+		gb.material.set_matrix_uniforms(material, matrix, camera);
+		_t.use_shader(material.shader);
+		_t.link_attributes(material.shader, mesh);
+		_t.set_uniforms(material);
+		_t.draw_mesh(mesh);
+	},
+
+	render_entity: function(entity, camera)
+	{
+		var _t = gb.webgl;
+		_t.render_mesh(entity.mesh, entity.material, camera, entity.world_matrix);
+	},
+
 	render_draw_call: function(camera, scene, ids, count, material, target, clear, depth)
 	{
 		var _t = gb.webgl;
@@ -4637,7 +4658,7 @@ gb.webgl =
 			{
 				var id = ids[i];
 				var e = scene.entities[id];
-				gb.material.set_entity_uniforms(material, e, camera); //NOTE: prolly not needed on mats?
+				gb.material.set_matrix_uniforms(material, e.world_matrix, camera);
 				_t.link_attributes(material.shader, e.mesh);
 				_t.set_uniforms(material);
 				_t.draw_mesh(e.mesh);
@@ -4649,13 +4670,7 @@ gb.webgl =
 			{
 				var id = ids[i];
 				var e = scene.entities[id];
-				var material = e.material;
-				_t.use_shader(material.shader);
-				gb.material.set_camera_uniforms(material, camera);
-				gb.material.set_entity_uniforms(material, e, camera);
-				_t.link_attributes(material.shader, e.mesh);
-				_t.set_uniforms(material);
-				_t.draw_mesh(e.mesh);
+				_t.render_entity(e, camera);
 			}
 		}
 	},
@@ -4833,7 +4848,7 @@ gb.gl_draw =
 	{
 		var _t = gb.gl_draw;
 
-		var e = gb.entity.new();
+		var e = gb.entity.new(); //TODO: removed dependency on entities in the renderer - can get rid of this
 		_t.entity = e;
 		_t.matrix = e.world_matrix;
 		e.entity_type = gb.EntityType.ENTITY;
@@ -4882,7 +4897,7 @@ gb.gl_draw =
 		gl.update_mesh(_t.entity.mesh);
 		gl.use_shader(_t.entity.material.shader);
 		gb.material.set_camera_uniforms(_t.entity.material, camera);
-		gb.material.set_entity_uniforms(_t.entity.material, _t.entity, camera);
+		gb.material.set_matrix_uniforms(_t.entity.material, _t.matrix, camera);
 		gl.link_attributes(_t.entity.material.shader, _t.entity.mesh);
 		gl.set_uniforms(_t.entity.material);
 		gl.set_state(gl.ctx.DEPTH_TEST, false);
@@ -5798,19 +5813,15 @@ function event_asset_load(asset_group)
 	// TODO: generate a quad so we can sdf the sphere 
 	ocean = assets.meshes['ocean'];
 	ocean_material = gb.material.new(assets.shaders.ocean);
-	ocean_material.model = globe.world_matrix;
-    ocean_material.view = camera.view;
-    ocean_material.projection = camera.projection;
-    ocean_material.normal_matrix = camera.normal;
-	ocean_material.eye = camera.entity.position;
+	ocean_material.light = sunlight;
 
-	ocean_material.lightA = sunlight; 
-	ocean_material.lightB = backlight;
+	//ocean_material.lightA = sunlight; 
+	//ocean_material.lightB = backlight;
 	//gb.color.set(ocean_material.color, 0.8,0.8,0.8,1.0);
 
-	F_bias = gb.debug_view.control(debug_view, 'Bias', 0, 1.0, 0.01, 0.7);
-	F_scale = gb.debug_view.control(debug_view, 'Scale', 0, 1.0, 0.01, 0.08);
-	F_power = gb.debug_view.control(debug_view, 'Power', 0, 1.0, 0.01, 0.0);
+	F_bias = gb.debug_view.control(debug_view, 'Bias', 0.0, 1.0, 0.01, 1.0);
+	F_scale = gb.debug_view.control(debug_view, 'Scale', 0.0, 1.0, 0.01, 1.0);
+	F_power = gb.debug_view.control(debug_view, 'Power', 0.0, 1.0, 0.01, 1.0);
 
 
 	// LAND MASSES
@@ -5836,17 +5847,13 @@ function event_asset_load(asset_group)
 	atmos_shift = gb.entity.new();
 	scene.add(atmos_shift);
 
-	atmosphere = gb.line_mesh.ellipse(0.591,0.591,80,0.01);
-	atmosphere.entity.material = gb.material.new(asset_group.shaders.line);
+	atmosphere = gb.line_mesh.ellipse(0.707 + 0.015, 0.707 + 0.015,120,0.03);
+	atmosphere.entity.material = gb.material.new(asset_group.shaders.atmosphere);
 	atmosphere.entity.material.line_width = atmosphere.thickness;
-	atmosphere.entity.material.start = 0;
-	atmosphere.entity.material.end = atmosphere.length;
 	atmosphere.entity.material.aspect = gl.aspect;
-	atmosphere.entity.material.mitre = 1;
-	//gb.color.set(atmosphere.entity.material.color, 0.35,0.35,0.35,1.0);
+	atmosphere.entity.material.light = sunlight;
 	//scene.add(atmosphere);
 
-	atmosphere.entity.position[2] = 0.25;
 	gb.entity.set_parent(atmosphere.entity, atmos_shift);
 
 
@@ -5859,7 +5866,7 @@ function event_asset_load(asset_group)
 		var tx = gb.random.float(-120, 120);
 		var ty = gb.random.float(-120, 120);
 
-		var orbit = gb.line_mesh.ellipse(rx,ry, 90,0.003);
+		var orbit = gb.line_mesh.ellipse(rx,ry, 90,0.005);
 		var mat = gb.material.new(asset_group.shaders.line);
 		orbit.entity.material = mat;
 		mat.line_width = orbit.thickness;
@@ -5955,7 +5962,7 @@ function update(dt)
 	qt.from_to(atmos_shift.rotation, v3.tmp(0,0,-1), to_camera);
 	atmos_shift.dirty = true;
 
-	globe.spin += 50 * dt;
+	globe.spin += 5 * dt;
 	gb.entity.set_rotation(globe, 23.5, globe.spin, 23.5);
 
 	pulse += dt * 0.1;
@@ -5990,40 +5997,34 @@ function debug_update(dt)
 	//gb.gl_draw.transform(atmos_shift.world_matrix);
 }
 
-function render_mesh(mesh, mat)
-{
-	gl.link_attributes(mat.shader, mesh);
-	gl.set_uniforms(mat);
-	gl.draw_mesh(mesh);
-}
-
 function render()
 {
 	gl.set_render_target(null, false);
 
 
 	//set depth mask to be really far back
-	//gl.ctx.depthMask(true);
-	gl.use_shader(background_material.shader);
-	render_mesh(background, background_material);
+	//gl.use_shader(background_material.shader);
 
-	//gl.ctx.depthMask(false);
+    gl.set_blend_mode(null);
 	gl.set_state(gl.ctx.DEPTH_TEST, true);
 
-	gl.use_shader(ocean_material.shader);
 	ocean_material.F_bias = F_bias.value;
 	ocean_material.F_scale = F_scale.value;
 	ocean_material.F_power = F_power.value;
+	/*
+	atmosphere.entity.material.F_bias = F_bias.value;
+	atmosphere.entity.material.F_scale = F_scale.value;
+	atmosphere.entity.material.F_power = F_power.value;
+	*/
+    gl.render_mesh(ocean, ocean_material, camera, atmos_shift.world_matrix);
 
-    render_mesh(ocean, ocean_material);
+    //gl.set_blend_mode(gl.blend_mode.LIGHTEN);
+    gl.render_entity(atmosphere.entity, camera);
 
 	gl.use_shader(land_material.shader);
 	gb.material.set_camera_uniforms(land_material, camera);
 	
-    //gb.color.set(land_material.color, 0.15,0.15,0.15,1.0);
-
-	//gb.color.set(land_material.color, 0.0,0.0,0.0,1.0);
-    render_mesh(rotw, land_material);
+    gl.render_mesh(rotw, land_material, camera, globe.world_matrix);
 	
 	var n = country_meshes.length;
 	for(var i = 0; i < n; ++i)
@@ -6031,9 +6032,12 @@ function render()
 		var sp = gb.math.sin(pulse * i);
    		//gb.color.set(land_material.color, sp,sp,sp,1.0);
    		land_material.pulse = (sp / 2.0) + 0.5;
-		render_mesh(country_meshes[i], land_material);
+   		land_material.F_bias = F_bias.value;
+		land_material.F_scale = F_scale.value;
+		land_material.F_power = F_power.value;
+
+		gl.render_mesh(country_meshes[i], land_material, camera, globe.world_matrix);
 	}
-	
 
 	gl.render_scene(construct, camera, null, false);
 	

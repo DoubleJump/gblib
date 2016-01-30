@@ -65,33 +65,22 @@ void main()
 	vec3 L = normalize(light - _position);
 	vec3 E = normalize(eye - _position);
 
-	float fr = fresnel(E, N, F_bias, F_scale, F_power);
-
-	vec3 A = to_linear(vec3(1.0));
-	vec3 B = to_linear(vec3(0.349,0.669,0.792));
-	
+	//float fr = fresnel(E, N, F_bias, F_scale, F_power);
+	float fr = fresnel(E, N, 0.86, -0.92, -4.0);
 
 	float id = lambert(L, N);
-	id = clamp(id, 0.13,1.0);
+	id = clamp(id, 0.02,1.0);
 
-	//vec3 final = mix(A, B, fr);
-	vec3 final = vec3(1.0);
-	
+	//vec3 C = to_linear(vec3(F_bias, F_scale, F_power));
+	vec3 A = to_linear(vec3(0.0, 0.02, 0.17));
+	vec3 B = to_linear(vec3(1.0));
+	vec3 C = to_linear(vec3(0.02,0.2,0.53));
+
+
+	vec3 color = mix(C,B, id) * pulse;
+	//vec3 glow  = mix(A, color, fr) * pulse;
+
 	//vec3 final = to_gamma(mix(A, B, pulse) * id);
 
-	gl_FragColor = to_gamma(vec4(final, id * pulse));
-
-
-	/*
-	float diffuse = exp_step(1.0 - id, 16000.0, 30.0); 
-	
-	diffuse = clamp(diffuse, 0.05, 1.0);
-
-	vec4 color_linear = to_linear(color);
-	color_linear.rgb *= diffuse;
-
-	vec4 color_gamma = to_gamma(color_linear);
-
-	gl_FragColor = color_gamma;
-	*/
+	gl_FragColor = vec4(color, 1.0);
 }

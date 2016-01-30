@@ -30,7 +30,9 @@ var background;
 var background_material;
 var atmosphere;
 var atmos_shift;
+var atmos_scale;
 var orbits = [];
+var grid_lines = [];
 var cutoff;
 var pulse;
 
@@ -40,6 +42,8 @@ var F_power = 1.0;
 
 var sunlight;
 var backlight;
+
+var cam_to_earth_distance;
 
 function init()
 {
@@ -112,15 +116,18 @@ function event_asset_load(asset_group)
 	ocean_material = gb.material.new(assets.shaders.ocean);
 	ocean_material.light = sunlight;
 
-	//ocean_material.lightA = sunlight; 
+	ocean_material.light = sunlight; 
 	//ocean_material.lightB = backlight;
 	//gb.color.set(ocean_material.color, 0.8,0.8,0.8,1.0);
 
-	F_bias = gb.debug_view.control(debug_view, 'Bias', 0.0, 1.0, 0.01, 1.0);
-	F_scale = gb.debug_view.control(debug_view, 'Scale', 0.0, 1.0, 0.01, 1.0);
-	F_power = gb.debug_view.control(debug_view, 'Power', 0.0, 1.0, 0.01, 1.0);
-
-
+	F_bias = gb.debug_view.control(debug_view, 'Bias', 0.0, 1.0, 0.01, 0.2);
+	F_scale = gb.debug_view.control(debug_view, 'Scale', 0.0, 1.0, 0.01, -0.86);
+	F_power = gb.debug_view.control(debug_view, 'Power', 0.0, 1.0, 0.01, 0.55);
+	/*
+	F_bias = gb.debug_view.control(debug_view, 'Bias', 0.0, 1.0, 0.01, 0.2);
+	F_scale = gb.debug_view.control(debug_view, 'Scale', -4.0, 4.0, 0.01, -0.86);
+	F_power = gb.debug_view.control(debug_view, 'Power', -4.0, 4.0, 0.01, 0.55);
+	*/
 	// LAND MASSES
 
 	land_material = gb.material.new(assets.shaders.land);
@@ -144,11 +151,12 @@ function event_asset_load(asset_group)
 	atmos_shift = gb.entity.new();
 	scene.add(atmos_shift);
 
-	atmosphere = gb.line_mesh.ellipse(0.707 + 0.015, 0.707 + 0.015,120,0.03);
+	atmosphere = gb.line_mesh.ellipse(0.707 - 0.04, 0.707 - 0.04,120,0.04);
 	atmosphere.entity.material = gb.material.new(asset_group.shaders.atmosphere);
 	atmosphere.entity.material.line_width = atmosphere.thickness;
 	atmosphere.entity.material.aspect = gl.aspect;
 	atmosphere.entity.material.light = sunlight;
+	//atmosphere.entity.position[2] = 0.3;
 	//scene.add(atmosphere);
 
 	gb.entity.set_parent(atmosphere.entity, atmos_shift);
@@ -156,7 +164,7 @@ function event_asset_load(asset_group)
 
 	// ORBITS
 
-	for(var i = 0; i < 8; ++i)
+	for(var i = 0; i < 4; ++i)
 	{
 		var rx = gb.random.float(0.6,1.5);
 		var ry = gb.random.float(0.6,1.5);
@@ -170,7 +178,6 @@ function event_asset_load(asset_group)
 		mat.start = 0;
 		mat.end = orbit.length;// * gb.random.float(0.5,1.0);
 		mat.aspect = gl.aspect;
-		mat.mitre = 1;
 		gb.entity.set_rotation(orbit.entity, tx,ty,0);
 
 		//gb.color.set(orbit.entity.material.color, 0.7,0.3,0.1,1.0);
@@ -210,6 +217,32 @@ function event_asset_load(asset_group)
 	//orbits[3].entity.material.line_width = 0.009;
 
 
+	// GRID LINES
+
+	// LONGITUDE
+	var lng_step = 360 / 24;
+	for(var i = 0; i < 24; ++i)
+	{
+		var grid_line = gb.line_mesh.ellipse(0.64,0.64, 90,0.003);
+		grid_line.entity.material = gb.material.new(asset_group.shaders.grid);
+		grid_line.entity.material.line_width = grid_line.thickness;
+		grid_line.entity.material.aspect = gl.aspect;
+		gb.entity.set_rotation(grid_line.entity, 0, lng_step * i, 0);
+		gb.entity.set_parent(grid_line.entity, globe);
+		grid_lines.push(grid_line);
+		//scene.add(grid_line);
+	}
+
+	add_lat_line(asset_group, 0.64, 0.0);
+	add_lat_line(asset_group, 0.617, (0.1667 * 1));
+	add_lat_line(asset_group, 0.545, (0.1667 * 2));
+	add_lat_line(asset_group, 0.398, (0.1667 * 3));
+	add_lat_line(asset_group, 0.617, (-0.1667 * 1));
+	add_lat_line(asset_group, 0.545, (-0.1667 * 2));
+	add_lat_line(asset_group, 0.398, (-0.1667 * 3));
+
+
+
     // STAR FIELD
 
     var num_stars = 1000;
@@ -217,7 +250,7 @@ function event_asset_load(asset_group)
     star_buffer.data = new Float32Array(num_stars * 3);
     for(var i = 0; i < num_stars; i+=3)
     {
-    	star_buffer.data[i] = gb.random.float(200,300) * gb.random.sign();
+    	star_buffer.data[i  ] = gb.random.float(200,300) * gb.random.sign();
     	star_buffer.data[i+1] = gb.random.float(200,300) * gb.random.sign();
     	star_buffer.data[i+2] = gb.random.float(200,300) * gb.random.sign();
     }
@@ -247,6 +280,19 @@ function event_asset_load(asset_group)
 	gb.allow_update = true;
 }
 
+function add_lat_line(asset_group, rad, y)
+{
+	var grid_line = gb.line_mesh.ellipse(rad,rad, 90,0.003);
+	grid_line.entity.material = gb.material.new(asset_group.shaders.grid);
+	grid_line.entity.material.line_width = grid_line.thickness;
+	grid_line.entity.material.aspect = gl.aspect;
+	gb.entity.set_position(grid_line.entity, 0, y, 0);
+	gb.entity.set_rotation(grid_line.entity, 90, 0, 0);
+	gb.entity.set_parent(grid_line.entity, globe);
+	//scene.add(grid_line);
+	grid_lines.push(grid_line);
+}
+
 function update(dt)
 {
 	gb.debug_view.update(debug_view);
@@ -259,11 +305,15 @@ function update(dt)
 	qt.from_to(atmos_shift.rotation, v3.tmp(0,0,-1), to_camera);
 	atmos_shift.dirty = true;
 
+	// EARTH ROTATION
+
 	globe.spin += 5 * dt;
 	gb.entity.set_rotation(globe, 23.5, globe.spin, 23.5);
 
 	pulse += dt * 0.1;
 	//if(pulse > 1.0) pulse = 0.0;
+
+	// ORBIT ANIMATION
 
 	cutoff += dt * 0.1;
 	if(cutoff > 2.0) cutoff = 0.0;
@@ -283,15 +333,20 @@ function update(dt)
 	//TODO: need to modulate atmosphere thickness to be the inverse of the distance
 	//of the camera to atmosphere
 
+	cam_to_earth_distance = (v3.distance(camera.entity.position, globe.position) - 1.0) / 2.0;
+	cam_to_earth_distance = gb.math.clamp(cam_to_earth_distance, 0.0, 1.0);
+
+	atmos_scale = gb.math.lerp(1.08, 0.992, cam_to_earth_distance);
+	v3.set(atmos_shift.scale, atmos_scale, atmos_scale, atmos_scale);
+	atmos_shift.dirty = true;
+
 	// TODO: slowly spin the star field
 }
 
 function debug_update(dt)
 {
 	gb.debug_view.update(debug_view);
-
-	//gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(2,2,2));
-	//gb.gl_draw.transform(atmos_shift.world_matrix);
+	gb.debug_view.label(debug_view, 'ascale', cam_to_earth_distance);
 }
 
 function render()
@@ -302,21 +357,22 @@ function render()
 	//set depth mask to be really far back
 	//gl.use_shader(background_material.shader);
 
-    gl.set_blend_mode(null);
+    //gl.set_blend_mode(null);
+	gl.set_state(gl.ctx.DEPTH_TEST, false);
+	//gl.render_mesh(background, background_material, camera, null);
+
+
 	gl.set_state(gl.ctx.DEPTH_TEST, true);
+
 
 	ocean_material.F_bias = F_bias.value;
 	ocean_material.F_scale = F_scale.value;
 	ocean_material.F_power = F_power.value;
-	/*
 	atmosphere.entity.material.F_bias = F_bias.value;
 	atmosphere.entity.material.F_scale = F_scale.value;
 	atmosphere.entity.material.F_power = F_power.value;
-	*/
-    gl.render_mesh(ocean, ocean_material, camera, atmos_shift.world_matrix);
 
     //gl.set_blend_mode(gl.blend_mode.LIGHTEN);
-    gl.render_entity(atmosphere.entity, camera);
 
 	gl.use_shader(land_material.shader);
 	gb.material.set_camera_uniforms(land_material, camera);
@@ -336,7 +392,17 @@ function render()
 		gl.render_mesh(country_meshes[i], land_material, camera, globe.world_matrix);
 	}
 
+    gl.render_mesh(ocean, ocean_material, camera, globe.world_matrix);
+
 	gl.render_scene(construct, camera, null, false);
+
+    gl.render_entity(atmosphere.entity, camera);
+
+    n = grid_lines.length;
+	for(var i = 0; i < n; ++i)
+	{
+		gl.render_entity(grid_lines[i].entity, camera);
+	}
 	
 	gb.gl_draw.render(camera, null);
 	//gl.render_post_call(fxaa_pass);

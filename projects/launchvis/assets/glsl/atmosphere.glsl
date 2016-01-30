@@ -60,11 +60,11 @@ varying float _height;
 varying vec4 mPos;
 
 uniform vec3 light;
-/*
+
 uniform float F_bias;
 uniform float F_scale;
 uniform float F_power;
-*/
+
 //INCLUDE lib/glsl/gamma.glsl
 //INCLUDE lib/glsl/curve.glsl
 //INCLUDE lib/glsl/lambert.glsl
@@ -80,10 +80,12 @@ void main()
 	float id = lambert(L, N);
 	id = clamp(id, 0.0, 0.9);
 
-	vec3 blue = to_linear(vec3(0.3,0.6,0.7));
-	vec3 red = to_linear(vec3(0.18,0.12,0.24));
+	vec3 A = to_linear(vec3(0.3,0.6,0.7));
+	//vec3 B = to_linear(vec3(F_bias, F_scale, F_power));
+	vec3 B = to_linear(vec3(0.02,0.2,0.53));
+	//vec3 red = to_linear(vec3(0.18,0.12,0.24));
 
-	vec3 glow = mix(red, blue, id);
+	vec3 glow = mix(B, A, id);
 	vec3 final = mix(vec3(0.0), glow, radius);
 
 	//C = mix(C * 0.5, C * 3.0, depth);

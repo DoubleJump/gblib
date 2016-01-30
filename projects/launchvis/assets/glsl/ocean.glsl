@@ -1,59 +1,77 @@
 #VERTEX
 attribute vec3 position;
 
-uniform mat4 mvp;
 uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+uniform mat3 normal_matrix;
 
+uniform float warp;
+uniform float pulse;
 
 varying vec3 _position;
-varying vec4 _mPos;
+
+#define PI 3.14159265
+
+vec3 grid_to_sphere(vec3 p, float width, float height)
+{
+    float radius = width / (2.0 * PI);
+
+	float phi = ((p.y / height) - 0.5) * PI;
+	float theta = (p.x / width) * 2.0 * PI;
+
+	float x = radius * sin(theta) * sin(phi);
+	float y = radius * cos(phi);
+	float z	= radius * cos(theta) * sin(phi);
+
+	return vec3(-x,y,-z);
+}
 
 void main()
 {
-	_position = position;
-	_mPos = model * vec4(position, 1.0);
-	gl_Position = mvp * vec4(position, 1.0);
+	vec3 sphere = grid_to_sphere(position, 4.0, 2.0) * 1.002;
+
+	_position = vec3(model * vec4(sphere, 1.0));
+
+	gl_Position = projection * view * model * vec4(sphere, 1.0);
 }
 
 #FRAGMENT
 precision highp float;
 
+uniform vec3 light;
+uniform vec3 eye;
+
 uniform float F_bias;
 uniform float F_scale;
 uniform float F_power;
 
-uniform vec3 light;
-
 varying vec3 _position;
-varying vec4 _mPos;
-
 
 //INCLUDE lib/glsl/gamma.glsl
-//INCLUDE lib/glsl/curve.glsl
 //INCLUDE lib/glsl/lambert.glsl
+//INCLUDE lib/glsl/fresnel.glsl
 
 void main()
 {
-	float radius = length(_position) / 0.707;
-	//radius = curve(radius, 0.0, F_bias, F_scale, 1.0);
-	radius = curve(radius, 0.0, -1.17, 0.46, 1.0);
+	vec3 N = normalize(_position);
+	vec3 L = normalize(light - _position);
+	vec3 E = normalize(eye - _position);
 
-	vec3 N = normalize(_mPos.xyz);
-	vec3 L = normalize(light - _mPos.xyz);
+	//float fr = fresnel(E, N, F_bias, F_scale, F_power);
+	float fr = fresnel(E, N, 0.64, -0.86, -4.0);
 
 	float id = lambert(L, N);
-	id = clamp(id, 0.0, 1.0);
+	id = clamp(id, 0.02,1.0);
 
-	//vec3 base = to_linear(vec3(0.035,0.035,0.035));
-	vec3 base = to_linear(vec3(0.1,0.12,0.14));
-	vec3 atmos = to_linear(vec3(0.349,0.669,0.792));
-	vec3 red = to_linear(vec3(0.37,0.22,0.28));
+	//vec4 C = to_linear(vec4(F_bias, F_scale, F_power, 1.0));
+	vec4 A = to_linear(vec4(0.0, 0.02, 0.17, 0.0));
+	vec4 B = to_linear(vec4(0.449,0.769,0.892, 1.0));
+	vec4 C = to_linear(vec4(0.02,0.2,0.53, 1.0));
 
 
-	vec3 col = mix(red, atmos, id);
+	vec4 color = mix(C,B, id);
+	vec4 glow  = mix(color, A, fr);
 
-	vec3 surface = mix(base, col, radius);
-	vec3 final = surface;
-
-	gl_FragColor = vec4(final, 1.0);
+	gl_FragColor = glow;
 }

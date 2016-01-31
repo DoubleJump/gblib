@@ -59,9 +59,13 @@ void main()
 #FRAGMENT
 precision highp float;
 
-//uniform vec4 color;
+uniform vec4 color;
 uniform float start;
 uniform float end;
+
+uniform float F_bias;
+uniform float F_scale;
+uniform float F_power;
 
 varying float _distance;
 varying vec3 _position;
@@ -70,24 +74,31 @@ varying vec3 _position;
 
 void main()
 { 
-	//float depth = clamp(gl_FragCoord.w / 100.0, 0.0, 1.0);
 	float depth = (gl_FragCoord.z / gl_FragCoord.w) / 2.0;
 	depth = clamp(depth, 0.0, 1.0);
 
 	//vec3 N = normalize((_position / 2.0) + 0.5);
 
-	vec3 A = to_linear(vec3(0.05,0.1,0.4));
-	vec3 B = to_linear(vec3(0.3,0.6,0.7));
+	//vec3 A = to_linear(vec3(0.61,0.69,1.0) * 0.3);
+	vec3 A = to_linear(color.rgb * 0.3);
+	vec3 B = to_linear(color.rgb);
+
+	//vec3 A = to_linear(vec3(F_bias, F_scale, F_power) * 0.3);
+	//vec3 B = to_linear(vec3(F_bias, F_scale, F_power));
 
 	//C = mix(C * 0.5, C * 3.0, depth);
 	vec3 C = to_gamma(mix(A, B, 1.0 - depth));
 
-
     if(_distance > start && _distance < end)
-    	gl_FragColor = vec4(C, 1.0);
+    {
+    	gl_FragColor = vec4(C, color.a);
+    }
     else 
-    	//discard;
-    	gl_FragColor = vec4(C, 0.3);
+    {
+    	discard;
+    	//gl_FragColor = vec4(C, 0.3);
+    }
 
+   // gl_FragColor = vec4(vec3(mod(_distance)), 1.0);
     //gl_FragColor = vec4(N, 0.5);
 }

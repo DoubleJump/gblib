@@ -1,6 +1,6 @@
 @echo off
 
-set PROJECT=launchvis
+set PROJECT=grid
 
 call cls
 python tasks/tasks.py --build %PROJECT%

@@ -1,4 +1,9 @@
-float lambert(vec3 normal, vec3 light_direction)
+float lambert(vec3 N, vec3 L)
 {
-    return max(0.0, dot(normal, light_direction));
+    return max(0.0, dot(N, L));
+}
+
+float attenuation(float dist, float CA, float LA, float QA)
+{
+	return 1.0 / (CA + (LA * dist) + (QA * dist * dist));
 }

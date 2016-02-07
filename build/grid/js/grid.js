@@ -317,70 +317,6 @@ gb.math =
     }
     */
 }
-gb.random = 
-{
-	int: function(min, max)
-	{
-    	return Math.floor(Math.random() * (max - min + 1)) + min;
-	},
-	sign: function()
-	{
-		var sign = gb.random.int(0,1);
-		if(sign === 0) return -1.0;
-		return 1.0;
-	},
-	float: function(min, max)
-	{
-    	return Math.random() * (max - min) + min;
-	},
-	float_fuzzy: function(f, fuzz)
-	{
-		return gb.random.float(f-fuzz, f+fuzz);
-	},
-	vec2: function(r, min_x, max_x, min_y, max_y)
-	{
-		r[0] = Math.random() * (max_x - min_x) + min_x;
-		r[1] = Math.random() * (max_y - min_x) + min_y;
-	},
-	vec2_fuzzy: function(r, x,y, fuzz)
-	{
-		gb.random.vec2(r, x-fuzz, x+fuzz, y-fuzz, y+fuzz);
-	},
-	vec3: function(r, min_x, max_x, min_y, max_y, min_z, max_z)
-	{
-		r[0] = Math.random() * (max_x - min_x) + min_x;
-		r[1] = Math.random() * (max_y - min_x) + min_y;
-		r[2] = Math.random() * (max_z - min_x) + min_z;
-	},
-	rotation: function(r, min_x, max_x, min_y, max_y, min_z, max_z)
-	{
-		var x = Math.random() * (max_x - min_x) + min_x;
-		var y = Math.random() * (max_y - min_x) + min_y;
-		var z = Math.random() * (max_z - min_x) + min_z;
-		gb.quat.euler(r, x,y,z);
-	},
-	fill: function(r, min, max)
-	{
-		var n = r.length;
-		for(var i = 0; i < n; ++i)
-			r[i] = Math.random() * (max - min) + min;
-	},
-	color: function(r, min_r, max_r, min_g, max_g, min_b, max_b, min_a, max_a)
-	{
-		r[0] = Math.random() * (max_r - min_r) + min_r;
-		r[1] = Math.random() * (max_g - min_g) + min_g;
-		r[2] = Math.random() * (max_b - min_b) + min_b;
-		r[3] = Math.random() * (max_a - min_a) + min_a;
-	},
-	unit_circle: function(r)
-	{
-		var x = gb.rand.float(-1,1);
-		var y = gb.rand.float(-1,1);
-		var l = 1 / gb.math.sqrt(x * x + y * y);
-		r[0] = x * l;
-		r[1] = y * l;
-	}
-}
 gb.Binary_Reader = function(buffer)
 {
 	this.buffer = buffer;
@@ -2857,6 +2793,48 @@ gb.binary_reader.entity = function(br, ag)
     entity.rotation = s.vec4(br);
     return entity;
 }
+gb.Lamp = function()
+{
+	this.entity;
+	this.type = gb.LampType.POINT;
+	this.energy = 1;
+	this.distance = 1;
+	this.projection = gb.mat4.new();
+}
+
+gb.lamp = 
+{
+	new: function(type, energy, distance)
+	{
+		var e = gb.entity.new();
+	    var l = new gb.Lamp();
+	    l.type = type;
+	    l.energy = energy;
+	    l.distance = distance;
+	    e.lamp = l;
+	    l.entity = e;
+	    return e;
+	},
+}
+
+gb.LampType = 
+{
+    POINT: 0,
+    SUN: 1,
+}
+
+gb.binary_reader.lamp = function(br, ag)
+{
+    var s = gb.binary_reader;
+    var entity = s.entity(br, ag);
+    entity.type = gb.EntityType.LAMP;
+    var lamp = new gb.Lamp();
+    lamp.energy = s.f32(br);
+    lamp.distance = s.f32(br);
+    entity.lamp = lamp;
+    lamp.entity = entity;
+    return lamp;
+}
 gb.Camera = function()
 {
 	this.entity;
@@ -3432,223 +3410,6 @@ gb.mesh.quad = function(width, height, depth)
 
     return gb.mesh.new(vb, ib);
 }
-gb.LineMesh = function()
-{
-	this.entity;
-	this.thickness;
-	this.color;
-	this.num_points;
-	this.points = [];
-	this.length;
-}
-
-gb.line_mesh = 
-{
-	new: function(points, thickness, color)
-	{
-		var lm = new gb.LineMesh();
-		lm.thickness = thickness || 0.2;
-		lm.color = gb.color.new();
-		lm.length = 0;
-		if(color) lm.color.eq(color);
-
-		var e = gb.entity.new();
-		e.entity_type = gb.EntityType.ENTITY;
-		//e.update = gb.line_mesh.update;
-	    lm.entity = e;
-	    e.line_mesh = lm;
-
-		if(points)
-	    {
-	    	lm.points = points;
-	    	gb.line_mesh.update(e);
-	    }
-	    return lm;
-	},
-	update: function(e)
-	{
-		var lm = e.line_mesh;
-
-		ASSERT(lm.points.length > 1, "Line does not contain enought points");
-
-		var VS = 3;
-		var v3 = gb.vec3;
-		var vb, ib, m;
-		var num_points = lm.points.length / VS;
-		var num_faces = num_points - 1;
-		var num_node_verts = 2;
-		var vertex_count = num_faces * 4;
-		var index_count = num_faces * 6;
-
-		if(!lm.entity.mesh)
-		{
-			vb = gb.vertex_buffer.new();
-			gb.vertex_buffer.add_attribute(vb, 'position', VS);
-			gb.vertex_buffer.add_attribute(vb, 'previous', VS);
-			gb.vertex_buffer.add_attribute(vb, 'next', VS);
-			gb.vertex_buffer.add_attribute(vb, 'direction', 1);
-			gb.vertex_buffer.add_attribute(vb, 'dist', 1);
-			gb.vertex_buffer.alloc(vb, vertex_count);
-
-			ib = gb.index_buffer.new(index_count);
-			m = gb.mesh.new(vb, ib, 'TRIANGLES', 'DYNAMIC_DRAW');
-			lm.entity.mesh = m;
-		}
-		else
-		{
-			vb = m.vertex_buffer;
-			ib = m.index_buffer;
-			m = lm.entity.mesh;
-
-			if(lm.num_points !== lm.points.length)
-			{
-				gb.vertex_buffer.resize(vb, vertex_count, false);
-				gb.index_buffer.resize(index_buffer, index_count, false);
-				lm.num_points = lm.points.length;
-			}
-		}
-
-		var stack = v3.stack.index;
-		var current = v3.tmp();
-		var previous = v3.tmp();
-		var next = v3.tmp();
-		var segment = v3.tmp();
-		var distance = 0;
-		var flip = 1;
-
-		var index = 0;
-		for(var i = 0; i < num_points; ++i)
-		{
-			var ii = i * VS;
-	
-			v3.set(current, lm.points[ii], lm.points[ii+1], lm.points[ii+2])
-
-			if(i === 0) //first
-			{
-				v3.set(previous, lm.points[0], lm.points[1], lm.points[2]);
-				v3.set(next, lm.points[3], lm.points[4], lm.points[5]);
-			}
-			else if(i === num_points - 1) //last
-			{
-				v3.set(previous, lm.points[ii-3], lm.points[ii-2], lm.points[ii-1]);
-				v3.set(next, lm.points[ii], lm.points[ii+1], lm.points[ii+2]);
-			}
-			else
-			{
-				v3.set(previous, lm.points[ii-3], lm.points[ii-2], lm.points[ii-1]);
-				v3.set(next, lm.points[ii+3], lm.points[ii+4], lm.points[ii+5]);
-			}
-
-			v3.sub(segment, current, previous);
-			distance += v3.length(segment);
-
-			for(var j = 0; j < num_node_verts; ++j)
-			{
-				//current
-				for(var k = 0; k < VS; ++k)
-				{
-					vb.data[index] = current[k];
-					index++;
-				}
-				//previous
-				for(var k = 0; k < VS; ++k)
-				{
-					vb.data[index] = previous[k];
-					index++;
-				}
-				//next
-				for(var k = 0; k < VS; ++k)
-				{
-					vb.data[index] = next[k];
-					index++;
-				}
-				//direction
-				vb.data[index] = flip;
-				index++;
-				flip *= -1;
-
-				vb.data[index] = distance;
-				index++;
-			}
-		}
-		lm.length = distance;
-
-		index = 0;
-		var offset = 0;
-		for(var i = 0; i < num_faces; ++i)
-		{
-			ib.data[index  ] = offset + 0;
-			ib.data[index+1] = offset + 1;
-			ib.data[index+2] = offset + 3;
-			ib.data[index+3] = offset + 0;
-			ib.data[index+4] = offset + 3;
-			ib.data[index+5] = offset + 2;
-			offset += 2;
-			index += 6;
-		}
-	    gb.mesh.update(m);
-		v3.stack.index = stack;
-	},
-	ellipse: function(rx, ry, res, thickness, color)
-	{
-		var points = [];
-		var theta = gb.math.TAU / res;
-		for(var i = 0; i < res + 1; ++i)
-		{
-			var sin_theta = gb.math.sin(theta * i);
-			var cos_theta = gb.math.cos(theta * i);
-			points.push(sin_theta * rx);
-			points.push(cos_theta * ry);
-			points.push(0.0);
-		}
-		return gb.line_mesh.new(points, thickness, color);
-	},
-	circle: function(r, res, thickness, color)
-	{
-		return gb.line_mesh.ellipse(r, r, res, thickness, color)
-	},
-	curve: function(curve, res, thickness, color)
-	{
-		var stride = 9;
-		var num_curve_nodes = curve.length / 9;
-		var num_curve_segments = num_curve_nodes - 1;
-		var points = new Float32Array(num_curve_segments * res * 3);
-
-		var src_index = 3;
-		var dest_index = 0;
-		var step = 1 / res;
-		for(var i = 0; i < num_curve_segments; ++i)
-		{
-			var t = 0;
-			var ca = src_index + 0;
-			var cb = src_index + 3;
-			var cc = src_index + 6;
-			var cd = src_index + 9;
-
-			for(var j = 0; j < res+1; ++j)
-			{
-				var u = 1.0 - t;
-				var tt = t * t;
-				var uu = u * u;
-				var uuu = uu * u;
-				var ttt = tt * t;
-
-				for(var k = 0; k < 3; ++k)
-				{
-					points[dest_index] = (uuu * curve[ca+k]) + 
-										 (3 * uu * t * curve[cb+k]) + 
-										 (3 * u * tt * curve[cc+k]) + 
-						   				 (ttt * curve[cd+k]); 
-
-					dest_index++;
-				}
-				t += step;
-			}
-			src_index += stride;
-		}
-		return gb.line_mesh.new(points, thickness, color);
-	},
-}
 gb.Texture = function()
 {
 	this.id = 0;
@@ -3967,6 +3728,139 @@ gb.binary_reader.material = function(br, ag)
         material[sampler_name] = ag.textures[tex_name];
     }
     return material;
+}
+gb.Rig = function()
+{
+	this.joints;	
+}
+gb.Joint = function()
+{
+	this.parent;
+	this.position;
+	this.scale;
+	this.rotation;
+	this.local_matrix;
+	this.world_matrix; 
+	this.inverse_bind_pose;
+	this.offset_matrix;
+	this.bind_pose;
+}
+
+gb.rig = 
+{
+	MAX_JOINTS: 18,
+
+	new: function()
+	{
+		var r = new gb.Rig();
+		r.joints = [];
+		return r;
+	},
+	copy: function(src)
+	{
+		var r = new gb.Rig();
+		var m4 = gb.mat4;
+		var v3 = gb.vec3;
+		r.joints = [];
+		var n = src.joints.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var sj = src.joints[i];
+			var j = gb.rig.joint();
+			j.parent = sj.parent;
+			v3.eq(j.postition, sj.position);
+			v3.eq(j.scale, sj.scale);
+			gb.quat.eq(j.rotation, sj.rotation);
+			m4.eq(j.local_matrix, sj.local_matrix);
+			m4.eq(j.world_matrix, sj.world_matrix);
+			m4.eq(j.bind_pose, sj.bind_pose);
+			m4.eq(j.inverse_bind_pose, sj.inverse_bind_pose);
+			m4.eq(j.offset_matrix, sj.offset_matrix);
+			r.joints.push(j);
+		}
+		return r;
+	},
+	joint: function()
+	{
+		var j = new gb.Joint();
+		j.parent = -1;
+		j.position = gb.vec3.new();
+		j.scale = gb.vec3.new(1,1,1);
+		j.rotation = gb.quat.new();
+		j.local_matrix = gb.mat4.new();
+		j.world_matrix = gb.mat4.new(); 
+		j.bind_pose = gb.mat4.new();
+		j.inverse_bind_pose = gb.mat4.new();
+		j.offset_matrix = gb.mat4.new();
+		return j;
+	},
+	update: function(rig, scene)
+	{
+		var qt = gb.quat.tmp();
+
+		var n = rig.joints.length;
+		for(var i = 0; i < n; ++i)
+		{
+			var j = rig.joints[i];
+			gb.mat4.compose(j.local_matrix, j.position, j.scale, j.rotation);
+			gb.mat4.mul(j.local_matrix, j.local_matrix, j.bind_pose);
+			if(j.parent === -1)
+			{
+				gb.mat4.eq(j.world_matrix, j.local_matrix);
+			}
+			else
+			{
+				var parent = rig.joints[j.parent];
+				gb.mat4.mul(j.world_matrix, j.local_matrix, parent.world_matrix);
+			}
+
+			gb.mat4.mul(j.offset_matrix, j.inverse_bind_pose, j.world_matrix);
+		}
+	},
+}
+gb.binary_reader.rig = function(br, ag)
+{
+    var s = gb.binary_reader;
+    var rig = gb.rig.new();
+    rig.name = s.string(br);
+    var num_joints = s.i32(br);
+    ASSERT(num_joints <= gb.rig.MAX_JOINTS, "Rig has too many joints!");
+    for(var i = 0; i < num_joints; ++i)
+    {
+    	var j = new gb.Joint();
+		j.position = gb.vec3.new();
+		j.scale = gb.vec3.new(1,1,1);
+		j.rotation = gb.quat.new();
+		j.local_matrix = gb.mat4.new();
+		j.world_matrix = gb.mat4.new(); 
+		j.offset_matrix = gb.mat4.new();
+    	j.parent = s.i32(br);
+    	j.bind_pose = s.mat4(br);
+    	j.inverse_bind_pose = s.mat4(br);
+    	rig.joints.push(j);
+    } 
+    return rig;
+}
+gb.binary_reader.rig_action = function(br)
+{
+	var s = gb.binary_reader;
+    var animation = new gb.Animation();
+    animation.target_type = 2;
+    animation.name = s.string(br);
+
+    var num_curves = s.i32(br);
+    for(var i = 0; i < num_curves; ++i)
+    {
+    	var tween = new gb.Tween();
+    	tween.bone_index = s.i32(br);
+    	tween.property = s.string(br);
+    	tween.index = s.i32(br);
+
+    	tween.num_frames = s.i32(br);
+    	tween.curve = s.f32_array(br, tween.num_frames * 6);
+    	animation.tweens.push(tween);
+    }
+    return animation;
 }
 gb.Render_Target = function()
 {
@@ -5352,249 +5246,6 @@ gb.debug_view =
 	},
 }
 //END
-var lv = 
-{
-	launch_count: 0,
-	nations: [],
-	rockets: [],
-	operators: [],
-	orbits: [],
-	sites: [],
-	providers: [],
-	launches: [],
-	outcomes: [],
-};
-
-gb.LatLng = function()
-{
-	this.lat;
-	this.lng;
-}
-lv.Orbit = function()
-{
-	this.name;
-	this.apogee;
-	this.perigee;
-}
-lv.Rocket = function()
-{
-	this.name;
-}
-lv.Payload = function()
-{
-	this.name;
-	this.operator;
-	this.mission;
-	this.orbit;
-	this.decay;
-}
-lv.Nation = function()
-{
-	this.name;
-	this.flag;
-}
-lv.Operator = function()
-{
-	this.name;
-	this.nation;
-}
-lv.Provider = function()
-{
-	this.name;
-	this.nation;
-}
-lv.Launch_Site = function()
-{
-	this.name;
-	this.location;
-	this.nation;
-}
-lv.Outcome = function()
-{
-	this.name;
-}
-lv.Date = function()
-{
-	this.day;
-	this.month;
-	this.year;
-	this.hour;
-	this.minute;
-	this.second;
-}
-lv.Launch = function()
-{
-	this.id;
-	this.date;
-	this.rocket;
-	this.operator;
-	this.site;
-	this.orbit;
-	this.payloads = [];
-	this.description;
-	this.provider;
-	this.video;
-	this.outcome;
-}
-
-
-lv.load_data = function(br)
-{
-	var s = gb.binary_reader;
-	var n;
-
-	// NATIONS
-	n = s.i32(br);
-	for(var i = 0; i < n; ++i) lv.nations.push(s.nation(br));
-
-	// ROCKETS
-	n = s.i32(br);
-	for(var i = 0; i < n; ++i) lv.rockets.push(s.rocket(br));
-
-	// LAUNCH SITES
-	n = s.i32(br);
-	for(var i = 0; i < n; ++i) lv.sites.push(s.launch_site(br));
-
-	// ORBITS
-	n = s.i32(br);
-	for(var i = 0; i < n; ++i) lv.orbits.push(s.orbit(br));
-
-	// OPERATORS
-	n = s.i32(br);
-	for(var i = 0; i < n; ++i) lv.operators.push(s.operator(br));
-	
-	//PROVIDERS
-	n = s.i32(br);
-	for(var i = 0; i < n; ++i) lv.providers.push(s.provider(br));
-
-	//OUTCOMES
-	n = s.i32(br);
-	for(var i = 0; i < n; ++i) lv.outcomes.push(s.outcome(br));
-
-	//LAUCHES
-	n = s.i32(br);
-	for(var i = 0; i < n; ++i) lv.launches.push(s.launch(br));
-}
-
-gb.binary_reader.date = function(br)
-{
-	var s = gb.binary_reader;
-	var d = new lv.Date();
-	d.day = s.i32(br);
-	d.month = s.i32(br);
-	d.year = s.i32(br);
-	d.hour = s.i32(br);
-	d.minute = s.i32(br);
-	d.second = s.i32(br);
-	return d;	
-}
-gb.binary_reader.latlng = function(br)
-{
-	var s = gb.binary_reader;
-	var c = new gb.LatLng();
-	c.lat = s.f32(br);
-	c.lng = s.f32(br);
-	return c;
-}
-gb.binary_reader.orbit = function(br)
-{
-	var s = gb.binary_reader;
-	var c = new lv.Orbit();
-	c.name = s.string(br);
-	c.apogee = s.f32(br);
-	c.perogee = s.f32(br);
-	return c;
-}
-gb.binary_reader.nation = function(br)
-{
-	var s = gb.binary_reader;
-	var n = new lv.Nation();
-	n.name = s.string(br);
-	return n;
-}
-gb.binary_reader.rocket = function(br)
-{
-	var s = gb.binary_reader;
-	var r = new lv.Rocket();
-	r.name = s.string(br);
-	return r;
-}
-gb.binary_reader.operator = function(br)
-{
-	var s = gb.binary_reader;
-	var o = new lv.Operator();
-	o.name = s.string(br);
-	o.nation = lv.nations[s.i32(br)];
-	return o;
-}
-gb.binary_reader.provider = function(br)
-{
-	var s = gb.binary_reader;
-	var p = new lv.Provider();
-	p.name = s.string(br);
-	p.nation = lv.nations[s.i32(br)];
-	return p;	
-}
-gb.binary_reader.launch_site = function(br)
-{
-	var s = gb.binary_reader;
-	var site = new lv.Launch_Site();
-	site.name = s.string(br);
-	site.location = s.latlng(br);
-	site.nation = lv.nations[s.i32(br)];
-	return site;
-}
-gb.binary_reader.payload = function(br)
-{
-	var s = gb.binary_reader;
-	var pl = new lv.Payload();
-	pl.name = s.string(br);
-	pl.operator = lv.operators[s.i32(br)];
-	pl.orbit = lv.orbits[s.i32(br)];
-	pl.mission = s.string(br);
-	var will_decay = s.b32(br);
-	if(will_decay === true)
-	{
-		pl.decay = s.date(br);
-	}
-	pl.outcome = lv.outcomes[s.i32(br)];
-	return pl;
-}
-gb.binary_reader.outcome = function(br)
-{
-	var s = gb.binary_reader;
-	var o = new lv.Outcome();
-	o.name = s.string(br);
-	//LOG(o);
-	return o;
-}
-gb.binary_reader.launch = function(br)
-{
-	var s = gb.binary_reader;
-	var l = new lv.Launch();
-	l.id = lv.launch_count;
-	lv.launch_count++;
-
-	l.date = s.date(br);
-	l.rocket = lv.rockets[s.i32(br)];
-	l.provider = lv.providers[s.i32(br)];
-	l.site = lv.sites[s.i32(br)];
-
-	var n_payloads = s.i32(br);
-	for(var i = 0; i < n_payloads; ++i)
-	{
-		l.payloads.push(s.payload(br));
-	}
-
-	var has_video = s.b32(br);
-	if(has_video === true)
-	{
-		l.video = s.string(br);
-	}
-	l.details = s.string(br);
-	//LOG(l);
-	return l;
-}
 gb.camera.fly = function(c, dt, vertical_limit)
 {
 	if(c.fly_mode === undefined) 
@@ -5613,7 +5264,6 @@ gb.camera.fly = function(c, dt, vertical_limit)
 	var e = c.entity;
 	var index = gb.vec3.stack.index;
 
-	/*
 	var m_delta = gb.input.mouse_delta;
 	var ROTATE_SPEED = 30.0;
 
@@ -5635,7 +5285,6 @@ gb.camera.fly = function(c, dt, vertical_limit)
 
 	gb.quat.mul(rot_lerp, rot_y, rot_x);
 	gb.quat.lerp(e.rotation, e.rotation, rot_lerp, 0.1);
-	*/
 
 	var accel = gb.vec3.tmp();
 	var MOVE_SPEED = 0.1;
@@ -5758,38 +5407,26 @@ var assets;
 var debug_view;
 
 var construct;
+var cube;
 var camera;
-var orbit_depth_target;
-//var surface_target;
-//var fxaa_pass;
+var surface_target;
+var fxaa_pass;
 
-var globe;
-var stars;
-var ocean;
-var ocean_material;
-var land_material;
-var country_meshes = [];
-var rotw;
-var background;
-var background_material;
-var atmosphere;
-var atmos_shift;
-var atmos_scale;
-var orbits = [];
-var orbit_shadows = [];
-var grid_lines = [];
+var WaveNode = function(x,y)
+{
+	this.position = v2.new(x,y);
+	this.acceleration = 0.0;
+	this.velocity = 0.0;
+	this.left_delta = 0;
+	this.right_delta = 0;
+}
+var NUM_WAVE_NODES = 100;
+var wave_nodes = [];
 
-var cutoff;
-var pulse;
-
-var F_bias = 0.5;
-var F_scale = 0.5;
-var F_power = 1.0;
-
-var sunlight;
-var sun_camera;
-
-var cam_to_earth_distance;
+var node_mass_slider;
+var node_damping_slider;
+var node_spring_slider;
+var node_spread_slider;
 
 function init()
 {
@@ -5797,417 +5434,157 @@ function init()
 	{
 		config:
 		{
-			frame_skip: true,
-			update: update,
+			frame_skip: false,
+			update: update, 
 			debug_update: debug_update,
 			render: render,
 		},
 		gl:
 		{
+			fill_container: false,
 			antialias: true,
-			fill_container: true,
 		}
 	});
 
-	gb.assets.load('assets/assets.gl', event_asset_load);
-	//var request = gb.ajax.GET('assets/launch_data.data', event_data_load);
-	//request.send();
+	gb.assets.load("assets/assets.gl", load_complete);
 }
 
-function event_data_load(e)
-{
-	if(e.target.status === 200)
-    {
-        var s = gb.binary_reader;
-        var br = new gb.Binary_Reader(e.target.response);
-        LOG("Asset File Size: " + br.buffer.byteLength + " bytes");
-        lv.load_data(br);
-    }
-}
-
-function event_asset_load(asset_group)
+function load_complete(asset_group)
 {
 	debug_view = gb.debug_view.new(document.body);
 
 	assets = asset_group;
 	construct = scene.new(null, true);
 
-	// CAMERA
+	/*
+	cube = gb.entity.mesh(gb.mesh.cube(2,1,1), gb.material.new(assets.shaders.surface));
+	cube.spin = 0;
+	scene.add(cube);
+	*/
+
+	//0.521 0.282 0.262
+	//1.0 0.937 0.643
+	//0.905 0.78 0.29
+
+	gl.set_clear_color(0.521, 0.282, 0.262, 1.0);
 
 	camera = gb.camera.new();
-	camera.entity.position[2] = 3.0;
+	camera.entity.position[0] = 5.0;
+	camera.entity.position[2] = 6.0;
 	scene.add(camera);
 
-	// GLOBE ENTITY
+	
+	for(var i = 0; i < NUM_WAVE_NODES; ++i)
+	{
+		var node = new WaveNode(i * 0.1, 0);
+		wave_nodes.push(node);
+	}
+	
 
-	globe = gb.entity.new();
-	scene.add(globe);
-	globe.spin = 0;
+	node_mass_slider = gb.debug_view.control(debug_view, 'MASS', 0.01, 1.0, 0.01, 0.1);
+	node_damping_slider = gb.debug_view.control(debug_view, 'DAMPING', 0.95, 1.0, 0.001, 0.995);
+	node_spring_slider = gb.debug_view.control(debug_view, 'SPRING', 0.1, 1.0, 0.01, 0.1);
+	node_spread_slider = gb.debug_view.control(debug_view, 'SPREAD', 0.1, 3.0, 0.01, 3.0);
 
-	// BACKGROUND
+
 	/*
-	background = gb.mesh.quad(2,2);
-	background_material = gb.material.new(assets.shaders.background);
-	background_material.mag = gb.math.sqrt((gl.view.width / 2) * (gl.view.height / 2));
-	v2.set(background_material.res, gl.view.width / 2 , gl.view.height / 2);
-	*/
-
-	// LIGHTS
-
-	sunlight = gb.vec3.new(8.0,5.0,5.0);
-	//sun_camera = gb.camera.new();
-	//sun_camera.entity.position[2] = 3.0;
-	//sun_camera.entity.position = sunlight;
-	//qt.from_to(sun_camera.entity.rotation, sunlight, v3.tmp(0,0,-1));
-	//scene.add(sun_camera);
-
-	// OCEAN
-
-	// TODO: generate a quad so we can sdf the sphere 
-	//orbit_depth_target = gb.render_target.new();
-
-	ocean = assets.meshes['ocean'];
-	ocean_material = gb.material.new(assets.shaders.ocean);
-	ocean_material.light = sunlight;
-	//ocean_material.orbit_depth = orbit_depth_target.color;
-	//ocean_material.light_matrix = sun_camera.entity.world_matrix;
-
-	//ocean_material.lightB = backlight;
-	//gb.color.set(ocean_material.color, 0.8,0.8,0.8,1.0);
-
-	F_bias = gb.debug_view.control(debug_view, 'Bias', 0.0, 1.0, 0.01, 0.2);
-	F_scale = gb.debug_view.control(debug_view, 'Scale', 0.0, 1.0, 0.01, -0.86);
-	F_power = gb.debug_view.control(debug_view, 'Power', 0.0, 1.0, 0.01, 0.55);
-	/*
-	F_bias = gb.debug_view.control(debug_view, 'Bias', 0.0, 1.0, 0.01, 0.2);
-	F_scale = gb.debug_view.control(debug_view, 'Scale', -4.0, 4.0, 0.01, -0.86);
-	F_power = gb.debug_view.control(debug_view, 'Power', -4.0, 4.0, 0.01, 0.55);
-	*/
-	// LAND MASSES
-
-	land_material = gb.material.new(assets.shaders.land);
-	land_material.model = globe.world_matrix;
-    land_material.view = camera.view;
-    land_material.projection = camera.projection;
-    land_material.normal_matrix = camera.normal;
-    land_material.light = sunlight;
-
-	//material.warp = 1.0;
-
-	rotw = assets.meshes['rotw'];
-	for(var k in assets.meshes)
-	{
-		if(k === 'ocean' || k === 'rotw' || k === 'european union') continue;
-		country_meshes.push(assets.meshes[k]);
-	}
-
-	// ATMOSPHERE
-
-	atmos_shift = gb.entity.new();
-	scene.add(atmos_shift);
-
-	atmosphere = gb.line_mesh.ellipse(0.707 - 0.04, 0.707 - 0.04,120,0.04);
-	atmosphere.entity.material = gb.material.new(asset_group.shaders.atmosphere);
-	atmosphere.entity.material.line_width = atmosphere.thickness;
-	atmosphere.entity.material.aspect = gl.aspect;
-	atmosphere.entity.material.light = sunlight;
-	//atmosphere.entity.position[2] = 0.3;
-	scene.add(atmosphere);
-
-	gb.entity.set_parent(atmosphere.entity, atmos_shift);
-
-
-	// ORBITS
-
-	for(var i = 0; i < 4; ++i)
-	{
-		var rx = gb.random.float(0.6,1.5);
-		var ry = gb.random.float(0.6,1.5);
-		var tx = gb.random.float(-120, 120);
-		var ty = gb.random.float(-120, 120);
-
-		var orbit = gb.line_mesh.ellipse(rx,ry, 90,0.005);
-		var mat = gb.material.new(asset_group.shaders.line);
-		gb.color.set(mat.color, 0.54,0.56,0.94,1.0);
-		orbit.entity.material = mat;
-		mat.line_width = orbit.thickness;
-		mat.start = 0;
-		mat.end = orbit.length;
-		mat.aspect = gl.aspect;
-		gb.entity.set_rotation(orbit.entity, tx,ty,0);
-
-		scene.add(orbit);
-		orbits.push(orbit);
-
-		var shadow = gb.line_mesh.ellipse(0.64,0.64, 90,0.005);
-		mat = gb.material.new(asset_group.shaders.line);
-		gb.color.set(mat.color, 0.1,0.1,0.1,0.1); 
-		shadow.entity.material = mat;
-		mat.line_width = shadow.thickness;
-		mat.start = 0;
-		mat.end = shadow.length;
-		mat.aspect = gl.aspect;
-		gb.entity.set_rotation(shadow.entity, tx,ty,0);
-
-		scene.add(shadow);
-		orbit_shadows.push(shadow);
-	}
-
-
-
-	cutoff = 0.0;
-	pulse = 0.0;
-
-
-	// GRID LINES
-
-	// LONGITUDE
-	var lng_step = 360 / 24;
-	for(var i = 0; i < 24; ++i)
-	{
-		var grid_line = gb.line_mesh.ellipse(0.64,0.64, 90,0.003);
-		grid_line.entity.material = gb.material.new(asset_group.shaders.grid);
-		grid_line.entity.material.line_width = grid_line.thickness;
-		grid_line.entity.material.aspect = gl.aspect;
-		gb.entity.set_rotation(grid_line.entity, 0, lng_step * i, 0);
-		gb.entity.set_parent(grid_line.entity, globe);
-		grid_lines.push(grid_line);
-	}
-
-	add_lat_line(asset_group, 0.64, 0.0);
-	add_lat_line(asset_group, 0.617, (0.1667 * 1));
-	add_lat_line(asset_group, 0.545, (0.1667 * 2));
-	add_lat_line(asset_group, 0.398, (0.1667 * 3));
-	add_lat_line(asset_group, 0.617, (-0.1667 * 1));
-	add_lat_line(asset_group, 0.545, (-0.1667 * 2));
-	add_lat_line(asset_group, 0.398, (-0.1667 * 3));
-
-
-
-    // STAR FIELD
-
-    var num_stars = 6000;
-    var star_buffer = new gb.Vertex_Buffer();
-    star_buffer.data = new Float32Array(num_stars * 3);
-    for(var i = 0; i < num_stars; i+=6)
-    {
-    	star_buffer.data[i  ] = gb.random.float(0,30) * gb.random.sign();
-    	star_buffer.data[i+1] = gb.random.float(0,30) * gb.random.sign();
-    	star_buffer.data[i+2] = gb.random.float(0,30) * gb.random.sign();
-
-    	star_buffer.data[i+3] = gb.random.float(0.3,0.5);
-    	star_buffer.data[i+4] = gb.random.float(0.3,0.5);
-    	star_buffer.data[i+5] = gb.random.float(0.5,0.6);
-    }
-    //gb.random.fill(star_buffer.data, -5, 5);
-    gb.vertex_buffer.add_attribute(star_buffer, 'position', 3);
-    gb.vertex_buffer.add_attribute(star_buffer, 'color', 3);
-
-    var star_mesh = new gb.Mesh();
-	star_mesh.layout = gb.webgl.ctx.POINTS;
-	star_mesh.update_mode = gb.webgl.ctx.STATIC_DRAW;
-    star_mesh.vertex_buffer = star_buffer;
-    gb.mesh.update(star_mesh);
-
-    var star_material = gb.material.new(asset_group.shaders.stars);
-    stars = gb.entity.mesh(star_mesh, star_material);
-    //scene.add(stars);
-
-    /*
 	surface_target = gb.render_target.new();
 	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
 	fxaa_pass.material.texture = surface_target.color;
 	v2.set(fxaa_pass.material.resolution, gl.view.width, gl.view.height);
 	v2.set(fxaa_pass.material.inv_resolution, 1.0 / gl.view.width, 1.0 / gl.view.height);
 	*/
-	//gb.debug_view.watch(debug_view, 'Rot', atmosphere.entity, 'rotation');
-	//gb.debug_view.watch(debug_view, 'Pos', camera.entity, 'position');
-
 	gb.allow_update = true;
-}
-
-function add_lat_line(asset_group, rad, y)
-{
-	var grid_line = gb.line_mesh.ellipse(rad,rad, 90,0.003);
-	grid_line.entity.material = gb.material.new(asset_group.shaders.grid);
-	grid_line.entity.material.line_width = grid_line.thickness;
-	grid_line.entity.material.aspect = gl.aspect;
-	gb.entity.set_position(grid_line.entity, 0, y, 0);
-	gb.entity.set_rotation(grid_line.entity, 90, 0, 0);
-	gb.entity.set_parent(grid_line.entity, globe);
-	//scene.add(grid_line);
-	grid_lines.push(grid_line);
 }
 
 function update(dt)
 {
-	gb.debug_view.update(debug_view);
 	gb.camera.fly(camera, dt, 80);
 	
-	var to_camera = v3.tmp();
-	v3.sub(to_camera, v3.tmp(0,0,0), camera.entity.position);
-	v3.normalized(to_camera, to_camera);
+	var SPRING_CONSTANT = node_spring_slider.value;
+	var BASE_HEIGHT = 0.0;
+	var DAMPING = node_damping_slider.value;
+	var NODE_MASS = node_mass_slider.value;
 
-
-	qt.from_to(atmos_shift.rotation, v3.tmp(0,0,-1), to_camera);
-
-	//gb.quat.mul(rot_lerp, rot_y, rot_x);
-
-	/*
-	var rot_lerp = qt.tmp();
-	qt.from_to(rot_lerp, v3.tmp(0,0,-1), to_camera);
-	gb.quat.lerp(camera.entity.rotation, camera.entity.rotation, rot_lerp, 0.1);
-	*/
-	qt.from_to(camera.entity.rotation, v3.tmp(0,0,-1), to_camera);
-	camera.entity.dirty = true;
-
-	atmos_shift.dirty = true;
-
-	// EARTH ROTATION
-
-	globe.spin += 5 * dt;
-	gb.entity.set_rotation(globe, 23.5, globe.spin, 23.5);
-
-	pulse += dt * 0.1;
-	//if(pulse > 1.0) pulse = 0.0;
-
-	// ORBIT ANIMATION
-
-	cutoff += dt * 0.1;
-	if(cutoff > 2.0) cutoff = 0.0;
-	var n = orbits.length;
-	for(var i = 0; i < n; ++i)
+	if(input.held(gb.Keys.q))
 	{
-		var orbit = orbits[i];
-		var shadow = orbit_shadows[i];
-		//var offset = 10.0 / i;
-		if(cutoff > 1.0) 
-		{
-			orbit.entity.material.start = orbit.length * (cutoff - 1.0);
-			shadow.entity.material.start = shadow.length * (cutoff - 1.0);
-		}
-		else 
-		{
-			orbit.entity.material.start = 0;
-			orbit.entity.material.end = orbit.length * cutoff;// + offset;
-
-			shadow.entity.material.start = 0;
-			shadow.entity.material.end = shadow.length * cutoff;// + offset;
-		}
+		wave_nodes[50].velocity += 1.0;
 	}
 
-	//TODO: need to modulate atmosphere thickness to be the inverse of the distance
-	//of the camera to atmosphere
+	wave_nodes[0].velocity = 0;
+	wave_nodes[NUM_WAVE_NODES - 1].velocity = 0;
+	for(var i = 0; i < NUM_WAVE_NODES; ++i)
+	{
+		var node = wave_nodes[i];
+		var force = SPRING_CONSTANT * (node.position[1] - BASE_HEIGHT) + node.velocity;
+		node.acceleration -= (force / NODE_MASS) * dt;
+		node.position[1] += node.velocity * dt;
+		node.velocity *= DAMPING;
+		node.velocity += node.acceleration * dt;
+	}
 
-	cam_to_earth_distance = (v3.distance(camera.entity.position, globe.position) - 1.0) / 2.0;
-	cam_to_earth_distance = gb.math.clamp(cam_to_earth_distance, 0.0, 1.0);
+	var SPREAD = node_spread_slider.value;
+	for(var j = 0; j < 8; ++j)
+	{
+	    for(var i = 0; i < NUM_WAVE_NODES; ++i)
+	    {
+	    	var node = wave_nodes[i];
+	        if(i > 0)
+	        {
+	        	var left_node = wave_nodes[i-1];
+	            node.left_delta = SPREAD * (node.position[1] - left_node.position[1]);
+	            left_node.velocity += node.left_delta * dt;
+	        }
+	        if(i < NUM_WAVE_NODES - 1)
+	        {
+	        	var right_node = wave_nodes[i+1];
+	            node.right_delta = SPREAD * (node.position[1] - right_node.position[1]);
+	            right_node.velocity += node.right_delta * dt;
+	        }
+	    }
+	}
+	for (var i = 0; i < NUM_WAVE_NODES; ++i)
+	{
+	    if(i > 0) 
+	    {
+	        var left_node = wave_nodes[i-1];
+	        left_node.position[1] += wave_nodes[i].left_delta * dt;
+	    }
+	    if(i < NUM_WAVE_NODES - 1) 
+	    {
+			var right_node = wave_nodes[i+1];
+	        right_node.position[1] += wave_nodes[i].right_delta * dt;
+	    }
+	}
 
-	atmos_scale = gb.math.lerp(1.08, 0.992, cam_to_earth_distance);
-	v3.set(atmos_shift.scale, atmos_scale, atmos_scale, atmos_scale);
-	atmos_shift.dirty = true;
+	var start = v3.tmp();
+	var end = v3.tmp();
+	for(var i = 0; i < NUM_WAVE_NODES-1; ++i)
+    {
+    	var node = wave_nodes[i];
+       	var next = wave_nodes[i+1];
+       	v3.set(start, node.position[0], node.position[1], 0);
+       	v3.set(end, next.position[0], next.position[1], 0);
+       	gb.gl_draw.line(start, end);
+    }
 
-	// TODO: slowly spin the star field
+    //gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(1,1,1));
+	/*
+	cube.spin += 30 * dt;
+	gb.entity.set_rotation(cube, cube.spin, cube.spin, cube.spin);
+	*/
 }
 
 function debug_update(dt)
 {
-	if(input.down(gb.Keys.h))
-	{
-		debug_view.visible = !debug_view.visible;
-		gb.debug_view.set_visible(debug_view);
-	}
 	gb.debug_view.update(debug_view);
-	gb.debug_view.label(debug_view, 'ascale', cam_to_earth_distance);
 }
 
 function render()
 {
-	var n;
+	gl.render_scene(construct, camera, null, true);
+	//gl.render_post_call(fxaa_pass);
 
-    gl.set_blend_mode(null);
-
-    /*
-    gl.set_render_target(orbit_depth_target, true);
-    n = orbits.length;
-	for(var i = 0; i < n; ++i)
-	{
-		var orbit = orbits[i];
-		orbit.entity.material.F_bias = F_bias.value;
-		orbit.entity.material.F_scale = F_scale.value;
-		orbit.entity.material.F_power = F_power.value;
-		gl.render_entity(orbit.entity, sun_camera);
-	}
-	*/
-
-	gl.set_render_target(null, false);
-
-	//gl.set_state(gl.ctx.DEPTH_TEST, false);
-	//gl.render_mesh(background, background_material, camera, null);
-
-
-	gl.set_state(gl.ctx.DEPTH_TEST, true);
-
-
-	ocean_material.F_bias = F_bias.value;
-	ocean_material.F_scale = F_scale.value;
-	ocean_material.F_power = F_power.value;
-	atmosphere.entity.material.F_bias = F_bias.value;
-	atmosphere.entity.material.F_scale = F_scale.value;
-	atmosphere.entity.material.F_power = F_power.value;
-
-
-	gl.use_shader(land_material.shader);
-	gb.material.set_camera_uniforms(land_material, camera);
-	
-    gl.render_mesh(rotw, land_material, camera, globe.world_matrix);
-	
-	n = country_meshes.length;
-	for(var i = 0; i < n; ++i)
-	{
-		var sp = gb.math.sin(pulse * i);
-   		//gb.color.set(land_material.color, sp,sp,sp,1.0);
-   		land_material.pulse = (sp / 2.0) + 0.5;
-   		land_material.F_bias = F_bias.value;
-		land_material.F_scale = F_scale.value;
-		land_material.F_power = F_power.value;
-
-		gl.render_mesh(country_meshes[i], land_material, camera, globe.world_matrix);
-	}
-
-
-    gl.render_mesh(ocean, ocean_material, camera, globe.world_matrix);
-
-
-    n = orbits.length;
-    gl.set_blend_mode(gl.blend_mode.LIGHTEN);
-	for(var i = 0; i < n; ++i)
-	{
-		var orbit = orbits[i];
-		//gb.color.set(orbit.entity.material.color, F_bias.value, F_scale.value, F_power.value, 1.0);
-		gl.render_entity(orbit.entity, camera);
-	}
-    gl.set_blend_mode(null);
-    
-
-    gl.render_entity(atmosphere.entity, camera);
-
-    for(var i = 0; i < n; ++i)
-	{
-		var shadow = orbit_shadows[i];
-		gl.render_entity(shadow.entity, camera);
-	}
-
-    gl.set_blend_mode(gl.blend_mode.LIGHTEN);
-    n = grid_lines.length;
-	for(var i = 0; i < n; ++i)
-	{
-		gl.render_entity(grid_lines[i].entity, camera);
-	}
-
-
-	gl.render_entity(stars, camera);
-
-	
 	gb.gl_draw.render(camera, null);
 }
 

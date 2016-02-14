@@ -520,68 +520,59 @@
 	"buffers":
 	[
 		{
-			"file": "lib/js/gl/scene.js",
+			"file": "projects/grid/js/grid.js",
 			"settings":
 			{
-				"buffer_size": 4685,
+				"buffer_size": 5192,
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "projects/lines/js/lines.js",
+			"file": "lib/js/math.js",
 			"settings":
 			{
-				"buffer_size": 1467,
+				"buffer_size": 1528,
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "lib/js/gl/entity.js",
+			"file": "projects/launchvis/js/launchvis.js",
 			"settings":
 			{
-				"buffer_size": 3404,
+				"buffer_size": 12512,
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "lib/js/gb.js",
+			"file": "lib/js/projections.js",
 			"settings":
 			{
-				"buffer_size": 2449,
+				"buffer_size": 1746,
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "lib/js/gl/webgl.js",
+			"file": "lib/js/gl/draw.js",
 			"settings":
 			{
-				"buffer_size": 14700,
+				"buffer_size": 7383,
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "projects/lines/css/style.scss",
+			"contents": "What works well at Parallax? Consider process, documentation, interaction with other parts of the business etc*\n\nThere is little to no red tape. \nPeople are easy to get hold of over Hipchat.\n \n\n\nWhat doesn’t work so well at Parallax?*\n\n- We spend a lot of time redoing work that could be avoided if we had content supplied up front. Perhaps we need to do more to incentivise clients to provide / agree on it. Discounts if they sign off all content before design?\n\n- Responsive and animation/interactions are considered additions or nice-to-haves. They tend to get added late in the process when it is least efficient to do so. A developer asking 'what should happen to this section on mobile' is usually answered with 'didn't have enough time to consider it'. We need to be able to convince clients that it is worth paying for and include it the planning. \n\n- I feel as if sometimes we convince ourselves that our results are better than they are as we know we are limited on time. \n\n- Despite us using Basecamp information on projects can be scattered between Google docs / emails / Slack. Gets harder if working on more than one project at a time. Would be cool to have something that could scrape each of those sources and collate a central repo for it. \n\n\nWhat would you do differently within your role to be more efficient / productive but processes today stop this?*",
 			"settings":
 			{
-				"buffer_size": 249,
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"contents": "\nBuilding project: lines\n\n###########################\nCompiling Javascript\n###########################\nmodules.js\ngb.js\nstack.js\ntime.js\nmath.js\nserialize.js\nvector.js\nquaternion.js\nmatrix.js\nrect.js\naabb.js\nray.js\nintersect.js\ncolor.js\ninput.js\nanimate.js\ngl/entity.js\ngl/lamp.js\ngl/camera.js\ngl/scene.js\ngl/mesh.js\ngl/mesh_tools.js\ngl/texture.js\ngl/dds.js\ngl/shader.js\ngl/material.js\ngl/rig.js\ngl/render_target.js\ngl/draw_call.js\ngl/webgl.js\ngl/asset_group.js\ngl/draw.js\ngl/debug.js\n\n###########################\nCompiling Javascript\n###########################\nlines.js\n\nShader: debug\nShader: surface\n[Finished in 0.1s]",
-			"settings":
-			{
-				"buffer_size": 622,
+				"buffer_size": 1372,
 				"line_ending": "Windows",
-				"name": "Build output",
-				"scratch": true
+				"name": "What works well at Parallax? Consider process, doc"
 			}
 		},
 		{
-			"contents": "\nBuilding Project: lines\n-------------------------\n\nprojects/lines/js/lines.js\nprojects/lines/js/gblib.js\nlib/js/gb.js\nlib/js/stack.js\nlib/js/time.js\nlib/js/math.js\nlib/js/serialize.js\nlib/js/vector.js\nlib/js/quaternion.js\nlib/js/matrix.js\nlib/js/rect.js\nlib/js/aabb.js\nlib/js/color.js\nlib/js/input.js\nlib/js/animate.js\nlib/js/gl/entity.js\nlib/js/gl/camera.js\nlib/js/gl/scene.js\nlib/js/gl/mesh.js\nlib/js/gl/mesh_tools.js\nlib/js/gl/texture.js\nlib/js/gl/shader.js\nlib/js/gl/material.js\nlib/js/gl/render_target.js\nlib/js/gl/draw_call.js\nlib/js/gl/webgl.js\nlib/js/gl/asset_group.js\nlib/js/gl/draw.js\nlib/js/gl/debug.js\n\nprojects/lines/assets/glsl\\debug.glsl\nprojects/lines/assets/glsl\\final.glsl\nprojects/lines/assets/glsl\\fxaa.glsl\nprojects/lines/assets/glsl\\surface.glsl\n[Finished in 0.1s]",
+			"contents": "\nBuilding Project: grid\n-------------------------\n\nprojects/grid/js/grid.js\nprojects/grid/js/gblib.js\nlib/js/gb.js\nlib/js/ajax.js\nlib/js/stack.js\nlib/js/time.js\nlib/js/math.js\nlib/js/serialize.js\nlib/js/vector.js\nlib/js/quaternion.js\nlib/js/matrix.js\nlib/js/projections.js\nlib/js/rect.js\nlib/js/aabb.js\nlib/js/ray.js\nlib/js/intersect.js\nlib/js/color.js\nlib/js/input.js\nlib/js/easing.js\nlib/js/animate.js\nlib/js/gl/entity.js\nlib/js/gl/lamp.js\nlib/js/gl/camera.js\nlib/js/gl/scene.js\nlib/js/gl/mesh.js\nlib/js/gl/mesh/quad.js\nlib/js/gl/texture.js\nlib/js/gl/dds.js\nlib/js/gl/shader.js\nlib/js/gl/material.js\nlib/js/gl/rig.js\nlib/js/gl/render_target.js\nlib/js/gl/draw_call.js\nlib/js/gl/webgl.js\nlib/js/gl/asset_group.js\nlib/js/gl/draw.js\nlib/js/debug.js\nlib/js/gl/fps_camera.js\nlib/js/gl/mesh/cube.js\n\nprojects/grid/assets/glsl\\final.glsl\nprojects/grid/assets/glsl\\fxaa.glsl\nprojects/grid/assets/glsl\\surface.glsl\nprojects/grid/assets/glsl\\water.glsl\nprojects/grid/assets/scenes\\construct.scene\n[Finished in 0.1s]",
 			"settings":
 			{
-				"buffer_size": 788,
+				"buffer_size": 1007,
 				"line_ending": "Windows",
 				"name": "Build output",
 				"scratch": true
@@ -719,134 +710,134 @@
 	],
 	"file_history":
 	[
-		"/C/webdev/gblib/lib/css/style.scss",
-		"/C/webdev/gblib/tasks/new_project.py",
-		"/C/webdev/gblib/projects/lines/js/gblib.js",
-		"/C/webdev/gblib/lib/js/demo.js",
-		"/C/webdev/gblib/projects/lines/js/lines.js",
-		"/C/webdev/gblib-stash/js/demos/animation.js",
 		"/C/webdev/gblib/lib/js/gl/webgl.js",
-		"/C/webdev/gblib-stash/assets/common/shaders/final.glsl",
-		"/C/webdev/gblib/lib/js/gl/draw_call.js",
-		"/C/webdev/gblib/tasks/assets.py",
-		"/C/webdev/gblib/tasks/javascript.py",
-		"/C/webdev/gblib/lib/js/gl/shader.js",
-		"/C/webdev/gblib/lib/js/gl/asset_group.js",
-		"/C/webdev/gblib/tasks/compile_project.py",
-		"/C/webdev/gblib/projects/lines/html/index.html",
-		"/C/webdev/gblib/tasks/file_system.py",
-		"/C/webdev/gblib/lib/js/gblib.js",
-		"/C/webdev/gblib/lib/js/gb.js",
 		"/C/webdev/gblib/lib/js/gl/mesh.js",
-		"/C/webdev/gblib/lib/js/gl/dds.js",
-		"/C/webdev/gblib/lib/js/gl/texture.js",
-		"/C/webdev/gblib/lib/js/gl/pvr.js",
-		"/C/webdev/gblib/lib/js/gl/camera.js",
-		"/C/webdev/gblib/build/lines/js/lines.js",
-		"/C/webdev/gblib/projects/lines/js/modules.js",
-		"/C/webdev/gblib/projects/lines/js/main.js",
-		"/C/webdev/gblib/tasks/css.py",
-		"/C/webdev/gblib/tasks/html.py",
+		"/C/webdev/gblib/lib/js/gl/mesh/grid.js",
+		"/C/webdev/gblib/projects/launchvis/js/launchvis.js",
+		"/C/webdev/gblib/lib/glsl/flat.glsl",
 		"/C/webdev/gblib/lib/glsl/surface.glsl",
-		"/C/webdev/gblib/lib/js/gl/scene.js",
-		"/C/webdev/gblib/lib/js/gl/draw.js",
-		"/C/webdev/gblib/lib/js/gl/entity.js",
-		"/C/webdev/gblib/lib/js/gl/mesh_tools.js",
+		"/C/webdev/gblib/build/launchvis/js/launchvis.js",
+		"/C/webdev/gblib/lib/js/gl/mesh/quad.js",
+		"/C/webdev/gblib/lib/js/gl/draw_call.js",
+		"/C/webdev/gblib/lib/js/gl/fps_camera.js",
+		"/C/webdev/gblib/tasks/new_project.py",
+		"/C/webdev/gblib/projects/grid/js/gblib.js",
+		"/C/webdev/gblib/projects/basic/js/gblib.js",
+		"/C/webdev/gblib/lib/js/demo.js",
+		"/C/webdev/gblib/lib/js/ajax.js",
+		"/C/webdev/gblib/projects/basic/js/basic.js",
 		"/C/webdev/gblib/tasks/tasks.py",
-		"/C/webdev/gblib/projects/lines/config/config.json",
-		"/C/webdev/gblib/src/py/compile_assets.py",
-		"/C/webdev/gblib/tasks/compile_assets.py",
-		"/C/webdev/gblib/lib/js/modules.js",
-		"/C/webdev/gblib/templates/js/modules.js",
-		"/C/webdev/gblib/boilerplate/js/cube.js",
-		"/C/webdev/gblib/boilerplate/glsl/debug.glsl",
-		"/C/webdev/gblib/boilerplate/glsl/surface.glsl",
-		"/C/webdev/gblib/boilerplate/config/config.json",
-		"/C/webdev/gblib/src/js/demos/animation.js",
-		"/C/webdev/gblib/boilerplate/css/style.scss",
-		"/C/webdev/gblib/build/lines/css/style.css",
-		"/C/webdev/gblib/src/py/io_export_gblib_scene.py",
-		"/C/webdev/gblib/tasks/compile_js.py",
-		"/C/webdev/gblib/tasks/folders.py",
-		"/C/webdev/gblib/src/py/compile_js.py",
-		"/C/webdev/gblib/lib/js/main.js",
-		"/C/webdev/gblib/tasks/build_project.py",
 		"/C/webdev/gblib/build.bat",
-		"/C/webdev/gblib/tasks/new-project.py",
-		"/C/webdev/gblib/tasks.py",
-		"/C/webdev/gblib/projects/lines/css/style.scss",
-		"/C/webdev/gblib/build/style.css",
-		"/C/webdev/gblib/build/index.html",
-		"/C/webdev/gblib/new-project.py",
-		"/C/webdev/gblib/src/js/gl/webgl.js",
-		"/C/webdev/gblib/src/js/gl/scene.js",
-		"/C/webdev/gblib/src/js/animate.js",
-		"/C/webdev/gblib/src/js/gl/texture.js",
-		"/C/webdev/gblib/assets/common/shaders/shadow.glsl",
-		"/C/webdev/gblib/src/js/gb.js",
-		"/C/webdev/gblib/src/gaussian_blur.glsl",
-		"/C/webdev/gblib/src/js/gl/asset_group.js",
-		"/C/webdev/gblib/build/assets.gl",
-		"/C/webdev/gblib/assets/common/shaders/fxaa.glsl",
-		"/C/webdev/gblib/assets/common/shaders/lighting.glsl",
-		"/C/Users/Gareth/Documents/interface WebGLRenderingContextBase.c",
-		"/C/webdev/gblib/assets/common/shaders/surface.glsl",
-		"/C/webdev/gblib/src/js/gl/material.js",
-		"/C/webdev/gblib/src/js/gl/draw_call.js",
-		"/C/webdev/gblib/src/js/gl/draw.js",
-		"/C/webdev/gblib/src/js/input.js",
-		"/C/webdev/gblib/src/js/gl/entity.js",
-		"/C/webdev/gblib/src/js/gl/rig.js",
-		"/C/webdev/gblib/src/js/gl/mesh.js",
-		"/C/webdev/gblib/assets/common/shaders/rig.glsl",
-		"/C/webdev/gblib/assets/common/shaders/final.glsl",
-		"/C/webdev/gblib/src/js/demos/pbr.js",
-		"/C/webdev/gblib/assets/common/shaders/pbr.glsl",
-		"/C/webdev/gblib/src/js/gl/shader.js",
-		"/C/webdev/gblib/assets/common/shaders/debug.glsl",
-		"/C/webdev/gblib/src/js/gl/camera.js",
-		"/C/webdev/gblib/assets/common/shaders/vsm.glsl",
-		"/C/webdev/gblib/assets/common/shaders/screen.glsl",
-		"/C/webdev/gblib/assets/common/shaders/depth.glsl",
-		"/C/webdev/gblib/src/js/gl/render_target.js",
-		"/C/webdev/gblib/src/js/math.js",
-		"/C/webdev/gblib/src/js/demos/lines4.js",
-		"/C/cmder/config/aliases",
-		"/C/webdev/gblib/src/js/serialize.js",
-		"/C/webdev/gblib/src/js/main.js",
-		"/C/webdev/motest/index.html",
-		"/C/webdev/motest/mo.js",
-		"/C/webdev/motest/style.css",
-		"/C/webdev/motest/main.js",
-		"/C/webdev/gblib/src/js/matrix.js",
-		"/C/IMGL/code/core/scene3D.cpp",
-		"/C/IMGL/code/core/mat4.cpp",
-		"/C/webdev/gblib/src/js/quaternion.js",
-		"/C/webdev/gblib/assets/common/shaders/normals.glsl",
-		"/C/webdev/gblib/src/js/gl/lamp.js",
-		"/C/webdev/gblib/build.sh",
-		"/C/webdev/gblib/build.py",
-		"/C/webdev/gblib/src/glsl/albedo.glsl",
-		"/C/webdev/gblib/src/js/vector.js",
-		"/C/webdev/gblib/build/main.js",
-		"/C/webdev/gblib/src/glsl/screen.glsl",
-		"/C/webdev/gblib/src/glsl/fxaa.glsl",
-		"/C/webdev/gblib/src/glsl/rig.glsl",
-		"/C/webdev/gblib/src/py/resource_compiler.py",
-		"/C/webdev/gblib/src/glsl/pbr.glsl",
-		"/C/shells/webdev.bat",
-		"/C/shells/gblib.bat",
-		"/C/webdev/gblib/src/js/random.js",
-		"/C/webdev/gblib/src/js/dom/dom.js",
-		"/C/webdev/gblib/src/js/intersect.js",
-		"/C/webdev/gblib/src/js/bezier.js",
-		"/C/webdev/gblib/src/js/time.js",
-		"/C/webdev/gblib/src/js/gl/dds.js",
-		"/C/webdev/gblib/src/js/gl/pvr.js",
-		"/C/Program Files/Blender Foundation/Blender/2.76/scripts/addons/io_scene_x/__init__.py",
-		"/C/Program Files/Blender Foundation/Blender/2.76/scripts/addons/io_scene_x/export_x.py",
-		"/C/webdev/gblib/src/js/stack.js",
-		"/C/webdev/gblib/src/js/gl/debug.js"
+		"/C/webdev/gblib/projects/launchvis/assets/glsl/stars.glsl",
+		"/C/webdev/gblib/lib/js/debug.js",
+		"/C/webdev/gblib/lib/js/gl/draw.js",
+		"/C/webdev/gblib/projects/launchvis/assets/glsl/line.glsl",
+		"/C/webdev/gblib/projects/launchvis/assets/glsl/grid.glsl",
+		"/C/webdev/gblib/projects/launchvis/assets/glsl/land.glsl",
+		"/C/webdev/gblib/projects/launchvis/assets/glsl/ocean.glsl",
+		"/C/webdev/gblib/lib/js/quaternion.js",
+		"/C/archive/winGL/code/core/quat.cpp",
+		"/C/IMGL/code/core/quat.cpp",
+		"/C/webdev/gblib/lib/glsl/shadow.glsl",
+		"/C/webdev/gblib/lib/glsl/specular.glsl",
+		"/C/webdev/gblib/lib/js/gl/camera.js",
+		"/C/webdev/gblib/lib/js/input.js",
+		"/C/webdev/gblib/lib/js/gb.js",
+		"/C/webdev/gblib/projects/launchvis/css/style.scss",
+		"/C/webdev/gblib/projects/launchvis/assets/glsl/atmosphere.glsl",
+		"/C/webdev/gblib/projects/launchvis/assets/glsl/background.glsl",
+		"/C/webdev/gblib/lib/js/vector.js",
+		"/C/webdev/gblib/lib/js/gl/material.js",
+		"/C/webdev/gblib/lib/glsl/fresnel.glsl",
+		"/C/webdev/gblib/lib/js/gl/curve.js",
+		"/C/webdev/gblib/lib/glsl/curve.glsl",
+		"/C/webdev/gblib/lib/glsl/shaping.glsl",
+		"/C/webdev/gblib/projects/projection/js/projection.js",
+		"/C/webdev/gblib/lib/js/gl/entity.js",
+		"/C/webdev/BrakingBadly/onyx/src/shaders/vertex.json",
+		"/C/webdev/gblib/lib/glsl/lambert.glsl",
+		"/C/webdev/gblib/projects/launchvis/js/gblib.js",
+		"/C/webdev/gblib/projects/launchvis/assets/glsl/background",
+		"/C/webdev/earth-test/src/shaders/scatter.json",
+		"/C/webdev/earth-test/src/shaders/ground.json",
+		"/C/webdev/earth-test/src/shaders/fake.json",
+		"/C/webdev/gblib/lib/glsl/sdf.glsl",
+		"/C/webdev/gblib/projects/launchvis/assets/glsl/sphere.glsl",
+		"/C/webdev/gblib/lib/js/random.js",
+		"/C/webdev/gblib/lib/glsl/gamma.glsl",
+		"/C/webdev/gblib/lib/js/gl/mesh/cube.js",
+		"/C/webdev/gblib/lib/js/gl/line_mesh.js",
+		"/C/webdev/gblib/lib/js/animate.js",
+		"/C/webdev/gblib/lib/js/gl/scene.js",
+		"/C/webdev/gblib/projects/basic/assets/glsl/basic.glsl",
+		"/C/webdev/gblib/projects/vector/js/vector.js",
+		"/C/webdev/launch-data/compile_launch_data.py",
+		"/C/webdev/gblib/projects/launchvis/js/lvlib.js",
+		"/C/webdev/launch-data/launch_data.py",
+		"/C/webdev/gblib/projects/lines/js/lines.js",
+		"/C/webdev/gblib/projects/lines/assets/glsl/line.glsl",
+		"/C/webdev/gblib/projects/launchvis/assets/glsl/surface.glsl",
+		"/C/webdev/gblib/build/projection/js/projection.js",
+		"/C/Users/Gareth/Desktop/==Launches==",
+		"/C/webdev/gblib/lib/js/gl/asset_group.js",
+		"/C/webdev/gblib/tasks/assets.py",
+		"/C/webdev/gblib/lib/js/serialize.js",
+		"/C/webdev/gblib/projects/vector/js/gblib.js",
+		"/C/webdev/gblib/projects/shadows/js/gblib.js",
+		"/C/webdev/gblib/projects/shadertoy/js/gblib.js",
+		"/C/webdev/gblib/projects/rig/js/gblib.js",
+		"/C/webdev/gblib/projects/projection/js/gblib.js",
+		"/C/webdev/gblib/projects/lines/js/gblib.js",
+		"/C/webdev/launch-data/file_system.py",
+		"/C/Users/Gareth/Desktop/launch_data.py",
+		"/C/Users/Gareth/Desktop/rockets.py",
+		"/C/webdev/gblib/lib/js/projections.js",
+		"/C/webdev/gblib/projects/shadertoy/js/shadertoy.js",
+		"/C/webdev/gblib/projects/shadertoy/assets/glsl/shapes.glsl",
+		"/C/webdev/gblib/lib/glsl/blend_modes.glsl",
+		"/C/webdev/gblib/lib/glsl/mat2.glsl",
+		"/C/webdev/gblib/lib/glsl/colour_conversion.glsl",
+		"/C/webdev/gblib/lib/glsl/yuv.glsl",
+		"/C/webdev/gblib/tasks/compile_project.py",
+		"/C/webdev/gblib/lib/glsl/signed_distance_fields.glsl",
+		"/C/webdev/gblib/projects/shadertoy/assets/glsl/final.glsl",
+		"/C/webdev/gblib/projects/shadertoy/assets/glsl/fxaa.glsl",
+		"/C/webdev/gblib/projects/shadertoy/assets/glsl/surface.glsl",
+		"/C/webdev/gblib/lib/py/io_export_gblib_scene.py",
+		"/C/webdev/gblib/lib/js/gblib.js",
+		"/C/webdev/gblib/lib/js/easing.js",
+		"/C/webdev/BrakingBadly/onyx/src/py/io_export_onyx_json.py",
+		"/C/webdev/gblib/lib/js/gl/rig.js",
+		"/C/webdev/gblib/projects/rig/js/rig.js",
+		"/C/webdev/gblib/lib/glsl/rig.glsl",
+		"/C/webdev/gblib/projects/vector/html/index.html",
+		"/C/webdev/gblib/projects/shadows/html/index.html",
+		"/C/webdev/gblib/projects/rig/html/index.html",
+		"/C/webdev/gblib/projects/lines/html/index.html",
+		"/C/webdev/gblib/projects/basic/html/index.html",
+		"/C/webdev/gblib/projects/projection/html/index.html",
+		"/C/webdev/gblib/projects/vector/css/style.scss",
+		"/C/webdev/gblib/projects/projection/css/style.scss",
+		"/C/webdev/gblib/tasks/html.py",
+		"/C/webdev/gblib/lib/css/debug.scss",
+		"/C/webdev/logger/console.log",
+		"/C/webdev/logger/log.php",
+		"/C/webdev/gblib/lib/js/logging.js",
+		"/C/webdev/gblib/lib/js/log_redirect.js",
+		"/C/Program Files/Blender Foundation/Blender/2.76/scripts/addons/io_scene_fbx/__init__.py",
+		"/C/Program Files/Blender Foundation/Blender/2.76/scripts/addons/io_scene_fbx/export_fbx.py",
+		"/C/webdev/gblib/projects/projection/assets/glsl/sphere.glsl",
+		"/C/webdev/gblib/lib/js/socket.js",
+		"/C/webdev/gblib/lib/js/gl/mesh/sphere.js",
+		"/C/webdev/gblib/lib/js/gl/mesh_tools.js",
+		"/C/webdev/gblib/lib/js/gl/mesh_cube.js",
+		"/C/webdev/gblib/lib/js/gl/mesh_sphere.js",
+		"/C/webdev/gblib/lib/js/gl/mesh_quad.js",
+		"/C/webdev/gblib/tasks/file_system.py",
+		"/C/webdev/gblib/projects/vector/assets/glsl/vector.glsl",
+		"/C/Program Files/Blender Foundation/Blender/2.76/scripts/addons/io_scene_fbx/import_fbx.py",
+		"/C/webdev/gblib/lib/css/style.scss",
+		"/C/webdev/gblib/projects/basic/assets/glsl/surface.glsl"
 	],
 	"find":
 	{
@@ -866,6 +857,10 @@
 		"case_sensitive": true,
 		"find_history":
 		[
+			"material",
+			" )",
+			"bool",
+			"dFdx",
 			"_t",
 			"ASSERT",
 			"link",
@@ -989,11 +984,7 @@
 			"inv_det",
 			"m",
 			"o",
-			"m",
-			"inv_det",
-			"overlay",
-			"v3LightPos",
-			"v3CameraPos"
+			"m"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -1001,6 +992,7 @@
 		"regex": false,
 		"replace_history":
 		[
+			"b32",
 			"c[0]",
 			"a[0]",
 			"lay",
@@ -1127,8 +1119,7 @@
 			"sample_length",
 			"sample_ray",
 			"ray",
-			"start",
-			"near"
+			"start"
 		],
 		"reverse": false,
 		"show_context": true,
@@ -1139,24 +1130,24 @@
 	"groups":
 	[
 		{
-			"selected": 1,
+			"selected": 5,
 			"sheets":
 			[
 				{
 					"buffer": 0,
-					"file": "lib/js/gl/scene.js",
+					"file": "projects/grid/js/grid.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 4685,
+						"buffer_size": 5192,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								187,
-								187
+								4468,
+								4468
 							]
 						],
 						"settings":
@@ -1165,27 +1156,27 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 2511.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 5,
+					"stack_index": 1,
 					"type": "text"
 				},
 				{
 					"buffer": 1,
-					"file": "projects/lines/js/lines.js",
+					"file": "lib/js/math.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 1467,
+						"buffer_size": 1528,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								424,
-								424
+								0,
+								0
 							]
 						],
 						"settings":
@@ -1194,27 +1185,27 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 294.0,
+						"translation.y": 144.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 0,
+					"stack_index": 2,
 					"type": "text"
 				},
 				{
 					"buffer": 2,
-					"file": "lib/js/gl/entity.js",
+					"file": "projects/launchvis/js/launchvis.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 3404,
+						"buffer_size": 12512,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								84,
-								84
+								0,
+								0
 							]
 						],
 						"settings":
@@ -1223,7 +1214,7 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 10.0,
+						"translation.y": 5638.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 4,
@@ -1231,19 +1222,49 @@
 				},
 				{
 					"buffer": 3,
-					"file": "lib/js/gb.js",
+					"file": "lib/js/projections.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 2449,
+						"buffer_size": 1746,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								400,
-								400
+								1737,
+								1737
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 240.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 5,
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"file": "lib/js/gl/draw.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 7383,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
 							]
 						],
 						"settings":
@@ -1252,73 +1273,44 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 294.0,
+						"translation.y": 1152.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 3,
 					"type": "text"
 				},
 				{
-					"buffer": 4,
-					"file": "lib/js/gl/webgl.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 14700,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								1338,
-								1338
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.tmLanguage",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": 0.0,
-						"translation.y": 712.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 1,
-					"type": "text"
-				},
-				{
 					"buffer": 5,
-					"file": "projects/lines/css/style.scss",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 249,
+						"buffer_size": 1372,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								249,
-								249
+								1372,
+								1372
 							]
 						],
 						"settings":
 						{
-							"syntax": "Packages/Sass/Syntaxes/Sass.tmLanguage"
+							"auto_name": "What works well at Parallax? Consider process, doc",
+							"syntax": "Packages/Text/Plain text.tmLanguage"
 						},
 						"translation.x": 0.0,
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 2,
+					"stack_index": 0,
 					"type": "text"
 				}
 			]
 		},
 		{
-			"selected": 1,
+			"selected": 0,
 			"sheets":
 			[
 				{
@@ -1326,15 +1318,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 622,
+						"buffer_size": 1007,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								622,
-								622
+								1007,
+								1007
 							]
 						],
 						"settings":
@@ -1342,34 +1334,7 @@
 							"syntax": "Packages/Text/Plain text.tmLanguage"
 						},
 						"translation.x": 0.0,
-						"translation.y": 93.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 7,
-					"type": "text"
-				},
-				{
-					"buffer": 7,
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 788,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								788,
-								788
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/Text/Plain text.tmLanguage"
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 463.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 6,
@@ -1406,7 +1371,7 @@
 		"cols":
 		[
 			0.0,
-			0.75841874085,
+			0.74963396779,
 			1.0
 		],
 		"rows":
@@ -1432,7 +1397,7 @@
 	"project": "gb.sublime-project",
 	"replace":
 	{
-		"height": 46.0
+		"height": 62.0
 	},
 	"save_all_on_build": true,
 	"select_file":
@@ -1442,516 +1407,516 @@
 		"selected_items":
 		[
 			[
-				"css",
-				"projects\\lines\\css\\style.scss"
-			],
-			[
-				"new",
-				"tasks\\new_project.py"
-			],
-			[
-				"lines",
-				"projects\\lines\\js\\lines.js"
-			],
-			[
-				"gb",
-				"projects\\lines\\js\\gblib.js"
-			],
-			[
-				"de",
-				"lib\\js\\demo.js"
-			],
-			[
-				"demo",
-				"lib\\js\\demo.js"
-			],
-			[
-				"we",
-				"lib\\js\\gl\\webgl.js"
-			],
-			[
-				"draw",
-				"lib\\js\\gl\\draw_call.js"
-			],
-			[
-				"lin",
-				"projects\\lines\\js\\lines.js"
-			],
-			[
-				"fil",
-				"tasks\\file_system.py"
-			],
-			[
-				"jav",
-				"tasks\\javascript.py"
-			],
-			[
-				"shader",
-				"lib\\js\\gl\\shader.js"
-			],
-			[
-				"mesh",
-				"lib\\js\\gl\\mesh.js"
-			],
-			[
-				"dds",
-				"lib\\js\\gl\\dds.js"
-			],
-			[
-				"sce",
-				"lib\\js\\gl\\scene.js"
-			],
-			[
-				"dd",
-				"lib\\js\\gl\\dds.js"
-			],
-			[
-				"pvr",
-				"lib\\js\\gl\\pvr.js"
-			],
-			[
-				"sh",
-				"lib\\js\\gl\\shader.js"
-			],
-			[
-				"te",
-				"lib\\js\\gl\\texture.js"
-			],
-			[
-				"ass",
-				"tasks\\assets.py"
-			],
-			[
-				"as",
-				"lib\\js\\gl\\asset_group.js"
-			],
-			[
-				"java",
-				"tasks\\javascript.py"
-			],
-			[
-				"main",
-				"projects\\lines\\js\\main.js"
-			],
-			[
-				"html",
-				"projects\\lines\\html\\index.html"
-			],
-			[
-				"h",
-				"tasks\\html.py"
-			],
-			[
-				"com",
-				"tasks\\compile_project.py"
-			],
-			[
-				"camera",
-				"lib\\js\\gl\\camera.js"
-			],
-			[
-				"e",
-				"lib\\js\\gl\\entity.js"
-			],
-			[
-				"en",
-				"lib\\js\\gl\\entity.js"
-			],
-			[
-				"sur",
-				"lib\\glsl\\surface.glsl"
+				"math",
+				"lib\\js\\math.js"
 			],
 			[
 				"webgl",
 				"lib\\js\\gl\\webgl.js"
 			],
 			[
-				"conf",
-				"projects\\lines\\config\\config.json"
+				"mesh",
+				"lib\\js\\gl\\mesh.js"
 			],
 			[
-				"file",
-				"tasks\\file_system.py"
+				"lau",
+				"projects\\launchvis\\js\\launchvis.js"
 			],
 			[
-				"mo",
-				"projects\\lines\\js\\modules.js"
+				"sur",
+				"lib\\glsl\\surface.glsl"
 			],
 			[
-				"mod",
-				"lib\\js\\modules.js"
+				"projec",
+				"lib\\js\\projections.js"
 			],
 			[
-				"anima",
-				"src\\js\\demos\\animation.js"
+				"web",
+				"lib\\js\\gl\\webgl.js"
 			],
 			[
-				"demos",
-				"src\\js\\demos\\animation.js"
+				"draw",
+				"lib\\js\\gl\\draw.js"
 			],
 			[
-				"io",
-				"src\\py\\io_export_gblib_scene.py"
+				"wegbl",
+				"lib\\js\\gl\\webgl.js"
 			],
 			[
-				"inde",
-				"projects\\lines\\html\\index.html"
+				"aj",
+				"lib\\js\\ajax.js"
 			],
 			[
-				"ba",
-				"build.bat"
-			],
-			[
-				"json",
-				"projects\\lines\\config\\config.json"
+				"grid",
+				"projects\\grid\\js\\grid.js"
 			],
 			[
 				"bui",
 				"build.bat"
 			],
 			[
-				"in",
-				"build\\index.html"
+				"task",
+				"tasks\\tasks.py"
 			],
 			[
-				"py",
-				"src\\py\\compile_assets.py"
-			],
-			[
-				"pro",
-				"new-project.py"
-			],
-			[
-				"fxaa",
-				"assets\\common\\shaders\\fxaa.glsl"
-			],
-			[
-				"ligh",
-				"assets\\common\\shaders\\lighting.glsl"
-			],
-			[
-				"shadow",
-				"assets\\common\\shaders\\shadow.glsl"
-			],
-			[
-				"mater",
-				"src\\js\\gl\\material.js"
-			],
-			[
-				"fx",
-				"assets\\common\\shaders\\fxaa.glsl"
-			],
-			[
-				"ent",
-				"src\\js\\gl\\entity.js"
-			],
-			[
-				"web",
-				"src\\js\\gl\\webgl.js"
-			],
-			[
-				"anim",
-				"src\\js\\animate.js"
-			],
-			[
-				"an",
-				"src\\js\\demos\\animation.js"
-			],
-			[
-				"rig",
-				"src\\js\\gl\\rig.js"
-			],
-			[
-				"sc",
-				"src\\js\\gl\\scene.js"
-			],
-			[
-				"fina",
-				"assets\\common\\shaders\\final.glsl"
-			],
-			[
-				"final",
-				"assets\\common\\shaders\\final.glsl"
-			],
-			[
-				"materia",
-				"src\\js\\gl\\material.js"
-			],
-			[
-				"f",
-				"assets\\common\\shaders\\final.glsl"
-			],
-			[
-				"mes",
-				"src\\js\\gl\\mesh.js"
-			],
-			[
-				"sha",
-				"src\\js\\gl\\shader.js"
-			],
-			[
-				"glsl",
-				"assets\\common\\shaders\\rig.glsl"
-			],
-			[
-				"mat",
-				"src\\js\\gl\\material.js"
-			],
-			[
-				"cam",
-				"src\\js\\gl\\camera.js"
-			],
-			[
-				"vsm",
-				"assets\\common\\shaders\\vsm.glsl"
-			],
-			[
-				"shaw",
-				"assets\\common\\shaders\\shadow.glsl"
-			],
-			[
-				"su",
-				"assets\\common\\shaders\\surface.glsl"
-			],
-			[
-				"re",
-				"src\\js\\gl\\render_target.js"
-			],
-			[
-				"math",
-				"src\\js\\math.js"
-			],
-			[
-				"material",
-				"src\\js\\gl\\material.js"
-			],
-			[
-				"tex",
-				"src\\js\\gl\\texture.js"
-			],
-			[
-				"rende",
-				"src\\js\\gl\\render_target.js"
-			],
-			[
-				"pbr",
-				"src\\js\\demos\\pbr.js"
-			],
-			[
-				"ser",
-				"src\\js\\serialize.js"
-			],
-			[
-				"surface",
-				"assets\\common\\shaders\\surface.glsl"
-			],
-			[
-				"matrix",
-				"src\\js\\matrix.js"
+				"new",
+				"tasks\\new_project.py"
 			],
 			[
 				"quat",
-				"src\\js\\quaternion.js"
+				"lib\\js\\quaternion.js"
 			],
 			[
-				"vs",
-				"assets\\common\\shaders\\vsm.glsl"
+				"fps",
+				"lib\\js\\gl\\fps_camera.js"
 			],
 			[
-				"res",
-				"src\\py\\io_export_gblib_scene.py"
+				"stars",
+				"projects\\launchvis\\assets\\glsl\\stars.glsl"
 			],
 			[
-				"fxa",
-				"assets\\common\\shaders\\fxaa.glsl"
+				"sha",
+				"lib\\glsl\\shadow.glsl"
 			],
 			[
-				"comp",
-				"src\\py\\compile_assets.py"
+				"camera",
+				"lib\\js\\gl\\camera.js"
 			],
 			[
-				"rend",
-				"src\\js\\gl\\render_target.js"
+				"in",
+				"lib\\js\\input.js"
 			],
 			[
-				"ca",
-				"src\\js\\gl\\camera.js"
+				"gb",
+				"lib\\js\\gb.js"
 			],
 			[
-				"vec",
-				"src\\js\\vector.js"
-			],
-			[
-				"ren",
-				"src\\js\\gl\\render_target.js"
-			],
-			[
-				"lamp",
-				"src\\js\\gl\\lamp.js"
-			],
-			[
-				"materi",
-				"src\\js\\gl\\material.js"
-			],
-			[
-				"render",
-				"src\\js\\gl\\render_target.js"
-			],
-			[
-				"scre",
-				"src\\glsl\\screen.glsl"
-			],
-			[
-				"",
-				"src\\js\\animate.js"
-			],
-			[
-				"random",
-				"src\\js\\random.js"
-			],
-			[
-				"dom",
-				"src\\js\\dom\\dom.js"
-			],
-			[
-				"time",
-				"src\\js\\time.js"
-			],
-			[
-				"entity",
-				"src\\js\\gl\\entity.js"
-			],
-			[
-				"se",
-				"src\\js\\serialize.js"
-			],
-			[
-				"raw",
-				"src\\js\\gl\\draw.js"
-			],
-			[
-				"sta",
-				"src\\js\\stack.js"
-			],
-			[
-				"matri",
-				"src\\js\\matrix.js"
-			],
-			[
-				"debug",
-				"src\\js\\gl\\debug.js"
-			],
-			[
-				"matr",
-				"src\\js\\matrix.js"
-			],
-			[
-				"stack",
-				"src\\js\\stack.js"
-			],
-			[
-				"ani",
-				"src\\js\\animate.js"
-			],
-			[
-				"rand",
-				"src\\js\\random.js"
-			],
-			[
-				"r",
-				"src\\js\\gl\\rig.js"
-			],
-			[
-				"matrx",
-				"src\\js\\matrix.js"
+				"inp",
+				"lib\\js\\input.js"
 			],
 			[
 				"deb",
-				"src\\glsl\\debug.glsl"
+				"lib\\js\\debug.js"
 			],
 			[
-				"serial",
-				"src\\js\\serialize.js"
+				"bac",
+				"projects\\launchvis\\assets\\glsl\\background.glsl"
 			],
 			[
-				"asset",
-				"src\\js\\gl\\asset_group.js"
+				"debug",
+				"lib\\js\\debug.js"
 			],
 			[
-				"camer",
-				"src\\js\\gl\\camera.js"
+				"vec",
+				"lib\\js\\vector.js"
+			],
+			[
+				"back",
+				"projects\\launchvis\\assets\\glsl\\background.glsl"
+			],
+			[
+				"fes",
+				"lib\\glsl\\fresnel.glsl"
+			],
+			[
+				"land",
+				"projects\\launchvis\\assets\\glsl\\land.glsl"
+			],
+			[
+				"curv",
+				"lib\\js\\gl\\curve.js"
+			],
+			[
+				"shap",
+				"lib\\glsl\\shaping.glsl"
+			],
+			[
+				"gldraw",
+				"lib\\js\\gl\\draw.js"
+			],
+			[
+				"line",
+				"projects\\launchvis\\assets\\glsl\\line.glsl"
+			],
+			[
+				"fres",
+				"lib\\glsl\\fresnel.glsl"
+			],
+			[
+				"material",
+				"lib\\js\\gl\\material.js"
+			],
+			[
+				"lam",
+				"lib\\glsl\\lambert.glsl"
+			],
+			[
+				"star",
+				"projects\\launchvis\\assets\\glsl\\stars.glsl"
+			],
+			[
+				"debu",
+				"lib\\js\\debug.js"
+			],
+			[
+				"sd",
+				"lib\\glsl\\sdf.glsl"
+			],
+			[
+				"materia",
+				"lib\\js\\gl\\material.js"
+			],
+			[
+				"sphere",
+				"projects\\launchvis\\assets\\glsl\\sphere.glsl"
+			],
+			[
+				"rand",
+				"lib\\js\\random.js"
+			],
+			[
+				"gamma",
+				"lib\\glsl\\gamma.glsl"
+			],
+			[
+				"lamb",
+				"lib\\glsl\\lambert.glsl"
+			],
+			[
+				"surfa",
+				"lib\\glsl\\surface.glsl"
+			],
+			[
+				"surf",
+				"lib\\glsl\\surface.glsl"
+			],
+			[
+				"mater",
+				"lib\\js\\gl\\material.js"
+			],
+			[
+				"sce",
+				"lib\\js\\gl\\scene.js"
+			],
+			[
+				"en",
+				"lib\\js\\gl\\entity.js"
 			],
 			[
 				"entit",
-				"src\\js\\gl\\entity.js"
+				"lib\\js\\gl\\entity.js"
 			],
 			[
-				"shder",
-				"src\\js\\gl\\shader.js"
+				"anim",
+				"lib\\js\\animate.js"
 			],
 			[
-				"ing",
-				".gitignore"
+				"demo",
+				"lib\\js\\demo.js"
 			],
 			[
-				"ingo",
-				".gitignore"
+				"gb.js",
+				"lib\\js\\gb.js"
 			],
 			[
-				"be",
-				"src\\js\\bezier.js"
+				"lines",
+				"lib\\js\\gl\\line_mesh.js"
 			],
 			[
-				"w",
-				"src\\js\\gl\\webgl.js"
+				"mat",
+				"lib\\js\\gl\\material.js"
 			],
 			[
-				"animat",
-				"src\\js\\animate.js"
+				"pro",
+				"projects\\projection\\js\\projection.js"
+			],
+			[
+				"sera",
+				"lib\\js\\serialize.js"
+			],
+			[
+				"aja",
+				"lib\\js\\ajax.js"
+			],
+			[
+				"ass",
+				"lib\\js\\gl\\asset_group.js"
+			],
+			[
+				"assets",
+				"tasks\\assets.py"
+			],
+			[
+				"la",
+				"projects\\launchvis\\js\\launchvis.js"
+			],
+			[
+				"projection",
+				"lib\\js\\projections.js"
+			],
+			[
+				"shapes",
+				"projects\\shadertoy\\assets\\glsl\\shapes.glsl"
+			],
+			[
+				"sdf",
+				"lib\\glsl\\sdf.glsl"
+			],
+			[
+				"shader",
+				"projects\\shadertoy\\js\\shadertoy.js"
+			],
+			[
+				"basic",
+				"projects\\basic\\js\\basic.js"
+			],
+			[
+				"colour",
+				"lib\\glsl\\colour_conversion.glsl"
+			],
+			[
+				"com",
+				"tasks\\compile_project.py"
+			],
+			[
+				"bas",
+				"projects\\basic\\js\\basic.js"
+			],
+			[
+				"input",
+				"lib\\js\\input.js"
+			],
+			[
+				"sc",
+				"lib\\js\\gl\\scene.js"
+			],
+			[
+				"io",
+				"lib\\py\\io_export_gblib_scene.py"
+			],
+			[
+				"basicgb",
+				"projects\\basic\\js\\gblib.js"
+			],
+			[
+				"gbl",
+				"lib\\js\\gblib.js"
+			],
+			[
+				"eas",
+				"lib\\js\\easing.js"
+			],
+			[
+				"rig",
+				"lib\\js\\gl\\rig.js"
+			],
+			[
+				"ew",
+				"tasks\\new_project.py"
+			],
+			[
+				"htmlpy",
+				"tasks\\html.py"
+			],
+			[
+				"scss",
+				"projects\\projection\\css\\style.scss"
+			],
+			[
+				"cur",
+				"lib\\js\\gl\\curve.js"
+			],
+			[
+				"lin",
+				"lib\\js\\gl\\line_mesh.js"
+			],
+			[
+				"line.gl",
+				"projects\\lines\\assets\\glsl\\line.glsl"
+			],
+			[
+				"de",
+				"lib\\js\\debug.js"
+			],
+			[
+				"ca",
+				"lib\\js\\gl\\fps_camera.js"
+			],
+			[
+				"e",
+				"lib\\js\\gl\\entity.js"
 			],
 			[
 				"enti",
-				"src\\js\\gl\\entity.js"
+				"lib\\js\\gl\\entity.js"
 			],
 			[
-				"shad",
-				"src\\js\\gl\\shader.js"
+				"came",
+				"lib\\js\\gl\\fps_camera.js"
 			],
 			[
-				"seri",
-				"src\\js\\serialize.js"
+				"cube",
+				"lib\\js\\gl\\mesh\\cube.js"
 			],
 			[
-				"scene",
-				"src\\py\\io_export_gblib_scene.py"
+				"spher",
+				"lib\\js\\gl\\mesh\\sphere.js"
 			],
 			[
-				"scree",
-				"src\\glsl\\screen.glsl"
+				"qu",
+				"lib\\js\\gl\\mesh\\quad.js"
 			],
 			[
-				"pb",
-				"src\\js\\demos\\pbr.js"
+				"gblib",
+				"projects\\rig\\js\\gblib.js"
 			],
 			[
-				"head",
-				"src\\js\\demos\\header.js"
+				"fil",
+				"tasks\\file_system.py"
 			],
 			[
-				"webl",
-				"src\\js\\gl\\webgl.js"
+				"compil",
+				"tasks\\compile_project.py"
 			],
 			[
-				"shade",
-				"src\\js\\gl\\shader.js"
+				"ebug",
+				"lib\\js\\debug.js"
 			],
 			[
-				"fa",
-				"src\\glsl\\flat.glsl"
+				"glsl",
+				"projects\\basic\\assets\\glsl\\surface.glsl"
 			],
 			[
-				"canvas",
-				"src\\js\\canvas\\canvas.js"
+				"weg",
+				"lib\\js\\gl\\webgl.js"
+			],
+			[
+				"camer",
+				"lib\\js\\gl\\camera.js"
+			],
+			[
+				"basi",
+				"projects\\basic\\js\\basic.js"
+			],
+			[
+				"css",
+				"lib\\css\\style.scss"
+			],
+			[
+				"qua",
+				"lib\\js\\quaternion.js"
+			],
+			[
+				"cam",
+				"lib\\js\\gl\\camera.js"
+			],
+			[
+				"styl",
+				"build\\basic\\css\\style.css"
+			],
+			[
+				"py",
+				"tasks\\assets.py"
+			],
+			[
+				"proj",
+				"lib\\js\\projections.js"
+			],
+			[
+				"gldr",
+				"lib\\js\\gl\\draw.js"
+			],
+			[
+				"pvr",
+				"lib\\js\\gl\\pvr.js"
+			],
+			[
+				"te",
+				"lib\\js\\gl\\texture.js"
+			],
+			[
+				"dds",
+				"lib\\js\\gl\\dds.js"
+			],
+			[
+				"as",
+				"lib\\js\\gl\\asset_group.js"
+			],
+			[
+				"lamp",
+				"lib\\js\\gl\\lamp.js"
+			],
+			[
+				"ser",
+				"lib\\js\\serialize.js"
+			],
+			[
+				"ent",
+				"lib\\js\\gl\\entity.js"
+			],
+			[
+				"be",
+				"lib\\js\\bezier.js"
+			],
+			[
+				"asse",
+				"lib\\js\\gl\\asset_group.js"
+			],
+			[
+				"con",
+				"projects\\lines\\config\\config.json"
+			],
+			[
+				"java",
+				"tasks\\javascript.py"
+			],
+			[
+				"ja",
+				"tasks\\javascript.py"
+			],
+			[
+				"ma",
+				"lib\\js\\math.js"
+			],
+			[
+				"ui",
+				"build.bat"
+			],
+			[
+				"entity",
+				"lib\\js\\gl\\entity.js"
+			],
+			[
+				"materi",
+				"lib\\js\\gl\\material.js"
+			],
+			[
+				"gls",
+				"projects\\lines\\assets\\glsl\\debug.glsl"
+			],
+			[
+				"we",
+				"lib\\js\\gl\\webgl.js"
+			],
+			[
+				"matrix",
+				"lib\\js\\matrix.js"
+			],
+			[
+				"mes",
+				"lib\\js\\gl\\mesh.js"
+			],
+			[
+				"rig.js",
+				"lib\\js\\gl\\rig.js"
+			],
+			[
+				"ri",
+				"projects\\rig\\js\\rig.js"
+			],
+			[
+				"i",
+				"lib\\py\\io_export_gblib_scene.py"
 			]
 		],
 		"width": 0.0

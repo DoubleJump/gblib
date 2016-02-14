@@ -1,6 +1,6 @@
 @echo off
 
-set PROJECT=grid
+set PROJECT=watts
 
 call cls
 python tasks/tasks.py --build %PROJECT%

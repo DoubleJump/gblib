@@ -27,13 +27,15 @@ var WaveNode = function(x,y)
 	this.left_delta = 0;
 	this.right_delta = 0;
 }
-var NUM_WAVE_NODES = 100;
+var NUM_WAVE_NODES = 11;
 var wave_nodes = [];
 
 var node_mass_slider;
 var node_damping_slider;
 var node_spring_slider;
 var node_spread_slider;
+
+var water;
 
 function init()
 {
@@ -56,11 +58,10 @@ function init()
 	gb.assets.load("assets/assets.gl", load_complete);
 }
 
-function load_complete(asset_group)
+function load_complete(ag)
 {
 	debug_view = gb.debug_view.new(document.body);
 
-	assets = asset_group;
 	construct = scene.new(null, true);
 
 	/*
@@ -76,7 +77,7 @@ function load_complete(asset_group)
 	gl.set_clear_color(0.521, 0.282, 0.262, 1.0);
 
 	camera = gb.camera.new();
-	camera.entity.position[0] = 5.0;
+	//camera.entity.position[0] = 5.0;
 	camera.entity.position[2] = 6.0;
 	scene.add(camera);
 
@@ -93,7 +94,9 @@ function load_complete(asset_group)
 	node_spring_slider = gb.debug_view.control(debug_view, 'SPRING', 0.1, 1.0, 0.01, 0.1);
 	node_spread_slider = gb.debug_view.control(debug_view, 'SPREAD', 0.1, 3.0, 0.01, 3.0);
 
-
+	ag.meshes.water.update_mode = gl.ctx.DYNAMIC_DRAW;
+	water = gb.entity.mesh(ag.meshes.water, gb.material.new(ag.shaders.water));
+	gb.color.set(water.material.color, 1.0, 0.937, 0.643, 1.0);
 	/*
 	surface_target = gb.render_target.new();
 	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
@@ -115,7 +118,7 @@ function update(dt)
 
 	if(input.held(gb.Keys.q))
 	{
-		wave_nodes[50].velocity += 1.0;
+		wave_nodes[gb.math.floor(NUM_WAVE_NODES/2)].velocity += 1.0;
 	}
 
 	wave_nodes[0].velocity = 0;
@@ -175,6 +178,18 @@ function update(dt)
        	gb.gl_draw.line(start, end);
     }
 
+    var mesh_index = 3;
+    var vb = water.mesh.vertex_buffer.data;
+	for(var i = 0; i < NUM_WAVE_NODES; ++i)
+    {
+		var node = wave_nodes[i];
+		vb[mesh_index  ] = node.position[1];
+		//vb[mesh_index+1] = node.position[1];
+		mesh_index += 4;
+    }
+    //vb[5] = 3.0;
+    gb.mesh.update(water.mesh);
+
     //gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(1,1,1));
 	/*
 	cube.spin += 30 * dt;
@@ -190,6 +205,7 @@ function debug_update(dt)
 function render()
 {
 	gl.render_scene(construct, camera, null, true);
+	gl.render_entity(water, camera, null);
 	//gl.render_post_call(fxaa_pass);
 
 	gb.gl_draw.render(camera, null);

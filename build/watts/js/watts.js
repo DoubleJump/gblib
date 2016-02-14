@@ -37,7 +37,7 @@ var gb =
 		input:
 		{
 			root: document,
-			keycodes: ['mouse_left', 'up', 'down', 'left', 'right', 'w', 'a', 's', 'd', 'f', 'h', 'q', 'e'],
+			keycodes: ['mouse_left', 'up', 'down', 'left', 'right', 'w', 'a', 's', 'd', 'f', 'h', 'q', 'e', 'z', 'x'],
 		},
 	},
 
@@ -203,7 +203,7 @@ gb.time =
     init: function(t)
     {
         var _t = gb.time;
-    	_t.time_elapsed = 0;
+    	_t.elapsed = 0;
         _t.start = t;
     },
     update: function(t)
@@ -212,6 +212,7 @@ gb.time =
     	_t.now = t;
     	_t.dt = ((t - _t.last) / 1000) * _t.scale;
     	_t.last = t;
+        _t.elapsed += _t.dt * _t.scale;
         _t.at += _t.dt * _t.scale;
         if(_t.at > 1) _t.at -=1;
     },
@@ -1972,7 +1973,7 @@ gb.intersect =
 	mesh_ray: function(h, m, matrix, r)
 	{
 		var _t = gb.intersect;
-		var stride = gb.mesh.get_stride(m);
+		var stride = m.vertex_buffer.stride;
 		h.t = gb.math.MAX_F32;
 
 		var hit = gb.hit.tmp();
@@ -4763,14 +4764,7 @@ gb.gl_draw =
 	{
 		var _t = gb.gl_draw;
 
-		/*
-		var e = gb.entity.new(); //TODO: removed dependency on entities in the renderer - can get rid of this
-		_t.entity = e;
-		_t.matrix = e.world_matrix;
-		e.entity_type = gb.EntityType.ENTITY;
-		*/
 		_t.matrix = gb.mat4.new();
-
 		_t.offset = 0;
 		_t.color = gb.color.new(1,1,1,1);
 
@@ -4778,17 +4772,10 @@ gb.gl_draw =
 		gb.vertex_buffer.add_attribute(vb, 'position', 3, false);
 		gb.vertex_buffer.add_attribute(vb, 'color', 4, true);
 		gb.vertex_buffer.alloc(vb, config.buffer_size);
-
-		/*
-		var m = gb.mesh.new(vb, null, 'LINES', 'DYNAMIC_DRAW');
-	    e.mesh = m;
-	    _t.mesh = m;
-	    */
 	    _t.mesh = gb.mesh.new(vb, null, 'LINES', 'DYNAMIC_DRAW');
 
 	    var vs = 'attribute vec3 position;attribute vec4 color;uniform mat4 mvp;varying vec4 _color;void main(){_color = color;gl_Position = mvp * vec4(position, 1.0);}';
 	    var fs = 'precision highp float;varying vec4 _color;void main(){gl_FragColor = _color;}'; 
-	    //e.material = gb.material.new(gb.shader.new(vs,fs));
 		_t.material = gb.material.new(gb.shader.new(vs,fs));
 		_t.clear();
 	},
@@ -4811,27 +4798,6 @@ gb.gl_draw =
 			_t.mesh.vertex_buffer.data[i] = 0;
 		}
 	},
-	/*
-	render: function(camera, target)
-	{
-		var _t = gb.gl_draw;
-		var gl = gb.webgl;
-
-		gl.update_mesh(_t.entity.mesh);
-		gl.use_shader(_t.entity.material.shader);
-		gb.material.set_camera_uniforms(_t.entity.material, camera);
-		gb.material.set_matrix_uniforms(_t.entity.material, _t.matrix, camera);
-		gl.link_attributes(_t.entity.material.shader, _t.entity.mesh);
-		gl.set_uniforms(_t.entity.material);
-		gl.set_state(gl.ctx.DEPTH_TEST, false);
-		gl.set_render_target(target, false);
-		gl.ctx.depthRange(camera.near, camera.far);
-		gl.ctx.lineWidth = _t.thickness;
-		gl.draw_mesh(_t.entity.mesh);
-
-		_t.clear();
-	},
-	*/
 	render: function(camera, target)
 	{
 		var _t = gb.gl_draw;
@@ -5288,6 +5254,151 @@ gb.debug_view =
 	},
 }
 //END
+gb.dom =
+{
+	get: function(selector)
+	{
+		return document.querySelector(selector);
+	},
+	all: function(selector)
+	{
+		return document.querySelectorAll(selector);
+	},
+}
+gb.Rigidbody = function()
+{
+	this.mass;
+	this.inv_mass;
+	this.position;
+	this.velocity;
+	this.acceleration;
+	this.friction;
+	this.restitution;
+}
+gb.Manifold = function()
+{
+	this.A;
+	this.B;
+	this.normal;
+	this.depth;
+}
+gb.physics = 
+{
+
+	new_body: function(mass)
+	{
+		var v3 = gb.vec3;
+		var b = new gb.Rigidbody();
+		b.position = v3.new(0,0,0);
+		b.velocity = v3.new(0,0,0);
+		b.acceleration = v3.new(0,0,0);
+		b.mass = mass;
+		b.inv_mass = 1.0 / mass;
+		return b;
+	},
+
+	add_force: function(b, f, constant)
+	{
+		gb.physics.add_force_f(b, f[0], f[1], f[2], constant);
+	},
+	add_force_f: function(b, x,y,z, constant)
+	{
+		/*
+		b.acceleration[0] += x * b.inv_mass;
+		b.acceleration[1] += y * b.inv_mass;
+		b.acceleration[2] += z * b.inv_mass;
+		*/
+
+		if(constant === true)
+		{
+			b.acceleration[0] += x;
+			b.acceleration[1] += y;
+			b.acceleration[2] += z;
+		}
+		else
+		{
+			b.acceleration[0] += (x * b.inv_mass);
+			b.acceleration[1] += (y * b.inv_mass);
+			b.acceleration[2] += (z * b.inv_mass);
+		}
+	},
+	add_impulse: function(b, f)
+	{
+		b.velocity[0] += f[0] * b.inv_mass;
+		b.velocity[1] += f[1] * b.inv_mass;
+		b.velocity[2] += f[2] * b.inv_mass;
+	},
+	add_impulse_f: function(b, x,y,z)
+	{
+		b.velocity[0] += x * b.inv_mass;
+		b.velocity[1] += y * b.inv_mass;
+		b.velocity[2] += z * b.inv_mass;
+	},
+
+	integrate_euler: function(b, dt)
+	{
+		var dts = dt * dt;
+
+		/*
+		b.velocity[0] += 0.5 * b.acceleration[0] * dts;
+		b.velocity[1] += 0.5 * b.acceleration[1] * dts;
+		b.velocity[2] += 0.5 * b.acceleration[1] * dts; 
+		*/
+		/*
+		b.position[0] += b.velocity[0] * dt;
+		b.position[1] += b.velocity[1] * dt;
+		b.position[2] += b.velocity[2] * dt;
+		*/
+		b.position[0] += b.velocity[0] * dt;
+		b.position[1] += b.velocity[1] * dt;
+		b.position[2] += b.velocity[2] * dt;
+
+		b.velocity[0] += b.acceleration[0] * dt;
+		b.velocity[1] += b.acceleration[1] * dt;
+		b.velocity[2] += b.acceleration[2] * dt;
+		
+		b.acceleration[0] = 0;
+		b.acceleration[1] = 0;
+		b.acceleration[2] = 0;
+	},
+	integrate_rk4: function(b, dt)
+	{
+		
+	},
+
+	gravitation: function(a,b,g)
+	{
+		var dx = b.position[0] - a.position[0];
+		var dy = b.position[1] - a.position[1];
+		var dist = dx * dx + dy * dy;
+		var id = 1 / dist;
+		var f = id * ((g * a.mass * b.mass) / dist);
+		gb.physics.add_force(a, dx * f, dy * f);
+	},
+
+	resolve_manifold: function(m)
+	{
+		var v3 = gb.vec3;
+		var rv = v3.tmp(); 
+		vec3.sub(rv, m.B.velocity, m.A.velocity);
+		var velocity_along_normal = v3.dot(rv, m.normal);
+
+		if(velocity_along_normal > 0)
+		{
+			return;
+		}
+
+		var restitution = gb.math.min(m.A.restitution, m.B.restitution);
+		var impulse_magnitude = -(1 + restitution) * velocity_along_normal;
+		impulse_magnitude /= m.A.inv_mass + m.B.inv_mass;
+
+		vec3.mul(rv, m.normal, impulse_magnitude);
+		gb.physics.apply_impulse(m.B, rv);
+
+		vec3.inverse(rv,rv);
+		gb.physics.apply_impulse(m.A, rv);
+	}
+}
 gb.camera.fly = function(c, dt, vertical_limit)
 {
 	if(c.fly_mode === undefined) 
@@ -5445,32 +5556,27 @@ var math = gb.math;
 var gl = gb.webgl;
 var input = gb.input;
 var scene = gb.scene;
+var draw = gb.gl_draw;
+var physics = gb.physics;
+var dom = gb.dom;
 var assets;
+
 var debug_view;
+var drain_slider;
 
+var frame;
 var construct;
-var cube;
 var camera;
-var surface_target;
-var fxaa_pass;
 
-var WaveNode = function(x,y)
-{
-	this.position = v2.new(x,y);
-	this.acceleration = 0.0;
-	this.velocity = 0.0;
-	this.left_delta = 0;
-	this.right_delta = 0;
-}
-var NUM_WAVE_NODES = 11;
-var wave_nodes = [];
+var energy_display;
+var energy_counter;
+var energy_max_value;
+var energy_value;
+var energy_drain_rate;
+var energy_ball;
 
-var node_mass_slider;
-var node_damping_slider;
-var node_spring_slider;
-var node_spread_slider;
-
-var water;
+var car;
+var car_body;
 
 function init()
 {
@@ -5480,170 +5586,106 @@ function init()
 		{
 			frame_skip: false,
 			update: update, 
-			debug_update: debug_update,
 			render: render,
 		},
 		gl:
 		{
-			fill_container: false,
 			antialias: true,
+			width: 375,
+			height: 667,
 		}
 	});
 
 	gb.assets.load("assets/assets.gl", load_complete);
 }
 
-function load_complete(ag)
+function load_complete(asset_group)
 {
 	debug_view = gb.debug_view.new(document.body);
 
+	// UI 
+	frame = dom.get('.frame');
+	energy_display = dom.get('.energy-display');
+	energy_counter = dom.get('.energy-display .counter');
+	energy_max_value = 18000;
+	energy_drain_rate = 36000;
+	energy_value = energy_max_value;
+
+	assets = asset_group;
 	construct = scene.new(null, true);
 
-	/*
-	cube = gb.entity.mesh(gb.mesh.cube(2,1,1), gb.material.new(assets.shaders.surface));
-	cube.spin = 0;
-	scene.add(cube);
-	*/
+	//energy ball
+	energy_ball = gb.entity.mesh(gb.mesh.quad(0.3,0.3), gb.material.new(asset_group.shaders.surface));
+	v3.set(energy_ball.position, 0,1,0);
+	scene.add(energy_ball);
 
-	//0.521 0.282 0.262
-	//1.0 0.937 0.643
-	//0.905 0.78 0.29
+	car = gb.entity.mesh(asset_group.meshes.car, gb.material.new(asset_group.shaders.surface));
+	scene.add(car);
+	car_body = physics.new_body(1500);
+	//body.position[1] = 1.0;
 
-	gl.set_clear_color(0.521, 0.282, 0.262, 1.0);
+	//gb.debug_view.watch(debug_view, 'V', body, 'velocity', 1);
+	//gb.debug_view.watch(debug_view, 'Time', gb.time, 'elapsed');
+	drain_slider = gb.debug_view.control(debug_view, 'Rate', 1000, 36000, 100, 1000);
 
 	camera = gb.camera.new();
-	//camera.entity.position[0] = 5.0;
-	camera.entity.position[2] = 6.0;
+	camera.entity.position[2] = 3.0;
 	scene.add(camera);
 
-	
-	for(var i = 0; i < NUM_WAVE_NODES; ++i)
-	{
-		var node = new WaveNode(i * 0.1, 0);
-		wave_nodes.push(node);
-	}
-	
 
-	node_mass_slider = gb.debug_view.control(debug_view, 'MASS', 0.01, 1.0, 0.01, 0.1);
-	node_damping_slider = gb.debug_view.control(debug_view, 'DAMPING', 0.95, 1.0, 0.001, 0.995);
-	node_spring_slider = gb.debug_view.control(debug_view, 'SPRING', 0.1, 1.0, 0.01, 0.1);
-	node_spread_slider = gb.debug_view.control(debug_view, 'SPREAD', 0.1, 3.0, 0.01, 3.0);
-
-	ag.meshes.water.update_mode = gl.ctx.DYNAMIC_DRAW;
-	water = gb.entity.mesh(ag.meshes.water, gb.material.new(ag.shaders.water));
-	gb.color.set(water.material.color, 1.0, 0.937, 0.643, 1.0);
-	/*
-	surface_target = gb.render_target.new();
-	fxaa_pass = gb.post_call.new(gb.material.new(assets.shaders.fxaa), null);
-	fxaa_pass.material.texture = surface_target.color;
-	v2.set(fxaa_pass.material.resolution, gl.view.width, gl.view.height);
-	v2.set(fxaa_pass.material.inv_resolution, 1.0 / gl.view.width, 1.0 / gl.view.height);
-	*/
 	gb.allow_update = true;
 }
 
 function update(dt)
 {
-	gb.camera.fly(camera, dt, 80);
-	
-	var SPRING_CONSTANT = node_spring_slider.value;
-	var BASE_HEIGHT = 0.0;
-	var DAMPING = node_damping_slider.value;
-	var NODE_MASS = node_mass_slider.value;
-
-	if(input.held(gb.Keys.q))
-	{
-		wave_nodes[gb.math.floor(NUM_WAVE_NODES/2)].velocity += 1.0;
-	}
-
-	wave_nodes[0].velocity = 0;
-	wave_nodes[NUM_WAVE_NODES - 1].velocity = 0;
-	for(var i = 0; i < NUM_WAVE_NODES; ++i)
-	{
-		var node = wave_nodes[i];
-		var force = SPRING_CONSTANT * (node.position[1] - BASE_HEIGHT) + node.velocity;
-		node.acceleration -= (force / NODE_MASS) * dt;
-		node.position[1] += node.velocity * dt;
-		node.velocity *= DAMPING;
-		node.velocity += node.acceleration * dt;
-	}
-
-	var SPREAD = node_spread_slider.value;
-	for(var j = 0; j < 8; ++j)
-	{
-	    for(var i = 0; i < NUM_WAVE_NODES; ++i)
-	    {
-	    	var node = wave_nodes[i];
-	        if(i > 0)
-	        {
-	        	var left_node = wave_nodes[i-1];
-	            node.left_delta = SPREAD * (node.position[1] - left_node.position[1]);
-	            left_node.velocity += node.left_delta * dt;
-	        }
-	        if(i < NUM_WAVE_NODES - 1)
-	        {
-	        	var right_node = wave_nodes[i+1];
-	            node.right_delta = SPREAD * (node.position[1] - right_node.position[1]);
-	            right_node.velocity += node.right_delta * dt;
-	        }
-	    }
-	}
-	for (var i = 0; i < NUM_WAVE_NODES; ++i)
-	{
-	    if(i > 0) 
-	    {
-	        var left_node = wave_nodes[i-1];
-	        left_node.position[1] += wave_nodes[i].left_delta * dt;
-	    }
-	    if(i < NUM_WAVE_NODES - 1) 
-	    {
-			var right_node = wave_nodes[i+1];
-	        right_node.position[1] += wave_nodes[i].right_delta * dt;
-	    }
-	}
-
-	var start = v3.tmp();
-	var end = v3.tmp();
-	for(var i = 0; i < NUM_WAVE_NODES-1; ++i)
-    {
-    	var node = wave_nodes[i];
-       	var next = wave_nodes[i+1];
-       	v3.set(start, node.position[0], node.position[1], 0);
-       	v3.set(end, next.position[0], next.position[1], 0);
-       	gb.gl_draw.line(start, end);
-    }
-
-    var mesh_index = 3;
-    var vb = water.mesh.vertex_buffer.data;
-	for(var i = 0; i < NUM_WAVE_NODES; ++i)
-    {
-		var node = wave_nodes[i];
-		vb[mesh_index  ] = node.position[1];
-		//vb[mesh_index+1] = node.position[1];
-		mesh_index += 4;
-    }
-    //vb[5] = 3.0;
-    gb.mesh.update(water.mesh);
-
-    //gb.gl_draw.line(v3.tmp(0,0,0), v3.tmp(1,1,1));
-	/*
-	cube.spin += 30 * dt;
-	gb.entity.set_rotation(cube, cube.spin, cube.spin, cube.spin);
-	*/
-}
-
-function debug_update(dt)
-{
 	gb.debug_view.update(debug_view);
+	gb.camera.fly(camera, dt, 80);
+
+	//follow mouse
+	var energy_pos = v3.tmp();
+	gb.projections.world_to_screen(energy_pos, camera.view_projection, energy_ball.position, gl.view);
+	energy_display.style.transform = 'translate(' + energy_pos[0] + 'px, ' + energy_pos[1] + 'px)';
+	
+	physics.add_force_f(car_body, 0, -9.81, 0, true);
+
+	energy_drain_rate = drain_slider.value;
+
+	var inv_dt = 1.0 / dt;
+
+	var pressing = input.held(gb.Keys.z) || input.touches[0].is_touching === true;
+	if(pressing)
+	{
+		energy_value -= energy_drain_rate * dt;
+		if(energy_value > 0)
+			//physics.add_force_f(body, energy_drain_rate, 0, 0, false);
+			physics.add_force_f(car_body, 0, energy_drain_rate, 0, false);
+	}
+
+	if(energy_value < 0) energy_value = 0;
+	energy_counter.innerText = gb.math.round(energy_value);
+
+	physics.integrate_euler(car_body, dt);
+
+	if(car_body.position[1] < 0)
+	{
+		energy_value = energy_max_value;
+		car_body.position[1] = 0;
+		if(car_body.velocity[1] < -2.0) car_body.velocity[1] = -car_body.velocity[1] * 0.25;
+		else if(car_body.velocity[1] < 0.0) car_body.velocity[1] = 0;
+	}
+	v3.eq(car.position, car_body.position);
+
+	//draw.line(v3.tmp(1,0,0), body.position);
+	//draw.set_position_f(body.position);
+	//draw.circle(0.3, 32);
 }
+
 
 function render()
 {
-	gl.render_scene(construct, camera, null, true);
-	gl.render_entity(water, camera, null);
+	gl.render_scene(construct, camera, null);
 	//gl.render_post_call(fxaa_pass);
-
-	gb.gl_draw.render(camera, null);
+	draw.render(camera, null);
 }
 
 window.addEventListener('load', init, false);

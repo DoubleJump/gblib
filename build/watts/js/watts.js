@@ -960,6 +960,16 @@ gb.quat =
 		_t.normalized(r,t);
 	},
 
+	look_at: function(r, from, to, forward)
+	{
+		var _t = gb.quat;
+		var v3 = gb.vec3;
+		var temp = v3.tmp();
+		v3.sub(temp, from, to);
+		v3.normalized(temp, temp);
+		_t.from_to(r, forward, to);
+	},
+
 	lerp: function(r, a,b, t)
 	{
 		var it = 1-t;
@@ -4076,12 +4086,12 @@ gb.webgl =
 
 		_t.set_viewport(_t.view);
 
-        //gl.clearColor(0.0,0.0,0.0,0.0);
+		//gl.clearColor(1.0,0.0,0.0,1.0);
         //gl.colorMask(true, true, true, false);
     	//gl.clearStencil(0);
     	//gl.depthMask(true);
 		//gl.depthRange(-100, 100); // znear zfar
-		//gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         _t.samplers.default = gb.sampler.new(gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE, gl.NEAREST, gl.NEAREST);
         _t.samplers.linear = gb.sampler.new(gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE, gl.LINEAR, gl.LINEAR);
@@ -5603,35 +5613,54 @@ function load_complete(asset_group)
 {
 	debug_view = gb.debug_view.new(document.body);
 
-	// UI 
+	gl.set_clear_color(0.431,0.76,0.76,1.0);
+
+	// UI
+	
 	frame = dom.get('.frame');
 	energy_display = dom.get('.energy-display');
 	energy_counter = dom.get('.energy-display .counter');
+	
 	energy_max_value = 18000;
 	energy_drain_rate = 36000;
 	energy_value = energy_max_value;
 
 	assets = asset_group;
-	construct = scene.new(null, true);
 
-	//energy ball
+	construct = scene.new(null, true);
+	
+	// CAMERA
+
+	camera = gb.camera.new();
+	v3.set(camera.entity.position, 1.0, 0.8, 2.0);
+
+	scene.add(camera);
+
+	// ENERGY BALL
+
 	energy_ball = gb.entity.mesh(gb.mesh.quad(0.3,0.3), gb.material.new(asset_group.shaders.surface));
 	v3.set(energy_ball.position, 0,1,0);
 	scene.add(energy_ball);
 
-	car = gb.entity.mesh(asset_group.meshes.car, gb.material.new(asset_group.shaders.surface));
+	// CAR
+
+	//car = gb.entity.mesh(asset_group.meshes.car, gb.material.new(asset_group.shaders.surface));
+	car = gb.entity.mesh(asset_group.meshes.car, gb.material.new(asset_group.shaders.vertex));
+	v3.set(car.material.light, 1.0,3.0,3.0);
+	car.material.eye = camera.entity.position;
+
+
 	scene.add(car);
 	car_body = physics.new_body(1500);
 	//body.position[1] = 1.0;
 
+	qt.look_at(camera.entity.rotation, car.position, camera.entity.position, v3.tmp(0,0,1));
+
+	// DEBUG
+
 	//gb.debug_view.watch(debug_view, 'V', body, 'velocity', 1);
 	//gb.debug_view.watch(debug_view, 'Time', gb.time, 'elapsed');
 	drain_slider = gb.debug_view.control(debug_view, 'Rate', 1000, 36000, 100, 1000);
-
-	camera = gb.camera.new();
-	camera.entity.position[2] = 3.0;
-	scene.add(camera);
-
 
 	gb.allow_update = true;
 }
@@ -5640,6 +5669,8 @@ function update(dt)
 {
 	gb.debug_view.update(debug_view);
 	gb.camera.fly(camera, dt, 80);
+
+
 
 	//follow mouse
 	var energy_pos = v3.tmp();
@@ -5683,9 +5714,11 @@ function update(dt)
 
 function render()
 {
-	gl.render_scene(construct, camera, null);
+	gl.set_render_target(null, true);
+	//gl.render_scene(construct, camera, null);
+	gl.render_entity(car, camera, null);
 	//gl.render_post_call(fxaa_pass);
-	draw.render(camera, null);
+	//draw.render(camera, null);
 }
 
 window.addEventListener('load', init, false);

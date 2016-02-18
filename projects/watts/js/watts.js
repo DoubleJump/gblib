@@ -130,12 +130,15 @@ function update(dt)
 	var inv_dt = 1.0 / dt;
 
 	var pressing = input.held(gb.Keys.z) || input.touches[0].is_touching === true;
-	if(pressing)
+	if(pressing === true)
 	{
 		energy_value -= energy_drain_rate * dt;
 		if(energy_value > 0)
+		{
 			//physics.add_force_f(body, energy_drain_rate, 0, 0, false);
 			physics.add_force_f(car_body, 0, energy_drain_rate, 0, false);
+			physics.add_angular_force_f(car_body, 0, 100, 0, true);
+		}
 	}
 
 	if(energy_value < 0) energy_value = 0;
@@ -151,6 +154,7 @@ function update(dt)
 		else if(car_body.velocity[1] < 0.0) car_body.velocity[1] = 0;
 	}
 	v3.eq(car.position, car_body.position);
+	qt.eq(car.rotation, car_body.rotation);
 
 	//draw.line(v3.tmp(1,0,0), body.position);
 	//draw.set_position_f(body.position);

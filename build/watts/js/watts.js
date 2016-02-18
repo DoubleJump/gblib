@@ -857,7 +857,12 @@ gb.quat =
 		_t.normalized(r, _t.conjugate(t,q));
 	},
 
-	euler:function(r, x,y,z)
+	euler: function(r, v)
+	{
+		gb.quat.euler_f(r, v[0], v[1], v[2]);
+	},
+
+	euler_f:function(r, x,y,z)
 	{
 		var m = gb.math;
 		var xr = x * m.DEG2RAD / 2;
@@ -2297,7 +2302,7 @@ gb.input =
 
 	device_rotation: function(e)
 	{
-		gb.quat.euler(gb.input.rotation, e.beta, e.gamma, e.alpha);
+		gb.quat.euler_f(gb.input.rotation, e.beta, e.gamma, e.alpha);
 	},
 
 	touch_start: function(e)
@@ -5280,8 +5285,11 @@ gb.Rigidbody = function()
 	this.mass;
 	this.inv_mass;
 	this.position;
+	this.rotation;
 	this.velocity;
 	this.acceleration;
+	this.angular_velocity;
+	this.angular_acceleration;
 	this.friction;
 	this.restitution;
 }
@@ -5299,12 +5307,35 @@ gb.physics =
 	{
 		var v3 = gb.vec3;
 		var b = new gb.Rigidbody();
-		b.position = v3.new(0,0,0);
-		b.velocity = v3.new(0,0,0);
-		b.acceleration = v3.new(0,0,0);
+		b.position = v3.new();
+		b.rotation = gb.quat.new();
+		b.velocity = v3.new();
+		b.acceleration = v3.new();
+		b.angular_velocity = v3.new();
+		b.angular_acceleration = v3.new();
 		b.mass = mass;
 		b.inv_mass = 1.0 / mass;
 		return b;
+	},
+
+	add_angular_force: function(b, f, constant)
+	{
+		gb.add_angular_force_f(b, f[0], f[1], f[2], constant);
+	},
+	add_angular_force_f: function(b, x,y,z, constant)
+	{
+		if(constant === true)
+		{
+			b.angular_acceleration[0] += x;
+			b.angular_acceleration[1] += y;
+			b.angular_acceleration[2] += z;
+		}
+		else
+		{
+			b.angular_acceleration[0] += (x * b.inv_mass);
+			b.angular_acceleration[1] += (y * b.inv_mass);
+			b.angular_acceleration[2] += (z * b.inv_mass);
+		}
 	},
 
 	add_force: function(b, f, constant)
@@ -5313,12 +5344,6 @@ gb.physics =
 	},
 	add_force_f: function(b, x,y,z, constant)
 	{
-		/*
-		b.acceleration[0] += x * b.inv_mass;
-		b.acceleration[1] += y * b.inv_mass;
-		b.acceleration[2] += z * b.inv_mass;
-		*/
-
 		if(constant === true)
 		{
 			b.acceleration[0] += x;
@@ -5370,6 +5395,21 @@ gb.physics =
 		b.acceleration[0] = 0;
 		b.acceleration[1] = 0;
 		b.acceleration[2] = 0;
+
+		var rot = gb.quat.tmp();
+		var ang_v = gb.vec3.tmp();
+		v3.mulf(ang_v, b.angular_velocity, dt);
+		gb.quat.euler(rot, ang_v);
+		gb.quat.mul(b.rotation, b.rotation, rot);
+		gb.quat.stack.index--;
+
+		b.angular_velocity[0] += b.angular_acceleration[0] * dt;
+		b.angular_velocity[1] += b.angular_acceleration[1] * dt;
+		b.angular_velocity[2] += b.angular_acceleration[2] * dt;
+
+		b.angular_acceleration[0] = 0;
+		b.angular_acceleration[1] = 0;
+		b.angular_acceleration[2] = 0;
 	},
 	integrate_rk4: function(b, dt)
 	{
@@ -5684,12 +5724,15 @@ function update(dt)
 	var inv_dt = 1.0 / dt;
 
 	var pressing = input.held(gb.Keys.z) || input.touches[0].is_touching === true;
-	if(pressing)
+	if(pressing === true)
 	{
 		energy_value -= energy_drain_rate * dt;
 		if(energy_value > 0)
+		{
 			//physics.add_force_f(body, energy_drain_rate, 0, 0, false);
 			physics.add_force_f(car_body, 0, energy_drain_rate, 0, false);
+			physics.add_angular_force_f(car_body, 0, 100, 0, true);
+		}
 	}
 
 	if(energy_value < 0) energy_value = 0;
@@ -5705,6 +5748,7 @@ function update(dt)
 		else if(car_body.velocity[1] < 0.0) car_body.velocity[1] = 0;
 	}
 	v3.eq(car.position, car_body.position);
+	qt.eq(car.rotation, car_body.rotation);
 
 	//draw.line(v3.tmp(1,0,0), body.position);
 	//draw.set_position_f(body.position);

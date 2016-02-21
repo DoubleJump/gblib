@@ -1,6 +1,6 @@
 @echo off
 
-set PROJECT=watts
+set PROJECT=magnet
 
 call cls
 python tasks/tasks.py --build %PROJECT%

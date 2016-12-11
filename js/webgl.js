@@ -334,15 +334,53 @@ function set_attributes(GL, shader, mesh)
 	var vb = mesh.vertex_buffer;
 	GL.bindBuffer(GL.ARRAY_BUFFER, vb.id);
 
-	for(var k in shader.attributes)
+	for(var k in vb.attributes)
 	{
 		var sa = shader.attributes[k];
         var va = vb.attributes[k];
-        ASSERT(va !== undefined, 'Shader ' + shader.name + ' needs attribute ' + k + ' but mesh ' + mesh.name + ' does not have it');
+        //ASSERT(va !== undefined, 'Shader ' + shader.name + ' needs attribute ' + k + ' but mesh ' + mesh.name + ' does not have it');
         if(sa === undefined) continue;
+        if(va === undefined) continue;
 		GL.enableVertexAttribArray(sa);
 		GL.vertexAttribPointer(sa, va.size, GL.FLOAT, va.normalized, vb.stride * 4, va.offset * 4);
 	}
+}
+
+function bind_instance_buffers(GL, buffers)
+{
+    for(var k in buffers)
+    {
+        var b = buffers[k];
+        if(b.id !== null) continue;
+        b.id = GL.createBuffer();
+    }
+    update_instance_buffers(GL, buffers);
+}
+
+function update_instance_buffers(GL, buffers)
+{
+    for(var k in buffers)
+    {
+        var b = buffers[k];
+        GL.bindBuffer(GL.ARRAY_BUFFER, b.id);
+        GL.bufferData(GL.ARRAY_BUFFER, b.data, GL.STATIC_DRAW);
+    }
+}
+
+function set_instance_attributes(GL, shader, buffers)
+{
+	var ext = GL.extensions.ANGLE_instanced_arrays;
+    for(var k in buffers)
+    {
+        var buffer = buffers[k];
+        var sa = shader.attributes[k];
+        if(sa === undefined) continue;
+
+        GL.bindBuffer(GL.ARRAY_BUFFER, buffer.id);
+        GL.enableVertexAttribArray(sa);
+        GL.vertexAttribPointer(sa, 3, GL.FLOAT,false, 12, 0);
+        ext.vertexAttribDivisorANGLE(sa, 1);
+    }
 }
 
 function use_shader(GL, shader)
@@ -372,11 +410,39 @@ function set_uniform(GL, uniform, value)
 				GL.uniform1fv(loc, value); 
 				return;
 			}
-			GL.uniform1f(loc, value); return;
+			GL.uniform1f(loc, value); 
+			return;
 		}
-		case GL.FLOAT_VEC2: GL.uniform2fv(loc, value); return;
-        case GL.FLOAT_VEC3: GL.uniform3fv(loc, value); return;
-        case GL.FLOAT_VEC4: GL.uniform4fv(loc, value); return;
+		case GL.FLOAT_VEC2: 
+		{
+			if(size > 1)
+			{
+				GL.uniform2fv(loc, value); 
+				return;
+			}
+			GL.uniform2f(loc, value[0], value[1]); 
+			return;
+		}
+        case GL.FLOAT_VEC3:
+        {
+        	if(size > 1)
+			{
+				GL.uniform3fv(loc, value); 
+				return;
+			}
+        	GL.uniform3f(loc, value[0], value[1], value[2]);
+        	return;
+        }
+        case GL.FLOAT_VEC4:
+        {
+        	if(size > 1)
+			{
+				GL.uniform4fv(loc, value); 
+				return;
+			}
+        	GL.uniform4f(loc, value[0], value[1], value[2], value[3]); 
+        	return;
+        }
         case GL.BOOL:
         {
         	if(value === true) GL.uniform1i(loc, 1);
@@ -393,15 +459,18 @@ function set_uniform(GL, uniform, value)
 			GL.bindTexture(GL.TEXTURE_2D, value.id);
 			return;
 		}
+		/*
         case GL.SAMPLER_CUBE:
         {
         	return;
         }
+        */
         case GL.INT: 	  GL.uniform1i(loc, value); return;
+        /*
 		case GL.INT_VEC2: GL.uniform2iv(loc, size, value); return;
         case GL.INT_VEC3: GL.uniform3iv(loc, size, value); return;
         case GL.INT_VEC4: GL.uniform4iv(loc, size, value); return;
-
+		*/
         // DEBUG
 		default:
 		{
@@ -428,6 +497,25 @@ function draw_mesh(GL, shader, mesh)
     	GL.drawArrays(layout, 0, mesh.vertex_buffer.count);
     }
 }
+
+function draw_mesh_instanced(GL, mesh, instances, shader, count)
+{
+	var ext = GL.extensions.ANGLE_instanced_arrays;
+	set_instance_attributes(GL, shader, instances);
+
+	var layout = convert_mesh_layout(GL, mesh.layout);
+
+	if(mesh.index_buffer !== null)
+	{
+		GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, mesh.index_buffer.id);
+    	ext.drawElementsInstancedANGLE(layout, mesh.index_buffer.count, GL.UNSIGNED_INT, 0, count);
+	}
+    else
+    {
+    	ext.drawArraysInstancedANGLE(layout, 0, mesh.vertex_buffer.count, count);
+    }
+}
+
 
 var BlendMode = 
 {

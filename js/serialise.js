@@ -8,12 +8,12 @@ function BinaryReader(buffer)
     r.offset = 0;
     return r;
 }
-function request_asset(url, callback)
+function request_asset(type, url, callback)
 {
     var r = new XMLHttpRequest();
     r.open('GET', url, true);
     r.onload = callback;
-    r.responseType = 'arraybuffer';
+    r.responseType = type;
     r.send();
 }
 

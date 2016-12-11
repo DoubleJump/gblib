@@ -18,7 +18,7 @@ function cartesian_to_polar(r, c)
     var radius = vec_length(c);
     var theta = Math.atan2(c[1], c[0]);
     var phi = Math.acos(2 / radius);
-    vec3_set(r, theta, phi, radius);
+    set_vec3(r, theta, phi, radius);
 }
 
 function polar_to_cartesian(r, theta, phi, radius)
@@ -26,7 +26,7 @@ function polar_to_cartesian(r, theta, phi, radius)
     var x = radius * Math.cos(theta) * Math.sin(phi);
     var y = radius * Math.cos(phi);
     var z = radius * Math.sin(theta) * Math.sin(phi);
-    vec3_set(r, x,y,z);
+    set_vec3(r, x,y,z);
 }
 
 function world_to_screen(r, projection, world, view)

@@ -14,6 +14,7 @@ function _Mat4()
 	mat4_identity(r);
 	return r;
 }
+
 function mat4_identity(m)
 {
 	m[ 0] = 1; m[ 1] = 0; m[ 2] = 0; m[ 3] = 0;
@@ -21,6 +22,7 @@ function mat4_identity(m)
 	m[ 8] = 0; m[ 9] = 0; m[10] = 1; m[11] = 0;
 	m[12] = 0; m[13] = 0; m[14] = 0; m[15] = 1;
 }
+
 function mat4_mul(r, a,b)
 {
 	var t = _Mat4();
@@ -44,6 +46,7 @@ function mat4_mul(r, a,b)
 
 	mat4_stack.index--;
 }
+
 function mat4_determinant(m)
 {
 	var a0 = m[ 0] * m[ 5] - m[ 1] * m[ 4];
@@ -60,6 +63,7 @@ function mat4_determinant(m)
 	var b5 = m[10] * m[15] - m[11] * m[14];
 	return a0 * b5 - a1 * b4 + a2 * b3 + a3 * b2 - a4 * b1 + a5 * b0;
 }
+
 function mat4_transposed(r, m)
 {
 	r[ 1] = m[ 4]; 
@@ -76,6 +80,7 @@ function mat4_transposed(r, m)
 	r[14] = m[11];
 	r[15] = m[15]; 	
 }
+
 function mat4_inverse(r, m)
 {
 	var v0 = m[ 2] * m[ 7] - m[ 6] * m[ 3];
@@ -126,6 +131,7 @@ function mat4_inverse(r, m)
 	r[14] = -(v4 * m[0] - v2 * m[4] + v0 * m[12]) * idet;
 	r[15] =  (v3 * m[0] - v1 * m[4] + v0 * m[ 8]) * idet;
 }
+
 function mat4_inverse_affine(r, m)
 {
 	var t0 = m[10] * m[5] - m[ 6] * m[9];
@@ -157,24 +163,41 @@ function mat4_inverse_affine(r, m)
 
 	return r;
 }
+
+function mat4_translate(m,v)
+{
+	var t = _Mat4();
+	vec_eq(t,m);
+
+	m[12] = t[0] * v[0] + t[4] * v[1] + t[ 8] * v[2] + t[12];
+    m[13] = t[1] * v[0] + t[5] * v[1] + t[ 9] * v[2] + t[13];
+    m[14] = t[2] * v[0] + t[6] * v[1] + t[10] * v[2] + t[14];
+    m[15] = t[3] * v[0] + t[7] * v[1] + t[11] * v[2] + t[15];
+
+    mat4_stack.index--;
+}
+
 function mat4_set_position(m, p)
 {
 	m[12] = p[0]; 
 	m[13] = p[1]; 
 	m[14] = p[2];
 }
+
 function mat4_get_position(r, m)
 {
 	r[0] = m[12];
 	r[1] = m[13];
 	r[2] = m[14];
 }
+
 function mat4_set_scale(m, s)
 {
 	m[ 0] = s[0]; 
 	m[ 5] = s[1]; 
 	m[10] = s[2];
 }
+
 function mat4_scale(m, s)
 {
 	m[ 0] *= s[0]; 
@@ -190,12 +213,80 @@ function mat4_scale(m, s)
 	m[10] *= s[2];
 	m[11] *= s[2];
 }
+
 function mat4_get_scale(r, m)
 {
 	r[0] = m[0];
 	r[1] = m[5];
 	r[2] = m[10];
 }
+
+function mat4_rotate_x(m, rad) 
+{
+	var t = _Mat4();
+	vec_eq(t,m);
+
+    var s = Math.sin(rad);
+    var c = Math.cos(rad);
+
+    m[ 4] = t[ 4] * c + t[ 8] * s;
+    m[ 5] = t[ 5] * c + t[ 9] * s;
+    m[ 6] = t[ 6] * c + t[10] * s;
+    m[ 7] = t[ 7] * c + t[11] * s;
+    m[ 8] = t[ 8] * c - t[ 4] * s;
+    m[ 9] = t[ 9] * c - t[ 5] * s;
+    m[10] = t[10] * c - t[ 6] * s;
+    m[11] = t[11] * c - t[ 7] * s;
+
+    mat4_stack.index--;
+
+    return m;
+}
+
+function mat4_rotate_y(m, rad) 
+{
+	var t = _Mat4();
+	vec_eq(t,m);
+
+    var s = Math.sin(rad);
+    var c = Math.cos(rad);
+
+    m[ 0] = t[0] * c - t[ 8] * s;
+    m[ 1] = t[1] * c - t[ 9] * s;
+    m[ 2] = t[2] * c - t[10] * s;
+    m[ 3] = t[3] * c - t[11] * s;
+    m[ 8] = t[0] * s + t[ 8] * c;
+    m[ 9] = t[1] * s + t[ 9] * c;
+    m[10] = t[2] * s + t[10] * c;
+    m[11] = t[3] * s + t[11] * c;
+
+    mat4_stack.index--;
+
+    return m;
+}
+
+function mat4_rotate_z(m, rad) 
+{
+	var t = _Mat4();
+	vec_eq(t,m);
+
+    var s = Math.sin(rad);
+    var c = Math.cos(rad);
+    
+    m[0] = t[0] * c + t[4] * s;
+    m[1] = t[1] * c + t[5] * s;
+    m[2] = t[2] * c + t[6] * s;
+    m[3] = t[3] * c + t[7] * s;
+    m[4] = t[4] * c - t[0] * s;
+    m[5] = t[5] * c - t[1] * s;
+    m[6] = t[6] * c - t[2] * s;
+    m[7] = t[7] * c - t[3] * s;
+
+    mat4_stack.index--;
+
+    return m;
+}
+
 function mat4_set_rotation(m, r)
 {
 	var x2 = 2 * r[0]; 
@@ -228,6 +319,7 @@ function mat4_set_rotation(m, r)
 	m[14] = 0;
 	m[15] = 1;
 }
+
 function mat4_get_rotation(r, m)
 {
 	var t;
@@ -262,12 +354,14 @@ function mat4_get_rotation(r, m)
 	vec_mul_f(rf, r, 0.5);
 	vec_div_f(r, rf, t);
 }
+
 function mat4_compose(m, p, s, r)
 {
 	mat4_set_rotation(m,r);
 	mat4_scale(m,s);
 	mat4_set_position(m,p);
 }
+
 function mat4_mul_point(r, m, p)
 {
 	var x = m[0] * p[0] + m[4] * p[1] + m[ 8] * p[2] + m[12];
@@ -275,6 +369,7 @@ function mat4_mul_point(r, m, p)
 	var z = m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14];
 	r[0] = x; r[1] = y; r[2] = z;
 }
+
 function mat4_mul_dir(r, m, p)
 {
 	var x = m[0] * p[0] + m[4] * p[1] + m[ 8] * p[2];
@@ -282,6 +377,7 @@ function mat4_mul_dir(r, m, p)
 	var z = m[2] * p[0] + m[6] * p[1] + m[10] * p[2];
 	r[0] = x; r[1] = y; r[2] = z;
 }
+
 function mat4_mul_projection(r, m, p)
 {
 	var d = 1 / (m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15]);
@@ -290,4 +386,17 @@ function mat4_mul_projection(r, m, p)
 	var z = (m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]) * d;
 
 	r[0] = x; r[1] = y; r[2] = z;
+}
+
+function mat4_perspective(m, fov, aspect, near, far) 
+{
+	mat4_identity(m);
+    var f = 1.0 / Math.tan(fov / 2);
+    var nf = 1 / (near - far);
+    m[ 0] = f / aspect;
+    m[ 5] = f;
+    m[10] = (far + near) * nf;
+    m[11] = -1;
+    m[14] = (2 * far * near) * nf;
+    m[15] = 0;
 }

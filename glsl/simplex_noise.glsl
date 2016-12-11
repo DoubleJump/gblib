@@ -28,8 +28,8 @@ float snoise(vec2 v)
                         dot(x2,x2)
                         ), 0.0);
 
-    m = m*m ;
-    m = m*m ;
+    m = m*m;
+    m = m*m;
 
     vec3 x = 2.0 * fract(p * C.www) - 1.0;
     vec3 h = abs(x) - 0.5;

@@ -4,7 +4,21 @@ var TAU = 6.28318530718;
 var DEG2RAD = 0.01745329251;
 var RAD2DEG = 57.2957795;
 var PI_OVER_360 = 0.00872664625;
+var PI_OVER_TWO = PI / 2;
+var PI_OVER_FOUR = PI / 4;
+var TWO_PI = 2 * PI;
+var FOUR_PI = 4 * PI;
 var EPSILON = 2.2204460492503131e-16;
+
+function radians(v)
+{
+	return v * DEG2RAD;
+}
+
+function degrees(v)
+{
+	return v * RAD2DEG;
+}
 
 function min(a, b)
 {
@@ -54,7 +68,7 @@ function compare_normal(N, R, rotation)
 { 
 	var index = vec3_stack.index;
 
-    var rN = vec3_tmp();
+    var rN = _Vec3();
     quat_mul_vec(rN, rotation, N);
     var result = vec_dot(rN, R) * RAD2DEG;
 

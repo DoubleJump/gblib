@@ -1,7 +1,7 @@
 vec3 cartesian_to_polar(vec3 c)
 {
     float radius = length(c);
-    float theta = atan2(c.y, c.x);
+    float theta = atan(c.y, c.x);
 	float phi = acos(2.0 / radius);
     return vec3(theta, phi, radius);
 }

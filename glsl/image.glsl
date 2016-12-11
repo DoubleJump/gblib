@@ -21,23 +21,17 @@ void main()
 precision highp float;
 
 uniform sampler2D texture;
-uniform vec4 tint;
-uniform float saturation;
-uniform float brightness;
+//uniform vec4 tint;
+//uniform float saturation;
+//uniform float brightness;
 
 varying vec2 _uv;
-
-vec3 desaturate(vec3 color, float amount)
-{
-	vec3 gray = vec3(dot(vec3(0.3, 0.59, 0.11), color));
-	return vec3(mix(gray, color, amount));
-}
 
 void main()
 { 
 	vec4 sample = texture2D(texture, _uv);
-	sample.rgb *= brightness;
-	sample.rgb = desaturate(sample.rgb, saturation);
+	//sample.rgb *= brightness;
+	//sample.rgb = desaturate(sample.rgb, saturation);
 
-    gl_FragColor = sample * tint;
+    gl_FragColor = sample;// * tint;
 }

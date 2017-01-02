@@ -1,4 +1,6 @@
 *.sublime-workspace
+*.bin
+*.gz
 
 # Windows image file caches
 Thumbs.db
@@ -43,7 +45,3 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
-
-.dds
-.pvr
-.png

@@ -32,6 +32,15 @@ function _Vec4(x,y,z,w)
 	return r;
 }
 
+function vec_approx_equal(a,b)
+{
+	var n = a.length;
+	for(var i = 0; i < n; ++i)
+	{
+		if(Math.abs(a[i] - b[i]) > EPSILON) return false;
+	}
+	return true;
+}
 function vec_add(v,a,b)
 {
 	var n = v.length;
@@ -90,7 +99,7 @@ function vec_distance(a, b)
 function vec_sqr_distance(a, b)
 {
 	var r = 0;
-	var n = v.length;
+	var n = a.length;
 	for(var i = 0; i < n; ++i)
 	{
 		var d = b[i] - a[i];
@@ -172,7 +181,7 @@ function vec_cross(r, a,b)
 	var x = a[1] * b[2] - a[2] * b[1];
 	var y = a[2] * b[0] - a[0] * b[2];
 	var z = a[0] * b[1] - a[1] * b[0];
-	r.set(x,y,z);
+	set_vec3(r, x,y,z);
 }
 function vec_project(r, a,b)
 {

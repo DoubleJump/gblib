@@ -72,23 +72,30 @@ function resize_vertex_buffer(vb, count, copy)
 	}
 }
 
+function copy_vertex_attribute(r, vb, attr, index)
+{
+	var n = vb.attributes[attr].size;
+	var start = index * vb.stride;
+	var end = start + n;
+	for(var i = start; i < end; ++i) r[i] = vb.data[i];
+}
 
 function zero_buffer(b)
 {
-	var n = b.data.length;
-	for(var i = 0; i < n; ++i) b.data[i] = 0;
+	var n = b.length;
+	for(var i = 0; i < n; ++i) b[i] = 0;
 }
 
 function clear_mesh_buffers(mesh)
 {
 	mesh.vertex_buffer.offset = 0;
-	zero_buffer(mesh.vertex_buffer);
+	zero_buffer(mesh.vertex_buffer.data);
 
 	if(mesh.index_buffer !== null)
 	{
 		mesh.index_buffer.offset = 0;
 		mesh.index_buffer.triangle_offset = 0;
-		zero_buffer(mesh.index_buffer);
+		zero_buffer(mesh.index_buffer.data);
 	}
 }
 

@@ -29,7 +29,11 @@ function main()
     app.preloader = Preloader(app.container);
     app.assets_loaded = false;
 
-    //var r = Request('arraybuffer', 'assets/assets.bin.gz');
+    /*
+    var r = Request('arraybuffer', 'assets/assets.bin.gz');
+    r.setRequestHeader('accept-encoding','gzip');
+    r.setRequestHeader('content-encoding','gzip');
+    */
     var r = Request('arraybuffer', 'assets/assets.bin');
     r.onprogress = function(e)
     {

@@ -1622,11 +1622,19 @@ function HitInfo()
 function point_in_rect(p, r, matrix)
 {
 	var local = _Vec3();
-	var inv = _Mat4();
-	mat4_inverse_affine(inv, matrix);
-	mat4_mul_point(local, inv, p);
+
+	if(matrix)
+	{
+		var inv = _Mat4();
+		mat4_inverse_affine(inv, matrix);
+		mat4_mul_point(local, inv, p);
+		mat4_stack.index--;
+	}
+	else
+	{
+		vec_eq(local, p);
+	}
 	vec3_stack.index--;
-	mat4_stack.index--;
 
 	if(local[0] > r[0] && 
 	   local[1] > r[1] && 
@@ -2640,7 +2648,6 @@ function bind_mesh(mesh)
 	{
 		mesh.index_buffer.id = GL.createBuffer();
 	}
-	//update_mesh(mesh);
 }
 function unbind_mesh(mesh)
 {
@@ -2714,7 +2721,6 @@ function convert_texture_format(format)
 function bind_texture(texture)
 {
 	if(texture.id === null) texture.id = GL.createTexture();
-	//update_texture(texture);
 }
 function unbind_texture(texture)
 {
@@ -3079,6 +3085,12 @@ function set_blend_mode(mode)
 
 	switch(mode)
 	{
+		case BlendMode.ADD:
+		{
+			GL.blendEquation(GL.FUNC_ADD);
+			GL.blendFuncSeparate(GL.SRC_ALPHA, GL.ONE, GL.ONE, GL.ONE_MINUS_SRC_ALPHA);
+			break;
+		}
 		case BlendMode.DARKEN:
 		{
 			GL.blendEquation(GL.FUNC_SUBTRACT);
@@ -4304,7 +4316,11 @@ function main()
     app.preloader = Preloader(app.container);
     app.assets_loaded = false;
 
-    //var r = Request('arraybuffer', 'assets/assets.bin.gz');
+    /*
+    var r = Request('arraybuffer', 'assets/assets.bin.gz');
+    r.setRequestHeader('accept-encoding','gzip');
+    r.setRequestHeader('content-encoding','gzip');
+    */
     var r = Request('arraybuffer', 'assets/assets.bin');
     r.onprogress = function(e)
     {
@@ -4376,9 +4392,6 @@ function init()
     // CAMERA
     app.camera = Camera(0.01, 50, 60, app.view);
     set_vec3(app.camera.position, 0,0,1);
-
-    // FONTS
-    //assets.textures.bebas = texture_from_dom(document.querySelector('.bebas'), app.sampler, TextureFormat.RGBA, true);
 
     app.ellipse = line_mesh_ellipse(1.0, 1.0, 30);
     set_parent(app.ellipse, app.root);

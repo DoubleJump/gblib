@@ -42,8 +42,8 @@ function render_gl_draw(ctx, camera)
 
 	use_shader(shader);
 	set_uniform('mvp', camera.view_projection);
-	draw_mesh(shader, ctx.lines);
-	draw_mesh(shader, ctx.triangles);
+	draw_mesh(ctx.lines);
+	draw_mesh(ctx.triangles);
 
 	reset_gl_draw(ctx);
 }
@@ -156,12 +156,20 @@ function gl_push_line_segment(start,end,thickness,depth, mesh, color, matrix)
 
 	vec3_stack.index = index;
 }
-/*
-function draw_quad(ctx, x,y,w,h)
+
+function draw_quad(ctx, p,w,h)
 {
-	draw_quad_abs(ctx, x - (w/2), y - (h/2), w,h); 
+	var hw = w / 2;
+	var hh = h / 2;
+	gl_push_rect(_Vec4(p[0]-hw,p[1]+hh,w,h), p[2], ctx.triangles, ctx.color, ctx.matrix); 
+	vec4_stack.index--;
 }
-*/
+
+function draw_quad_f(ctx, x,y,w,h)
+{
+	gl_push_rect(_Vec4(x,y,w,h), 0.0, ctx.triangles, ctx.color, ctx.matrix); 
+	vec4_stack.index--;
+}
 
 function gl_push_rect(r, depth, mesh, color, matrix)
 {
@@ -386,6 +394,7 @@ function draw_bounds(ctx, b)
 	draw_wire_cube(ctx, w,h,d);
 	mat4_identity(ctx.matrix);
 }
+/*
 function draw_wire_mesh(ctx, mesh, matrix)
 {
 	mat4_eq(ctx.matrix, matrix);
@@ -409,6 +418,43 @@ function draw_wire_mesh(ctx, mesh, matrix)
 	}
 	mat4_identity(ctx.matrix);
 }
+*/
+function draw_wire_mesh(ctx, mesh, matrix)
+{
+//	mat4_eq(ctx.matrix, matrix);
+	
+	var vb = mesh.vertex_buffer.data;
+	var ib = mesh.index_buffer.data;
+	var n = mesh.index_buffer.count / 3;
+	var stride = mesh.vertex_buffer.stride;
+
+	var A = _Vec3();
+	var B = _Vec3();
+	var C = _Vec3();
+
+	var c = 0;
+	for(var i = 0; i < n; ++i)
+	{
+		var ta = ib[c  ] * stride;
+		var tb = ib[c+1] * stride;
+		var tc = ib[c+2] * stride;
+
+		set_vec3(A, vb[ta], vb[ta+1], vb[ta+2]);
+		set_vec3(B, vb[tb], vb[tb+1], vb[tb+2]);
+		set_vec3(C, vb[tc], vb[tc+1], vb[tc+2]);
+
+		gl_push_line(A,B, ctx.lines, ctx.color, ctx.matrix);
+		gl_push_line(B,C, ctx.lines, ctx.color, ctx.matrix);
+		gl_push_line(C,A, ctx.lines, ctx.color, ctx.matrix);
+
+		c += 3;
+	}
+
+	vec3_stack.index -= 3;
+//	mat4_identity(ctx.matrix);
+}
+
+
 function draw_bezier(ctx, b, segments)
 {
 	var index = vec3_stack.index;

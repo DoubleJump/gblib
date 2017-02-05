@@ -454,6 +454,53 @@ function draw_wire_mesh(ctx, mesh, matrix)
 //	mat4_identity(ctx.matrix);
 }
 
+function draw_wire_camera(ctx, camera)
+{
+	var index = vec3_stack.index;
+	vec_eq(ctx.matrix, camera.world_matrix);
+
+	var hw = 1;
+	var hh = 1;
+	var z =  0;
+
+	var zero = _Vec3(0,0,1);
+	var tl = _Vec3(-hw, hh, z);
+	var tr = _Vec3( hw, hh, z);
+	var bl = _Vec3(-hw,-hh, z);
+	var br = _Vec3( hw,-hh, z);
+
+	var inv = _Mat4();
+    mat4_inverse(inv, camera.projection);
+    mat4_mul_point(tl, inv, tl);
+    mat4_mul_point(tr, inv, tr);
+    mat4_mul_point(bl, inv, bl);
+    mat4_mul_point(br, inv, br);
+
+	set_vec4(ctx.color, 0.5,0.5,0.5,1.0);
+	draw_line(ctx, zero, tl);
+	draw_line(ctx, zero, tr);
+	draw_line(ctx, zero, bl);
+	draw_line(ctx, zero, br);
+
+	draw_line(ctx, tl, tr);
+	draw_line(ctx, tr, br);
+	draw_line(ctx, br, bl);
+	draw_line(ctx, bl, tl);
+
+	set_vec3(bl, -hw * 0.3, hh + 0.1, z);
+	set_vec3(br,  hw * 0.3, hh + 0.1, z);
+	set_vec3(tl,  0, hh + 0.5, z);
+	mat4_mul_point(tl, inv, tl);
+    mat4_mul_point(bl, inv, bl);
+    mat4_mul_point(br, inv, br);
+
+	draw_line(ctx, bl, tl);
+	draw_line(ctx, tl, br);
+	draw_line(ctx, br, bl);
+
+	mat4_identity(ctx.matrix);
+	vec3_stack.index = index;
+}
 
 function draw_bezier(ctx, b, segments)
 {

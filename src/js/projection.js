@@ -50,7 +50,7 @@ function lng_lat_to_cartesian(r, lng, lat, radius)
 
 function world_to_screen(r, projection, world, view)
 {
-	var wp = _Vec3(); 
+    var wp = _Vec3(); 
     mat4_mul_projection(wp, projection, world);
     r[0] = ((wp[0] + 1.0) / 2.0) * view[2];
     r[1] = ((1.0 - wp[1]) / 2.0) * view[3];
@@ -73,10 +73,19 @@ function screen_to_world(r, projection, point, view)
 
     var inv = _Mat4();
     mat4_inverse(inv, projection);
-    mat4_mul_projection(r, inv, t);
+    mat4_mul_point(r, inv, t);
 
     mat4_stack.index--;
     vec3_stack.index--;
+}
+
+function get_mouse_world_position(r, camera)
+{
+    var mp = _Vec3();
+    vec_eq(mp, input.mouse.position);
+    mp[0] *= app.res;
+    mp[1] *= app.res;
+    screen_to_world(r, camera.view_projection, mp, app.view);
 }
 
 function world_camera_rect(r, projection, view)

@@ -1,19 +1,28 @@
+var _ENTITY_COUNT = 0;
+
 function Entity(x,y,z, parent)
 {
 	var e = {};
 	e.name;
-	e.id;
+	e.id = _ENTITY_COUNT;
+	_ENTITY_COUNT++;
 	e.parent = null;
 	e.children = [];
 	e.active = true;
 	e.dirty = true;
 	e.position = Vec3(x,y,z);
+	e.world_position = Vec3();
 	e.scale = Vec3(1,1,1);
 	e.rotation = Vec4(0,0,0,1);
 	e.local_matrix = Mat4();
 	e.world_matrix = Mat4();
 	if(parent) set_parent(e, parent);
 	return e;
+}
+
+function set_mvp(m, entity, camera)
+{
+	mat4_mul(m, entity.world_matrix, camera.view_projection);
 }
 
 function set_active(e, val)

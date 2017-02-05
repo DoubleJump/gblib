@@ -85,26 +85,49 @@ function ray_sphere(info, ray, sphere)
 	vec3_stack.index = index;
 }
 
+function circle_circle(info, a, ra, b, rb)
+{
+	info.hit = false;
+	var index = vec3_stack.index;
+	var delta = _Vec3();
+	vec_sub(delta, b,a);
 
-function point_in_circle(h, p,c,r)
+	//var distance = sqr_length(delta);
+	//var rad_sum = (ra * ra) + (rb * rb);
+
+	var distance = vec_length(delta);
+	var rad_sum = ra + rb;
+
+	if(distance < rad_sum)
+	{
+		info.hit = true;
+		info.t = rad_sum - distance;
+		vec_normalized(info.normal, delta);
+		vec_mul_f(info.point, info.normal, ra)
+		vec_add(info.point, info.point, a); 
+	}
+
+	vec3_stack.index = index;
+}
+
+function point_in_circle(info, p,c,r)
 {
 	var delta = _Vec3();
 	var nd = _Vec3();
 	vec_sub(delta, c,p);
 
+	info.hit = false;
+	
 	var l = vec_sqr_length(delta);
 	if(l < r * r)
 	{
 		var nl = Math.sqrt(l);
-		h.hit = true;
-		h.t = nl - r;
+		info.hit = true;
+		info.t = nl - r;
 		vec_mul_f(nd, delta, 1 / nl);
-		vec_eq(h.normal, nd);
+		vec_eq(info.normal, nd);
 	}
-	else 
-	{
-		h.hit = false;
-	}
+
 	vec3_stack.index -= 2;
 }
 

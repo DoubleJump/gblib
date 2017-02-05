@@ -145,7 +145,7 @@ function draw_line_mesh(lm, shader, camera)
     set_uniform('line_width', lm.thickness);
     set_uniform('color', lm.color);
     //set_uniform('dash', lm.dash);
-    draw_mesh(shader, lm.mesh);
+    draw_mesh(lm.mesh);
 
     mat4_stack.index--;
 }

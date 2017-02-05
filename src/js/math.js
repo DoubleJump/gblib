@@ -64,6 +64,17 @@ function snap_angle(angle, target)
 	return Math.floor((angle % 360 + target / 2) / target) * target;
 }
 
+function sigmoid(input, t)
+{
+	return 1 / (1 + Math.exp(-input + t));
+}
+
+function smoothstep(min, max, val) 
+{
+	var x = Math.max(0, Math.min(1, (val-min) / (max-min)));
+	return x * x * (3 - 2 * x);
+}
+
 function compare_normal(N, R, rotation) 
 { 
 	var index = vec3_stack.index;
@@ -92,13 +103,24 @@ function move_towards(val, target, rate)
 	return result;
 }
 
-function smooth_move_towards(val, target, rate, epsilon)
+function smooth_float_towards(val, target, rate, epsilon)
 {
+	var E = epsilon || 0.0001;
 	var result = val;
-	var delta = target - val;
-	if(Math.abs(delta) < epsilon) return target;
-	result += (delta * 0.5) * rate;
+	var delta = (target - val);
+	delta = clamp(delta, -rate, rate);
+	if(Math.abs(delta) < E) return target;
+	result += delta * rate;
 	return result;
+}
+
+function smooth_vec_towards(val, target, rate, epsilon)
+{
+	var n = val.length;
+	for(var i = 0; i < n; ++i)
+	{
+		val[i] = smooth_float_towards(val[i], target[i], rate, epsilon);
+	}
 }
 
 function wrap_value(value, min, max)

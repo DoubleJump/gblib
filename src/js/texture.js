@@ -57,13 +57,17 @@ function depth_texture(width, height, sampler)
 	var t = Texture(width, height, null, sampler, TextureFormat.DEPTH, 4);
 	return t;
 }
-function read_texture(ag)
+
+function read_texture(type, ag)
 {
     var name = read_string();
     var num_bytes = read_f64();
     var bytes = read_bytes(num_bytes);
     var img = new Image();
-    img.src = 'data:image/png;base64,' + uint8_to_base64(bytes);
+
+    var encoding = 'data:image/' + type + ';base64,';
+
+    img.src = encoding + uint8_to_base64(bytes);
 
     var t = Texture(img.width, img.height, img, app.sampler, TextureFormat.RGBA, 4);
 	t.from_element = true;

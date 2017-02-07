@@ -9,6 +9,7 @@ ASSET_TYPE_GLSL = 0
 ASSET_TYPE_SCENE = 1
 ASSET_TYPE_FONT = 2
 ASSET_TYPE_PNG = 3
+ASSET_TYPE_JPG = 15
 ASSET_TYPE_END = -1
 
 def copy_file(src, dest):
@@ -155,7 +156,8 @@ def compile_assets(dir, write_path):
 			if file_type == 'glsl': compile_glsl(name, path, writer)
 			elif file_type == 'scene': compile_binary(name, path, writer, ASSET_TYPE_SCENE)
 			elif file_type == 'font': compile_font(name, path, writer)
-			elif file_type == 'png': compile_img(name, path, writer, ASSET_TYPE_PNG) 
+			elif file_type == 'png': compile_img(name, path, writer, ASSET_TYPE_PNG)
+			elif file_type == 'jpg': compile_img(name, path, writer, ASSET_TYPE_JPG) 
 
 	writer.i32(ASSET_TYPE_END)
 	writer.close()

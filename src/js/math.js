@@ -123,6 +123,11 @@ function smooth_vec_towards(val, target, rate, epsilon)
 	}
 }
 
+function lazy_ease(now, end, speed) 
+{
+	return now + (end - now) / speed;
+}
+
 function wrap_value(value, min, max)
 {
 	if(value > max) return value - max;

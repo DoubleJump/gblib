@@ -16,6 +16,7 @@ var AssetType =
     SCENE: 1,
     FONT: 2,
     PNG: 3,
+    JPG: 15,
     CAMERA: 4,
     LAMP: 5,
     MESH: 6,
@@ -72,7 +73,8 @@ function read_asset_file(data)
                 case AssetType.SHADER: { read_shader(assets); break; }
                 case AssetType.SCENE: { read_scene(assets); break; }
                 case AssetType.FONT: { read_font(assets); break; }
-                case AssetType.PNG: { read_texture(assets); break; }
+                case AssetType.PNG: { read_texture('png', assets); break; }
+                case AssetType.JPG: { read_texture('jpg', assets); break; }
                 case AssetType.END: { complete = true; break; }
                 default: { complete = true; }
             }

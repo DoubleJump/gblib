@@ -1,27 +1,47 @@
-function GLDraw(buffer_size, shader)
+function GLDraw(buffer_size)
 {
 	var r = {};
 	r.color = Vec4(1,1,1,1);
 	r.matrix = Mat4();
-	r.shader = shader;
 
-	var attributes = 
+	var update_rate = BufferUpdateRate.DYNAMIC;
+
+	// LINES
+
+	r.line_shader = app.assets.shaders.basic;
+	var line_attributes = 
 	{
 		position: VertexAttribute(3),
 		color: VertexAttribute(4, true)
 	};
 
-	var vb = VertexBuffer(null, attributes, BufferUpdateRate.DYNAMIC);
+	var vb = VertexBuffer(null, line_attributes, update_rate);
 	alloc_vertex_buffer_memory(vb, buffer_size);
     r.lines = Mesh(vb, null, MeshLayout.LINES);
     bind_mesh(r.lines);
 
-    vb = VertexBuffer(null, attributes, BufferUpdateRate.DYNAMIC);
+    // TRIANGLES
+
+    r.tri_shader = app.assets.shaders.rect;
+    var tri_attributges = 
+    {
+    	position: VertexAttribute(3),
+    	uv: VertexAttribute(2),
+    	radius: VertexAttribute(1),
+    	color: VertexAttribute(4, true)
+    };
+
+    vb = VertexBuffer(null, tri_attributges, update_rate);
 	alloc_vertex_buffer_memory(vb, buffer_size);
 
-    var ib = IndexBuffer(new Uint32Array(buffer_size), BufferUpdateRate.DYNAMIC);
+    var ib = IndexBuffer(new Uint32Array(buffer_size), update_rate);
     r.triangles = Mesh(vb, ib, MeshLayout.TRIANGLES);
     bind_mesh(r.triangles);
+
+    // TEXT
+
+    r.text_shader = app.assets.shaders.text;
+    r.text_buffer = TextMesh(app.assets.fonts.bebas, null, 2048);
 
 	return r;
 }
@@ -32,19 +52,31 @@ function reset_gl_draw(ctx)
 	set_vec4(ctx.color, 1,1,1,1);
 	clear_mesh_buffers(ctx.lines);
 	clear_mesh_buffers(ctx.triangles);
+	reset_text(ctx.text_buffer);
+}
+
+function draw_im_text(ctx, x,y, text, size)
+{
+	ctx.text_buffer.px = x;
+    ctx.text_buffer.py = y;
+    append_text(ctx.text_buffer, text, size, ctx.color);
 }
 
 function render_gl_draw(ctx, camera)
 {
-	var shader = ctx.shader;
 	update_mesh(ctx.lines);
 	update_mesh(ctx.triangles);
 
-	use_shader(shader);
+	use_shader(ctx.line_shader);
 	set_uniform('mvp', camera.view_projection);
 	draw_mesh(ctx.lines);
+
+	use_shader(ctx.tri_shader);
+	set_uniform('mvp', camera.view_projection);
 	draw_mesh(ctx.triangles);
 
+	draw_text(ctx.text_buffer, ctx.text_shader, camera);
+	
 	reset_gl_draw(ctx);
 }
 
@@ -157,21 +189,23 @@ function gl_push_line_segment(start,end,thickness,depth, mesh, color, matrix)
 	vec3_stack.index = index;
 }
 
-function draw_quad(ctx, p,w,h)
+function draw_quad(ctx, p,w,h,r)
 {
 	var hw = w / 2;
 	var hh = h / 2;
-	gl_push_rect(_Vec4(p[0]-hw,p[1]+hh,w,h), p[2], ctx.triangles, ctx.color, ctx.matrix); 
+	var rect = _Vec4(p[0]-hw,p[1]+hh,w,h);
+	gl_push_rect(rect, p[2], r, ctx.triangles, ctx.color, ctx.matrix); 
 	vec4_stack.index--;
 }
 
-function draw_quad_f(ctx, x,y,w,h)
+function draw_quad_f(ctx, x,y,w,h,r)
 {
-	gl_push_rect(_Vec4(x,y,w,h), 0.0, ctx.triangles, ctx.color, ctx.matrix); 
+	var rect = _Vec4(x,y,w,h);
+	gl_push_rect(rect, 0.0, r, ctx.triangles, ctx.color, ctx.matrix); 
 	vec4_stack.index--;
 }
 
-function gl_push_rect(r, depth, mesh, color, matrix)
+function gl_push_rect(r, depth, radius, mesh, color, matrix)
 {
 	var d = mesh.vertex_buffer.data;
 	var o = mesh.vertex_buffer.offset;
@@ -184,39 +218,51 @@ function gl_push_rect(r, depth, mesh, color, matrix)
 	d[o  ] = r[0];
 	d[o+1] = r[1] - r[3];
 	d[o+2] = z;
-	d[o+3] = c[0];
-	d[o+4] = c[1];
-	d[o+5] = c[2];
-	d[o+6] = c[3];
+	d[o+3] = 0;
+	d[o+4] = 0;
+	d[o+5] = radius;
+	d[o+6] = c[0];
+	d[o+7] = c[1];
+	d[o+8] = c[2];
+	d[o+9] = c[3];
 
 	//br
-	d[o+7] = r[0] + r[2];
-	d[o+8] = r[1] - r[3];
-	d[o+9] = z;
-	d[o+10] = c[0];
-	d[o+11] = c[1];
-	d[o+12] = c[2];
-	d[o+13] = c[3];
+	d[o+10] = r[0] + r[2];
+	d[o+11] = r[1] - r[3];
+	d[o+12] = z;
+	d[o+13] = 1;
+	d[o+14] = 0;
+	d[o+15] = radius;
+	d[o+16] = c[0];
+	d[o+17] = c[1];
+	d[o+18] = c[2];
+	d[o+19] = c[3];
 
 	//tl
-	d[o+14] = r[0];
-	d[o+15] = r[1];
-	d[o+16] = z;
-	d[o+17] = c[0];
-	d[o+18] = c[1];
-	d[o+19] = c[2];
-	d[o+20] = c[3];
+	d[o+20] = r[0];
+	d[o+21] = r[1];
+	d[o+22] = z;
+	d[o+23] = 0;
+	d[o+24] = 1;
+	d[o+25] = radius;
+	d[o+26] = c[0];
+	d[o+27] = c[1];
+	d[o+28] = c[2];
+	d[o+29] = c[3];
 
 	//tr
-	d[o+21] = r[0] + r[2];
-	d[o+22] = r[1];
-	d[o+23] = z;
-	d[o+24] = c[0];
-	d[o+25] = c[1];
-	d[o+26] = c[2];
-	d[o+27] = c[3];
+	d[o+30] = r[0] + r[2];
+	d[o+31] = r[1];
+	d[o+32] = z;
+	d[o+33] = 1;
+	d[o+34] = 1;
+	d[o+35] = radius;
+	d[o+36] = c[0];
+	d[o+37] = c[1];
+	d[o+38] = c[2];
+	d[o+39] = c[3];
 
-	mesh.vertex_buffer.offset += 28;
+	mesh.vertex_buffer.offset += 40;
 
 	//indices
 
@@ -394,31 +440,7 @@ function draw_bounds(ctx, b)
 	draw_wire_cube(ctx, w,h,d);
 	mat4_identity(ctx.matrix);
 }
-/*
-function draw_wire_mesh(ctx, mesh, matrix)
-{
-	mat4_eq(ctx.matrix, matrix);
-	var stride = mesh.vertex_buffer.stride;
-	var n = mesh.vertex_count / 3;
-	var d = mesh.vertex_buffer.data;
-	var c = 0;
-	for(var i = 0; i < n; ++i)
-	{
-		var stack = vec_stack.index;
-		var ta = _Vec3(d[c], d[c+1], d[c+2]);
-		c += stride;
-		var tb = _Vec3(d[c], d[c+1], d[c+2]);
-		c += stride;
-		var tc = _Vec3(d[c], d[c+1], d[c+2]);
-		c += stride;
-		gl_push_line(ta,tb, ctx.lines, ctx.color, ctx.matrix);
-		gl_push_line(tb,tc, ctx.lines, ctx.color, ctx.matrix);
-		gl_push_line(tc,ta, ctx.lines, ctx.color, ctx.matrix);
-		vec_stack.index = stack;
-	}
-	mat4_identity(ctx.matrix);
-}
-*/
+
 function draw_wire_mesh(ctx, mesh, matrix)
 {
 //	mat4_eq(ctx.matrix, matrix);

@@ -65,7 +65,7 @@ function read_font(ag)
         r.kerning = read_f32(r.num_kerning_values);
     }
 
-    r.atlas = read_texture();
+    r.atlas = read_texture('png');
 
     if(ag) ag.fonts[r.name] = r;
     return r;

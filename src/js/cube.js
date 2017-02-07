@@ -4,7 +4,13 @@ function cube_mesh(width, height, depth)
 	var y = height / 2;
 	var z = depth  / 2;
 
-	var vb = VertexBuffer(
+	var attributes = 
+    {
+        position: VertexAttribute(3, false),
+        mask: VertexAttribute(1, false)
+    };
+
+	var vertices = new Float32Array(
 	[
 		// POS    MASK
 		-x,-y, z, 0,
@@ -38,7 +44,7 @@ function cube_mesh(width, height, depth)
 		-x, y,-z, 5.1
 	]);
 
-	var ib = IndexBuffer(
+	var triangles = new Uint32Array(
 	[
 		0,  1,  2,  0,  2,  3,
 		4,  5,  6,  4,  6,  7,
@@ -47,10 +53,11 @@ function cube_mesh(width, height, depth)
 		16, 17, 18, 16, 18, 19,
 		20, 21, 22, 20, 22, 23
 	]);
-    
-    add_vertex_attribute(vb, 'position', 3, false);
-    add_vertex_attribute(vb, 'index', 1, false);
 
+    var vb = VertexBuffer(vertices, attributes);
+    var ib = IndexBuffer(triangles);
     var mesh = Mesh(vb, ib, MeshLayout.TRIANGLES);
+    bind_mesh(mesh);
+    update_mesh(mesh);
 	return mesh;
 }

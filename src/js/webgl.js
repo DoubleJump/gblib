@@ -22,6 +22,7 @@ function WebGL(canvas, options)
 	for(var i = 0; i < supported_extensions.length; ++i)
 	{
 		var ext = supported_extensions[i];
+		if(ext.startsWith('MOZ')) continue;
 	    GL.extensions[ext] = GL.getExtension(ext);
 	}
 
@@ -663,6 +664,9 @@ function bind_render_target(t)
 	bind_texture(t.color);
 	bind_texture(t.depth);
 
+	update_texture(t.color);
+	update_texture(t.depth);
+
 	t.frame_buffer = GL.createFramebuffer();
 	GL.bindFramebuffer(GL.FRAMEBUFFER, t.frame_buffer);
 
@@ -672,6 +676,9 @@ function bind_render_target(t)
 	//DEBUG
 	verify_render_target();
 	//END	
+
+	GL.bindFramebuffer(GL.FRAMEBUFFER, null);
+	GL.bindRenderbuffer(GL.RENDERBUFFER, null);
 }
 
 function set_render_target_attachment(attachment, texture)
@@ -680,13 +687,13 @@ function set_render_target_attachment(attachment, texture)
 	GL.framebufferTexture2D(GL.FRAMEBUFFER, attachment, GL.TEXTURE_2D, texture.id, 0);
 }
 
-function set_render_target(target, view)
+function set_render_target(target)
 {
 	if(target === null)
 	{
 		GL.bindFramebuffer(GL.FRAMEBUFFER, null);
 		GL.bindRenderbuffer(GL.RENDERBUFFER, null);
-		set_viewport(view);
+		set_viewport(app.view);
 	}
 	else
 	{

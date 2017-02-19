@@ -1,8 +1,9 @@
 var TextureFormat = 
 {
-	RGBA: 0,
-	DEPTH: 1,
-	GRAYSCALE: 2,
+	RGB: 0,
+	RGBA: 1,
+	DEPTH: 2,
+	GRAYSCALE: 3,
 }
 function Sampler(s,t,up,down,anisotropy)
 {
@@ -38,6 +39,13 @@ function Texture(width, height, data, sampler, format, bytes_per_pixel)
 	return t;
 }
 
+function empty_texture(sampler, format)
+{
+	format = format || TextureFormat.RGBA;
+	sampler = sampler || app.sampler;
+	return Texture(0, 0, null, sampler, format, 4);
+}
+
 function texture_from_dom(img, sampler, format, flip)
 {
 	format = format || TextureFormat.RGBA;
@@ -47,6 +55,64 @@ function texture_from_dom(img, sampler, format, flip)
 	t.flip = flip || false;
 	return t;
 }
+
+function load_texture_async(url, sampler, format, flip)
+{
+	var t = empty_texture(sampler, format);
+	t.from_element = true;
+	t.use_mipmaps = false;
+	t.flip = flip || false;
+
+	var name = url.match(/[^\\/]+$/)[0];
+	name = name.split(".")[0];
+    app.assets.textures[name] = t;
+
+	var img = new Image();
+    img.onload = function(e)
+    {
+    	t.width = img.width;
+    	t.height = img.height;
+    	t.data = img;
+    	t.loaded = true;
+    	bind_texture(t);
+    	update_texture(t);
+    }
+	img.src = url;
+}
+
+function load_video_async(url, width, height, sampler, format, mute, autoplay)
+{
+	var t = empty_texture(sampler, format);
+	t.from_element = true;
+	t.use_mipmaps = false;
+	t.flip = false;
+
+    var video = document.createElement('video');
+    video.setAttribute('width', width);
+    video.setAttribute('height', height);
+    video.style.display = 'none';
+    video.preload = 'auto';
+    if(mute) video.muted = 'true';
+    document.body.append(video); //shuts warnings up
+
+	var name = url.match(/[^\\/]+$/)[0];
+	name = name.split(".")[0];
+    app.assets.textures[name] = t;
+
+    video.addEventListener('canplaythrough', function()
+    {
+        t.width = video.width;
+        t.height = video.height;
+        t.data = video;
+        t.loaded = true;
+        bind_texture(t);
+        update_texture(t);
+    });
+    
+    video.src = url;
+    if(autoplay) video.play();
+}
+
 function rgba_texture(width, height, pixels, sampler)
 {
 	var t = Texture(width, height, pixels, sampler, TextureFormat.RGBA, 4);

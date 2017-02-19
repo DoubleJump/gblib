@@ -132,7 +132,7 @@ function vec_perp(r, a)
 	r[0] = x; r[1] = y;
 	vec_normalized(r,r);
 }
-function vec_angle2D(v)
+function vec_angle_2D(v)
 {
 	return Math.atan2(v[1], v[0]);
 }
@@ -213,6 +213,16 @@ function vec_rotate(r, v,q)
 	r[1] = v[1] + q[2] * ty + cy;
 	r[2] = v[2] + q[2] * tz + cz;
 }
+
+function vec_rotate_2D(r, v,a)
+{
+	var rad = a * DEG2RAD;
+	var cr = Math.cos(rad);
+	var sr = Math.sin(rad;)
+	r[0] = v[0] * cr - v[1] * sr;
+    r[1] = v[0] * sr + v[1] * cr;
+}
+
 function vec_lerp(r, a,b,t)
 {
 	var n = r.length;

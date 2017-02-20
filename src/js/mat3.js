@@ -55,6 +55,7 @@ function mat3_inverse(r, m)
     if(Math.abs(det) <= EPSILON)
     {
     	mat3_identity(r);
+    	return;
     }
 
    	var idet = 1 / det;
@@ -79,6 +80,7 @@ function mat3_mul(r, a,b)
 function mat3_transposed(r,m)
 {
 	var t = _Mat3();
+	t[0] = m[4];
 	t[1] = m[3];
 	t[2] = m[6]; 
 	t[3] = m[1];

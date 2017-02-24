@@ -16,3 +16,7 @@ vec4 to_gamma(vec4 v)
 {
 	return vec4(to_gamma(v.rgb), v.a);
 }
+vec4 linear_tex(sampler2D t, vec2 uv)
+{
+	return to_linear(texture2D(t,uv));
+}

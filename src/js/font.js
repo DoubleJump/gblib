@@ -3,6 +3,8 @@ function Font()
     var r = {};
     r.name;
     r.atlas = null;
+    r.unicode_start;
+    r.unicode_end;
     r.num_glyphs;
     r.grid_width;
     r.glyph_stride;
@@ -14,8 +16,25 @@ function Font()
     return r;
 }
 
+function GlyphMetric()
+{
+    var r = {};
+    r.x  = 0;
+    r.y  = 0;
+    r.w  = 0;
+    r.h  = 0;
+    r.bx = 0; 
+    r.by = 0; 
+    r.ha = 0;
+    r.kerning = 0;
+    //TODO: line height // r.va??
+    return r;
+}
+
 function get_kerning(font, a,b)
 {
+    if(font.has_kerning === false) return 0;
+
     var result = 0;
 
     var h = 5381;
@@ -48,6 +67,8 @@ function read_font(ag)
 {
     var r = Font();
     r.name = read_string();
+    r.unicode_start = read_i32();
+    r.unicode_end = read_i32();
     r.num_glyphs = read_i32();
     r.grid_width = read_i32();
     r.glyph_stride = read_i32();
@@ -66,6 +87,7 @@ function read_font(ag)
     }
 
     r.atlas = read_texture('png');
+    r.glyph_metric = GlyphMetric();
 
     if(ag) ag.fonts[r.name] = r;
     return r;

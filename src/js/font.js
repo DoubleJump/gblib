@@ -31,6 +31,24 @@ function GlyphMetric()
     return r;
 }
 
+function get_glyph_metric(r, font, scale, char_code, prev_code)
+{
+    var i = (char_code - font.unicode_start) * font.glyph_stride;
+    var m = font.glyphs;
+    r.x  = m[i+0];
+    r.y  = m[i+1];
+    r.w  = m[i+2] * scale;
+    r.h  = m[i+3] * scale;
+    r.bx = m[i+4] * scale; 
+    r.by = m[i+5] * scale; 
+    r.ha = m[i+6] * scale;
+    if(prev_code > 0) 
+    {
+        r.kerning = get_kerning(font, char_code, prev_code) * scale;
+    }
+    else r.kerning = 0;
+}
+
 function get_kerning(font, a,b)
 {
     if(font.has_kerning === false) return 0;

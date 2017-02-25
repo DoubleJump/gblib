@@ -234,8 +234,8 @@ function vec_to_string(v, digits)
 	var str = '[';
 	var n = v.length;
 	for(var i = 0; i < n-1; ++i)
-		str += Math.round_to(v[i], digits) + ', '
-	str += Math.round_to(v[n-1], digits);
+		str += round_to(v[i], digits) + ', '
+	str += round_to(v[n-1], digits);
 	str += ']';
 	return str;
 }

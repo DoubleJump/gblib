@@ -157,6 +157,17 @@ function update_input()
 			t.delta[1] = t.position[1] - t.last_position[1];
 			t.last_position[0] = t.position[0];
 			t.last_position[1] = t.position[1];
+			//break; //wut?
+		}
+
+		for(var i = 0; i < input.MAX_TOUCHES; ++i)
+		{
+			var t = input.touches[i];
+			if(t.is_touching === false) continue;
+			input.mouse.position[0] = t.position[0];
+			input.mouse.position[1] = t.position[1];
+			input.mouse.delta[0] = t.delta[0];
+			input.mouse.delta[1] = t.delta[1];
 			break;
 		}
 	}
@@ -179,6 +190,7 @@ function update_input()
 		}
 
 		vec_sub(input.mouse.delta, input.mouse.position, input.mouse.last_position);
+
 		vec_eq(input.mouse.last_position, input.mouse.position);
 	}
 }
@@ -213,7 +225,7 @@ function on_key_up(e)
 }
 function on_mouse_move(e)
 {
-	set_vec3(input.mouse.position, e.clientX, e.clientY, 0);
+	set_vec3(input.mouse.position, e.clientX * app.res, e.clientY * app.res, 0);
 }
 function on_mouse_wheel(e)
 {

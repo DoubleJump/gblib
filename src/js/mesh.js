@@ -21,6 +21,19 @@ function VertexAttribute(size, norm)
 	return r;
 }
 
+function PositionAttribute()
+{
+	return VertexAttribute(3, false);
+}
+function UVAttribute()
+{
+	return VertexAttribute(2, false);
+}
+function ColorAttribute()
+{
+	return VertexAttribute(4, true);
+}
+
 function VertexBuffer(data, attributes, rate)
 {
 	var r = {};
@@ -36,7 +49,7 @@ function VertexBuffer(data, attributes, rate)
 	r.attributes = attributes;
 
 	r.offset = 0;
-	r.update_start = 0;
+	//r.update_start = 0;
 	r.count = 0;
 	r.capacity = 0;
 	r.update_rate = rate || BufferUpdateRate.STATIC;
@@ -105,6 +118,8 @@ function IndexBuffer(data, rate)
 	r.id = null;
 	r.data = data;
 	r.count = 0;
+	r.offset = 0;
+	r.triangle_offset = 0;
 	if(data) r.count = r.data.length;
 	r.update_rate = rate || BufferUpdateRate.STATIC;
 	return r;

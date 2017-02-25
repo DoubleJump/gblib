@@ -25,6 +25,12 @@ function HitInfo()
 	return r;
 }
 
+function point_in_rect_fast(px,py, x,y,w,h)
+{
+	return px >= x && px < (x + w) &&
+		   py < y && py >= (y - h);
+}
+
 function point_in_rect(p, r, matrix)
 {
 	var local = _Vec3();

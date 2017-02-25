@@ -11,8 +11,8 @@ function GLDraw(buffer_size)
 	r.line_shader = app.assets.shaders.basic;
 	var line_attributes = 
 	{
-		position: VertexAttribute(3),
-		color: VertexAttribute(4, true)
+		position: PositionAttribute(),
+		color: ColorAttribute()
 	};
 
 	var vb = VertexBuffer(null, line_attributes, update_rate);
@@ -23,15 +23,15 @@ function GLDraw(buffer_size)
     // TRIANGLES
 
     r.tri_shader = app.assets.shaders.rect;
-    var tri_attributges = 
+    var tri_attributes = 
     {
-    	position: VertexAttribute(3),
-    	uv: VertexAttribute(2),
+    	position: PositionAttribute(),
+    	uv: UVAttribute(),
     	radius: VertexAttribute(1),
-    	color: VertexAttribute(4, true)
+    	color: ColorAttribute()
     };
 
-    vb = VertexBuffer(null, tri_attributges, update_rate);
+    vb = VertexBuffer(null, tri_attributes, update_rate);
 	alloc_vertex_buffer_memory(vb, buffer_size);
 
     var ib = IndexBuffer(new Uint32Array(buffer_size), update_rate);
@@ -41,7 +41,8 @@ function GLDraw(buffer_size)
     // TEXT
 
     r.text_shader = app.assets.shaders.text;
-    r.text_buffer = TextMesh(app.assets.fonts.bebas, null, 2048);
+    r.text_style = TextStyle(app.assets.fonts.space_mono);
+    r.text = TextMesh(r.text_style, "", 2048);
 
 	return r;
 }
@@ -52,14 +53,7 @@ function reset_gl_draw(ctx)
 	set_vec4(ctx.color, 1,1,1,1);
 	clear_mesh_buffers(ctx.lines);
 	clear_mesh_buffers(ctx.triangles);
-	reset_text(ctx.text_buffer);
-}
-
-function draw_im_text(ctx, x,y, text, size)
-{
-	ctx.text_buffer.px = x;
-    ctx.text_buffer.py = y;
-    append_text(ctx.text_buffer, text, size, ctx.color);
+	reset_text(ctx.text);
 }
 
 function render_gl_draw(ctx, camera)
@@ -75,7 +69,8 @@ function render_gl_draw(ctx, camera)
 	set_uniform('mvp', camera.view_projection);
 	draw_mesh(ctx.triangles);
 
-	draw_text(ctx.text_buffer, ctx.text_shader, camera);
+	update_mesh(ctx.text.mesh);
+	draw_text(ctx.text, ctx.text_shader, camera);
 	
 	reset_gl_draw(ctx);
 }
@@ -205,6 +200,19 @@ function draw_quad_f(ctx, x,y,w,h,r)
 	vec4_stack.index--;
 }
 
+function draw_text_f(ctx, x,y, str)
+{
+	var t = ctx.text;
+	t.width = 0;
+	t.height = 0;
+	t.bounds[0] = x;
+    t.px = x;
+    t.py = y;
+    t.index_start = t.index;
+    t.style.color = ctx.color;
+    append_text(t, str);
+}
+
 function gl_push_rect(r, depth, radius, mesh, color, matrix)
 {
 	var d = mesh.vertex_buffer.data;
@@ -280,6 +288,7 @@ function gl_push_rect(r, depth, radius, mesh, color, matrix)
 
 	mesh.index_buffer.triangle_offset += 4;
 	mesh.index_buffer.offset += 6;
+
 }
 
 

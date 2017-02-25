@@ -34,6 +34,7 @@ function TextMesh(style, text, length)
     r.str = "";
     r.px = 0;
     r.py = 0;
+    r.pz = 0;
     r.bounds = Vec4(0,0,4,0);
     r.last_white_space_index = 0;
     r.last_white_space_px = 0;
@@ -43,9 +44,9 @@ function TextMesh(style, text, length)
 
     var attributes = 
     {
-        position: VertexAttribute(2),
-        uv: VertexAttribute(2),
-        color: VertexAttribute(4),
+        position: PositionAttribute(),
+        uv: UVAttribute(),
+        color: ColorAttribute(),
         index: VertexAttribute(1)
     };
 
@@ -67,45 +68,28 @@ function TextMesh(style, text, length)
     return r;
 }
 
-function get_glyph_metric(r, font, scale, char_code, prev_code)
-{
-    var i = (char_code - font.unicode_start) * font.glyph_stride;
-    var m = font.glyphs;
-    r.x  = m[i+0];
-    r.y  = m[i+1];
-    r.w  = m[i+2] * scale;
-    r.h  = m[i+3] * scale;
-    r.bx = m[i+4] * scale; 
-    r.by = m[i+5] * scale; 
-    r.ha = m[i+6] * scale;
-    if(prev_code > 0) 
-    {
-        r.kerning = get_kerning(font, char_code, prev_code) * scale;
-    }
-    else r.kerning = 0;
-}
-
 function is_whitespace(char_code)
 {
     return char_code === 32;
 }
 
-function push_glyph_vertex(vb, x,y,u,v, color, index)
+function push_glyph_vertex(vb, x,y,z,u,v, color, index)
 {
     var i = vb.offset;
     var d = vb.data;
 
     d[i  ] = x;
     d[i+1] = y;
-    d[i+2] = u;
-    d[i+3] = v;
-    d[i+4] = color[0];
-    d[i+5] = color[1];
-    d[i+6] = color[2];
-    d[i+7] = color[3];
-    d[i+8] = index;
+    d[i+2] = z;
+    d[i+3] = u;
+    d[i+4] = v;
+    d[i+5] = color[0];
+    d[i+6] = color[1];
+    d[i+7] = color[2];
+    d[i+8] = color[3];
+    d[i+9] = index;
 
-    vb.offset += 9;
+    vb.offset += 10;
     vb.count = vb.offset;
 }
 
@@ -148,19 +132,19 @@ function add_glyph(tm, char_code, prev_code, is_last_glyph)
     
     var cx = tm.px + glyph.bx + glyph.kerning + (glyph.w / 2) + style.letter_spacing;
     var cy = (tm.py + glyph.by) - (glyph.h / 2);
-    var left   = cx - hw;
-    var right  = cx + hw;
-    var top    = cy + hh;
-    var bottom = cy - hh;
+    var lft = cx - hw;
+    var rht = cx + hw;
+    var top = cy + hh;
+    var btm = cy - hh;
 
-    var abs_btm = Math.abs(bottom);
+    var abs_btm = Math.abs(btm);
     if(abs_btm > tm.height) tm.height = abs_btm;
 
     var vb = tm.mesh.vertex_buffer;
-    push_glyph_vertex(vb, left, bottom, px,py, style.color, tm.index);
-    push_glyph_vertex(vb, right, bottom, pw,py, style.color, tm.index);
-    push_glyph_vertex(vb, left, top, px,ph, style.color, tm.index);
-    push_glyph_vertex(vb, right, top, pw,ph, style.color, tm.index);
+    push_glyph_vertex(vb, lft, btm, tm.pz, px,py, style.color, tm.index);
+    push_glyph_vertex(vb, rht, btm, tm.pz, pw,py, style.color, tm.index);
+    push_glyph_vertex(vb, lft, top, tm.pz, px,ph, style.color, tm.index);
+    push_glyph_vertex(vb, rht, top, tm.pz, pw,ph, style.color, tm.index);
     push_glyph_triangle(tm.mesh.index_buffer);
 
     var x_advance = glyph.ha + glyph.kerning + style.letter_spacing;
@@ -178,7 +162,7 @@ function add_glyph(tm, char_code, prev_code, is_last_glyph)
        tm.px > tm.bounds[2] &&
        tm.last_white_space_index > tm.last_line_index)
     {
-        tm.width = tm.bounds[2] - tm.bounds[0];
+        tm.width = tm.bounds[2];
 
         // first go back and h align the previous line
         var line_width = tm.last_white_space_px - tm.bounds[0];
@@ -210,7 +194,6 @@ function add_glyph(tm, char_code, prev_code, is_last_glyph)
         tm.px += x_offset + x_advance;
         tm.py -= style.line_height;
         tm.last_line_index = tm.last_white_space_index;
-        
     }
     else
     {
@@ -238,6 +221,7 @@ function add_glyph(tm, char_code, prev_code, is_last_glyph)
 
         var rhs = tm.px + x_advance;
         if(rhs > tm.width) tm.width = rhs;
+        tm.width = Math.abs(tm.width - tm.bounds[0]);
 
         start = tm.index_start;
         var y_offset = tm.height;
@@ -259,6 +243,7 @@ function reset_text(tm)
 
     tm.px = 0;
     tm.py = 0;
+    tm.pz = 0;
     tm.width = 0;
     tm.height = 0;
     tm.index = 0;
@@ -268,6 +253,7 @@ function reset_text(tm)
     tm.last_white_space_advance = 0;
     tm.last_line_index = 0;
     tm.last_line_px = 0;
+    set_vec4(tm.bounds, 0,0,0,0);
     //tm.text = "";
 }
 

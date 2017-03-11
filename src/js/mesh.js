@@ -2,7 +2,7 @@ var MeshLayout =
 {
 	TRIANGLES: 0,
 	LINES: 1,
-	TRI_STRIP: 2
+	STRIP: 2
 }
 
 var BufferUpdateRate = 

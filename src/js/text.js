@@ -28,10 +28,10 @@ function TextStyle(font)
 function TextMesh(style, text, length)
 {
     var r = Entity();
+    r.str = "";
     r.style = style;
     r.index = 0;
     r.index_start = 0;
-    r.str = "";
     r.px = 0;
     r.py = 0;
     r.pz = 0;
@@ -62,7 +62,7 @@ function TextMesh(style, text, length)
 
     if(text)
     {
-        set_text_mesh(r, text);     
+        append_text(r, text);     
     }
 
     return r;
@@ -158,6 +158,7 @@ function add_glyph(tm, char_code, prev_code, is_last_glyph)
 
 
     // if we are fixed bounds and we are outside those bounds with whitespace to break from
+
     if(tm.bounds[2] > 0 && 
        tm.px > tm.bounds[2] &&
        tm.last_white_space_index > tm.last_line_index)
@@ -262,12 +263,14 @@ function update_text_mesh(tm)
     update_mesh(tm.mesh);    
 }
 
+/*
 function set_text_mesh(tm, str)
 {
     tm.str = str;
     reset_text(tm);
     append_text(tm, str);
 }
+*/
 
 function append_text(tm, str)
 {

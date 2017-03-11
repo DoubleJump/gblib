@@ -125,7 +125,7 @@ function convert_mesh_layout(type)
 	{
 		case MeshLayout.TRIANGLES: return GL.TRIANGLES;
 		case MeshLayout.LINES: 	   return GL.LINES;
-		case MeshLayout.TRI_STRIP: return GL.TRIANGLE_STRIP;
+		case MeshLayout.STRIP:	   return GL.TRIANGLE_STRIP;
 
 		default: console.error('Invalid mesh layout');
 	}
@@ -232,7 +232,6 @@ function update_texture(t)
 	}
 	if(t.from_element === true)
 	{
-		
 		GL.texImage2D(GL.TEXTURE_2D, 0, format, format, size, t.data);
 	}
 	else if(t.compressed === true)
@@ -708,7 +707,7 @@ function set_render_target(target)
 
 function verify_webgl_context()
 {
-	if(GL.isContextLost()) console.error('GL context lost');
+	if(GL.isContextLost && GL.isContextLost()) console.error('GL context lost');
 }
 
 function verify_render_target()
@@ -734,12 +733,6 @@ function log_webgl_info()
 	LOG("Max Vertex Uniform Vectors: " + GL.getParameter(GL.MAX_VERTEX_UNIFORM_VECTORS));
 	LOG("Max Frament Uniform Vectors: " + GL.getParameter(GL.MAX_FRAGMENT_UNIFORM_VECTORS));
 	LOG("Max Varying Vectors: " + GL.getParameter(GL.MAX_VARYING_VECTORS));
-
-	var supported_extensions = GL.getSupportedExtensions();
-	for(var i = 0; i < supported_extensions.length; ++i)
-	{
-		console.log(supported_extensions[i]);
-	}
 
 	var info = GL.getExtension('WEBGL_debug_renderer_info');
 	if(info) 

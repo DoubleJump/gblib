@@ -111,6 +111,7 @@ function load_video_async(url, width, height, sampler, format, mute, autoplay)
     
     video.src = url;
     if(autoplay) video.play();
+    return t;
 }
 
 function rgba_texture(width, height, pixels, sampler)
@@ -127,15 +128,17 @@ function depth_texture(width, height, sampler)
 function read_texture(type, ag)
 {
     var name = read_string();
+    var width = read_i32();
+    var height = read_i32();
+    var format = read_i32();
     var num_bytes = read_f64();
     var bytes = read_bytes(num_bytes);
-    var img = new Image();
-
     var encoding = 'data:image/' + type + ';base64,';
 
+    var img = new Image();
     img.src = encoding + uint8_to_base64(bytes);
 
-    var t = Texture(img.width, img.height, img, app.sampler, TextureFormat.RGBA, 4);
+    var t = Texture(width, height, img, app.sampler, format, 4);
 	t.from_element = true;
 	t.use_mipmaps = false;
 	t.flip = true;

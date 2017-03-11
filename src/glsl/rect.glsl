@@ -34,7 +34,7 @@ float rounded_rectangle(vec2 p, vec2 size, float r)
 void main()
 { 
 	vec2 st = _uv - 0.5;
-	float d = rounded_rectangle(st, vec2(0.5, 0.5), 0.25);
+	float d = rounded_rectangle(st, vec2(0.5, 0.5), _radius);
 	d = 1.0 - smoothstep(0.0, 0.004, d);
 
 	vec4 result = _color;

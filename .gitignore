@@ -1,6 +1,14 @@
 *.sublime-workspace
+*.mp4
+*.ogg
+*.mov
 *.bin
 *.gz
+
+# Dropbox settings and caches
+.dropbox
+.dropbox.attr
+.dropbox.cache
 
 # Windows image file caches
 Thumbs.db

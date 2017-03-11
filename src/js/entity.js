@@ -65,6 +65,13 @@ function get_rotation(r, e)
 	mat4_get_rotation(r, e.world_matrix);
 }
 
+function rotate_entity(e, v)
+{
+	var rotation = _Vec4();
+	quat_set_euler(rotation,v);
+	quat_mul(e.rotation, rotation, e.rotation);
+}
+
 function update_entity(e, force)
 {
 	if(force === true || e.dirty === true)

@@ -198,6 +198,7 @@ var AssetType =
     SCENE: 1,
     FONT: 2,
     PNG: 3,
+    JPG: 15,
     CAMERA: 4,
     LAMP: 5,
     MESH: 6,
@@ -254,7 +255,8 @@ function read_asset_file(data)
                 case AssetType.SHADER: { read_shader(assets); break; }
                 case AssetType.SCENE: { read_scene(assets); break; }
                 case AssetType.FONT: { read_font(assets); break; }
-                case AssetType.PNG: { read_texture(assets); break; }
+                case AssetType.PNG: { read_texture('png', assets); break; }
+                case AssetType.JPG: { read_texture('jpg', assets); break; }
                 case AssetType.END: { complete = true; break; }
                 default: { complete = true; }
             }
@@ -356,6 +358,17 @@ function snap_angle(angle, target)
 	return Math.floor((angle % 360 + target / 2) / target) * target;
 }
 
+function sigmoid(input, t)
+{
+	return 1 / (1 + Math.exp(-input + t));
+}
+
+function smoothstep(min, max, val) 
+{
+	var x = Math.max(0, Math.min(1, (val-min) / (max-min)));
+	return x * x * (3 - 2 * x);
+}
+
 function compare_normal(N, R, rotation) 
 { 
 	var index = vec3_stack.index;
@@ -384,13 +397,29 @@ function move_towards(val, target, rate)
 	return result;
 }
 
-function smooth_move_towards(val, target, rate, epsilon)
+function smooth_float_towards(val, target, rate, epsilon)
 {
+	var E = epsilon || 0.0001;
 	var result = val;
-	var delta = target - val;
-	if(Math.abs(delta) < epsilon) return target;
-	result += (delta * 0.5) * rate;
+	var delta = (target - val);
+	delta = clamp(delta, -rate, rate);
+	if(Math.abs(delta) < E) return target;
+	result += delta * rate;
 	return result;
+}
+
+function smooth_vec_towards(val, target, rate, epsilon)
+{
+	var n = val.length;
+	for(var i = 0; i < n; ++i)
+	{
+		val[i] = smooth_float_towards(val[i], target[i], rate, epsilon);
+	}
+}
+
+function lazy_ease(now, end, speed) 
+{
+	return now + (end - now) / speed;
 }
 
 function wrap_value(value, min, max)
@@ -448,7 +477,9 @@ function Time()
     var r = {};
     r.start = 0;
     r.elapsed = 0;
-
+    r.accumulator = 0;
+    r.fixed_dt = 0.02;
+    r.max_frame = 0.05;
     r.now = 0;
     r.last = 0;
     r.dt = 0;
@@ -466,11 +497,13 @@ function set_time(time, t)
     time.frame++;
     time.now = t;
     time.dt = ((t - time.last) / 1000) * time.scale;
+    if(time.dt > time.max_frame) time.dt = 0.016;
     time.last = t;
     time.elapsed += time.dt * time.scale;
+    
     time.at += time.dt;
     if(time.at > 1) time.at -= 1;
-    time.st = Math.sin(time.elapsed)
+    time.st = Math.sin(time.elapsed);
     time.nst = time.st / 2 + 0.5;
 }
 function Vec3(x,y,z)
@@ -507,6 +540,15 @@ function _Vec4(x,y,z,w)
 	return r;
 }
 
+function vec_approx_equal(a,b)
+{
+	var n = a.length;
+	for(var i = 0; i < n; ++i)
+	{
+		if(Math.abs(a[i] - b[i]) > EPSILON) return false;
+	}
+	return true;
+}
 function vec_add(v,a,b)
 {
 	var n = v.length;
@@ -565,7 +607,7 @@ function vec_distance(a, b)
 function vec_sqr_distance(a, b)
 {
 	var r = 0;
-	var n = v.length;
+	var n = a.length;
 	for(var i = 0; i < n; ++i)
 	{
 		var d = b[i] - a[i];
@@ -598,7 +640,7 @@ function vec_perp(r, a)
 	r[0] = x; r[1] = y;
 	vec_normalized(r,r);
 }
-function vec_angle2D(v)
+function vec_angle_2D(v)
 {
 	return Math.atan2(v[1], v[0]);
 }
@@ -647,7 +689,7 @@ function vec_cross(r, a,b)
 	var x = a[1] * b[2] - a[2] * b[1];
 	var y = a[2] * b[0] - a[0] * b[2];
 	var z = a[0] * b[1] - a[1] * b[0];
-	r.set(x,y,z);
+	set_vec3(r, x,y,z);
 }
 function vec_project(r, a,b)
 {
@@ -679,6 +721,16 @@ function vec_rotate(r, v,q)
 	r[1] = v[1] + q[2] * ty + cy;
 	r[2] = v[2] + q[2] * tz + cz;
 }
+
+function vec_rotate_2D(r, v,a)
+{
+	var rad = a * DEG2RAD;
+	var cr = Math.cos(rad);
+	var sr = Math.sin(rad);
+	r[0] = v[0] * cr - v[1] * sr;
+    r[1] = v[0] * sr + v[1] * cr;
+}
+
 function vec_lerp(r, a,b,t)
 {
 	var n = r.length;
@@ -690,8 +742,8 @@ function vec_to_string(v, digits)
 	var str = '[';
 	var n = v.length;
 	for(var i = 0; i < n-1; ++i)
-		str += Math.round_to(v[i], digits) + ', '
-	str += Math.round_to(v[n-1], digits);
+		str += round_to(v[i], digits) + ', '
+	str += round_to(v[n-1], digits);
 	str += ']';
 	return str;
 }
@@ -942,6 +994,7 @@ function mat3_inverse(r, m)
     if(Math.abs(det) <= EPSILON)
     {
     	mat3_identity(r);
+    	return;
     }
 
    	var idet = 1 / det;
@@ -966,6 +1019,7 @@ function mat3_mul(r, a,b)
 function mat3_transposed(r,m)
 {
 	var t = _Mat3();
+	t[0] = m[4];
 	t[1] = m[3];
 	t[2] = m[6]; 
 	t[3] = m[1];
@@ -1546,7 +1600,7 @@ function lng_lat_to_cartesian(r, lng, lat, radius)
 
 function world_to_screen(r, projection, world, view)
 {
-	var wp = _Vec3(); 
+    var wp = _Vec3(); 
     mat4_mul_projection(wp, projection, world);
     r[0] = ((wp[0] + 1.0) / 2.0) * view[2];
     r[1] = ((1.0 - wp[1]) / 2.0) * view[3];
@@ -1569,10 +1623,19 @@ function screen_to_world(r, projection, point, view)
 
     var inv = _Mat4();
     mat4_inverse(inv, projection);
-    mat4_mul_projection(r, inv, t);
+    mat4_mul_point(r, inv, t);
 
     mat4_stack.index--;
     vec3_stack.index--;
+}
+
+function get_mouse_world_position(r, camera)
+{
+    var mp = _Vec3();
+    vec_eq(mp, input.mouse.position);
+    mp[0] *= app.res;
+    mp[1] *= app.res;
+    screen_to_world(r, camera.view_projection, mp, app.view);
 }
 
 function world_camera_rect(r, projection, view)
@@ -1617,6 +1680,12 @@ function HitInfo()
 	r.normal = Vec3();
 	r.t = 0;
 	return r;
+}
+
+function point_in_rect_fast(px,py, x,y,w,h)
+{
+	return px >= x && px < (x + w) &&
+		   py < y && py >= (y - h);
 }
 
 function point_in_rect(p, r, matrix)
@@ -1678,6 +1747,270 @@ function ray_sphere(info, ray, sphere)
 
 	vec3_stack.index = index;
 }
+
+function circle_circle(info, a, ra, b, rb)
+{
+	info.hit = false;
+	var index = vec3_stack.index;
+	var delta = _Vec3();
+	vec_sub(delta, b,a);
+
+	//var distance = sqr_length(delta);
+	//var rad_sum = (ra * ra) + (rb * rb);
+
+	var distance = vec_length(delta);
+	var rad_sum = ra + rb;
+
+	if(distance < rad_sum)
+	{
+		info.hit = true;
+		info.t = rad_sum - distance;
+		vec_normalized(info.normal, delta);
+		vec_mul_f(info.point, info.normal, ra)
+		vec_add(info.point, info.point, a); 
+	}
+
+	vec3_stack.index = index;
+}
+
+function point_in_circle(info, p,c,r)
+{
+	var delta = _Vec3();
+	var nd = _Vec3();
+	vec_sub(delta, c,p);
+
+	info.hit = false;
+	
+	var l = vec_sqr_length(delta);
+	if(l < r * r)
+	{
+		var nl = Math.sqrt(l);
+		info.hit = true;
+		info.t = nl - r;
+		vec_mul_f(nd, delta, 1 / nl);
+		vec_eq(info.normal, nd);
+	}
+
+	vec3_stack.index -= 2;
+}
+
+function line_circle(h, c,r, a,b)
+{
+	var lax = a[0] - c[0];
+	var lay = a[1] - c[1];
+	var lbx = b[0] - c[0];
+	var lby = b[1] - c[1];
+
+	var sx = lbx - lax;
+	var sy = lby - lay;
+
+	var a = sx * sx + sy * sy;
+	var b = 2 * ((sx * lax) + (sy * lay));
+	var c = (lax * lax) + (lay * lay) - (r * r);
+	var delta = b * b - (4 * a * c);
+	if(delta < 0)
+	{
+		h.hit = false;
+		return;
+	} 
+
+	var sd = Math.sqrt(delta);
+	var ta = (-b - sd) / (2 * a);
+
+	if(ta < 0 || ta > 1)
+	{
+		h.hit = false;
+		return;
+	}
+
+	h.point[0] = a[0] * (1 - ta) + ta * b[0];
+    h.point[1] = a[1] * (1 - ta) + ta * b[1];
+
+    /*
+	if(delta === 0)
+	{
+		h.hit = true;
+		h.t = t;
+        return;
+	}
+	*/
+
+	var tb = (-b + sd) / (2 * a);
+
+	if(Math.abs(ta - 0.5) < Math.abs(tb - 0.5))
+    {
+    	h.hit = true;
+        h.point[0] = a[0] * (1 - tb) + tb * b[0];
+    	h.point[1] = a[1] * (1 - tb) + tb * b[1];
+    	return;
+    }
+
+    //TODO: Get normals etc
+
+}
+
+function line_line(h, a,b,c,d)
+{
+	var lax = b[0] - a[0];
+	var lay = b[1] - a[1];
+	var lbx = d[0] - c[0];  
+	var lby = d[1] - c[1];
+
+	var d = -lbx * lay + lax * lby;
+
+	var s = (-lay * (a[0] - c[0]) + lax * (a[1] - c[1])) / d;
+	var t = ( lbx * (a[1] - c[1]) - lby * (a[0] - c[0])) / d;
+
+	if(s >= 0 && s <= 1 && t >= 0 && t <= 1)
+	{
+		h.hit = true;
+		h.point[0] = a[0] + (t * lbx);
+		h.point[1] = a[1] + (t * lby);
+		return 1;
+	}
+	else
+	{
+		h.hit = false;
+	}
+}
+
+function aabb_aabb(a, b)
+{
+   	if(a.min[0] > b.max[0]) return false;
+   	if(a.max[0] < b.min[0]) return false;
+
+   	if(a.min[1] > b.max[1]) return false;
+   	if(a.max[1] < b.min[1]) return false;
+
+   	if(a.min[2] > b.max[2]) return false;
+   	if(a.max[2] < b.min[2]) return false;
+
+    return true;
+}
+
+function aabb_ray(h, a, r)
+{
+	var fx = 1 / r.dir[0];
+	var fy = 1 / r.dir[1];
+	var fz = 1 / r.dir[2];
+
+	var t1 = (a.min[0] - r.point[0]) * fx;
+	var t2 = (a.max[0] - r.point[0]) * fx;
+	var t3 = (a.min[1] - r.point[1]) * fy;
+	var t4 = (a.max[1] - r.point[1]) * fy;
+	var t5 = (a.min[2] - r.point[2]) * fz;
+	var t6 = (a.max[2] - r.point[2]) * fz;
+
+	var min = Math.min;
+	var max = Math.max;
+	var tmin = max(max(min(t1, t2), min(t3, t4)), min(t5, t6));
+	var tmax = min(min(max(t1, t2), max(t3, t4)), max(t5, t6));
+
+	if(tmax < 0 || tmin > tmax)
+	{
+		h.hit = false;
+		return;
+	}
+
+	var v = _Vec3();
+	vec_mul_f(v, r.dir, tmin);
+	vec_add(h.point, r.point, v);
+	h.hit = true;
+	set_vec3(h.normal, 0,1,0);
+	h.t = tmin;
+	vec3_stack.index--;
+}
+
+function point_in_triangle(p, a,b,c)
+{
+	var A = (-b[1] * c[0] + a[1] * (-b[0] + c[0]) + a[0] * (b[1] - c[1]) + b[0] * c[1]) / 2;
+	var sign = A < 0 ? -1 : 1;
+	var s = (a[1] * c[0] - a[0] * c[1] + (c[1] - a[1]) * p[0] + (a[0] - c[0]) * p[1]) * sign;
+	var t = (a[0] * b[1] - a[1] * b[0] + (a[1] - b[1]) * p[0] + (b[0] - a[0]) * p[1]) * sign;
+	return s > 0 && t > 0 && s + t < 2 * A * sign;
+}
+
+function triangle_ray(h, a,b,c, r)
+{
+	var index = vec3_stack.index;
+	var e0 = _Vec3();
+	var e1 = _Vec3();
+	var cross = _Vec3();
+	var n = _Vec3();
+
+	vec_sub(e0, b,a);
+	vec_sub(e1, c,a);
+	vec_cross(cross, e0, e1);
+	vec_normalized(n, cross);
+	vec_inverse(n, n);
+
+	var ndot = vec_dot(n, r.dir);
+	var t = -(vec_dot(n,r.point) + vec_dot(n,a)) / ndot;
+
+	vec_mul_f(e0, r.dir, t);
+	vec_add(e1, r.point, e0);
+
+	if(point_in_triangle(e1, a,b,c) === true)
+	{
+		h.hit = true;
+		vec_eq(h.point, e1);
+		vec_eq(h.normal, n);
+		h.t = t;
+	}
+	else
+	{
+		h.hit = false;
+	}
+	vec3_stack.index = index;
+}
+
+function mesh_ray(h, m, matrix, r)
+{
+	var index = vec3_stack.index;
+	var stride = gb.mesh.get_stride(m);
+	h.t = gb.math.MAX_F32;
+	
+	var has_hit = false;
+	var point = _Vec3();
+	var normal = _Vec3();
+	var min_t = h.t;
+
+	var ta = _Vec3();
+	var tb = _Vec3();
+	var tc = _Vec3();
+
+	var n = m.vertex_buffer.count / 3;
+	var d = m.vertex_buffer.data;
+	var c = 0;
+	for(var i = 0; i < n; ++i)
+	{
+		set_vec3(ta, d[c], d[c+1], d[c+2]);
+		mat4_mul_point(ta, matrix, ta);
+		c += stride;
+
+		set_vec3(tb, d[c], d[c+1], d[c+2]);
+		mat4_mul_point(tb, matrix, tb);
+		c += stride;
+		
+		set_vec3(tc, d[c], d[c+1], d[c+2]);
+		mat4_mul_point(tc, matrix, tc);
+		c += stride;
+
+		triangle_ray(h, ta,tb,tc, r);
+		if(h.hit === true && h.t < min_t)
+		{
+			has_hit = true;
+			min_t = h.t;
+			vec_eq(point, h.point);
+			vec_eq(normal, h.normal);
+		}
+	}
+	h.hit = has_hit;
+	h.t = min_t;
+	vec_eq(h.point, point);
+	vec_eq(h.normal, normal);
+	vec3_stack.index = index;
+}
 function Shader(vs, fs)
 {
     var s = {};
@@ -1704,7 +2037,7 @@ var MeshLayout =
 {
 	TRIANGLES: 0,
 	LINES: 1,
-	TRI_STRIP: 2
+	STRIP: 2
 }
 
 var BufferUpdateRate = 
@@ -1723,6 +2056,19 @@ function VertexAttribute(size, norm)
 	return r;
 }
 
+function PositionAttribute()
+{
+	return VertexAttribute(3, false);
+}
+function UVAttribute()
+{
+	return VertexAttribute(2, false);
+}
+function ColorAttribute()
+{
+	return VertexAttribute(4, true);
+}
+
 function VertexBuffer(data, attributes, rate)
 {
 	var r = {};
@@ -1738,7 +2084,7 @@ function VertexBuffer(data, attributes, rate)
 	r.attributes = attributes;
 
 	r.offset = 0;
-	r.update_start = 0;
+	//r.update_start = 0;
 	r.count = 0;
 	r.capacity = 0;
 	r.update_rate = rate || BufferUpdateRate.STATIC;
@@ -1774,23 +2120,30 @@ function resize_vertex_buffer(vb, count, copy)
 	}
 }
 
+function copy_vertex_attribute(r, vb, attr, index)
+{
+	var n = vb.attributes[attr].size;
+	var start = index * vb.stride;
+	var end = start + n;
+	for(var i = start; i < end; ++i) r[i] = vb.data[i];
+}
 
 function zero_buffer(b)
 {
-	var n = b.data.length;
-	for(var i = 0; i < n; ++i) b.data[i] = 0;
+	var n = b.length;
+	for(var i = 0; i < n; ++i) b[i] = 0;
 }
 
 function clear_mesh_buffers(mesh)
 {
 	mesh.vertex_buffer.offset = 0;
-	zero_buffer(mesh.vertex_buffer);
+	zero_buffer(mesh.vertex_buffer.data);
 
 	if(mesh.index_buffer !== null)
 	{
 		mesh.index_buffer.offset = 0;
 		mesh.index_buffer.triangle_offset = 0;
-		zero_buffer(mesh.index_buffer);
+		zero_buffer(mesh.index_buffer.data);
 	}
 }
 
@@ -1800,6 +2153,8 @@ function IndexBuffer(data, rate)
 	r.id = null;
 	r.data = data;
 	r.count = 0;
+	r.offset = 0;
+	r.triangle_offset = 0;
 	if(data) r.count = r.data.length;
 	r.update_rate = rate || BufferUpdateRate.STATIC;
 	return r;
@@ -1872,9 +2227,10 @@ function read_mesh(ag)
 }
 var TextureFormat = 
 {
-	RGBA: 0,
-	DEPTH: 1,
-	GRAYSCALE: 2,
+	RGB: 0,
+	RGBA: 1,
+	DEPTH: 2,
+	GRAYSCALE: 3,
 }
 function Sampler(s,t,up,down,anisotropy)
 {
@@ -1910,6 +2266,13 @@ function Texture(width, height, data, sampler, format, bytes_per_pixel)
 	return t;
 }
 
+function empty_texture(sampler, format)
+{
+	format = format || TextureFormat.RGBA;
+	sampler = sampler || app.sampler;
+	return Texture(0, 0, null, sampler, format, 4);
+}
+
 function texture_from_dom(img, sampler, format, flip)
 {
 	format = format || TextureFormat.RGBA;
@@ -1919,6 +2282,65 @@ function texture_from_dom(img, sampler, format, flip)
 	t.flip = flip || false;
 	return t;
 }
+
+function load_texture_async(url, sampler, format, flip)
+{
+	var t = empty_texture(sampler, format);
+	t.from_element = true;
+	t.use_mipmaps = false;
+	t.flip = flip || false;
+
+	var name = url.match(/[^\\/]+$/)[0];
+	name = name.split(".")[0];
+    app.assets.textures[name] = t;
+
+	var img = new Image();
+    img.onload = function(e)
+    {
+    	t.width = img.width;
+    	t.height = img.height;
+    	t.data = img;
+    	t.loaded = true;
+    	bind_texture(t);
+    	update_texture(t);
+    }
+	img.src = url;
+}
+
+function load_video_async(url, width, height, sampler, format, mute, autoplay)
+{
+	var t = empty_texture(sampler, format);
+	t.from_element = true;
+	t.use_mipmaps = false;
+	t.flip = false;
+
+    var video = document.createElement('video');
+    video.setAttribute('width', width);
+    video.setAttribute('height', height);
+    video.style.display = 'none';
+    video.preload = 'auto';
+    if(mute) video.muted = 'true';
+    document.body.append(video); //shuts warnings up
+
+	var name = url.match(/[^\\/]+$/)[0];
+	name = name.split(".")[0];
+    app.assets.textures[name] = t;
+
+    video.addEventListener('canplaythrough', function()
+    {
+        t.width = video.width;
+        t.height = video.height;
+        t.data = video;
+        t.loaded = true;
+        bind_texture(t);
+        update_texture(t);
+    });
+    
+    video.src = url;
+    if(autoplay) video.play();
+    return t;
+}
+
 function rgba_texture(width, height, pixels, sampler)
 {
 	var t = Texture(width, height, pixels, sampler, TextureFormat.RGBA, 4);
@@ -1929,21 +2351,38 @@ function depth_texture(width, height, sampler)
 	var t = Texture(width, height, null, sampler, TextureFormat.DEPTH, 4);
 	return t;
 }
-function read_texture(ag)
+
+function read_texture(type, ag)
 {
     var name = read_string();
+    var width = read_i32();
+    var height = read_i32();
+    var format = read_i32();
     var num_bytes = read_f64();
     var bytes = read_bytes(num_bytes);
-    var img = new Image();
-    img.src = 'data:image/png;base64,' + uint8_to_base64(bytes);
+    var encoding = 'data:image/' + type + ';base64,';
 
-    var t = Texture(img.width, img.height, img, app.sampler, TextureFormat.RGBA, 4);
+    var img = new Image();
+    img.src = encoding + uint8_to_base64(bytes);
+
+    var t = Texture(width, height, img, app.sampler, format, 4);
 	t.from_element = true;
 	t.use_mipmaps = false;
 	t.flip = true;
 	
 	if(ag) ag.textures[name] = t;
     return t;
+}
+function RenderTarget(view, sampler)
+{
+	var r = {};
+	r.frame_buffer = null;
+	r.render_buffer = null;
+	r.color = rgba_texture(view[2], view[3], null, sampler);
+	r.depth = depth_texture(view[2], view[3], sampler);
+	r.view = view;
+	bind_render_target(r);
+	return r;
 }
 var TextHorizontalAlignment = 
 {
@@ -1959,217 +2398,230 @@ var TextVerticalAlignment =
     BOTTOM: 2,
 };
 
-function TextMesh(font, text, length)
+function TextStyle(font)
 {
-    var r = Entity();
+    var r = {};
     r.font = font;
     r.color = Vec4(0.5,0.5,0.5,1);
-    r.index = 0;
-    r.size = 0.02;
-
-    r.buffer = 0.11554385134588423;
-    r.gamma = 0.18013594596044236;
-    r.theta = 0.3419931999832623;
-    r.zeta = 1.2979221000045087;
-
-    r.last_line = 0;
-    r.last_break = 0;
-    r.pen_break = 0;
-    r.px = 0;
-    r.py = 0;
-    r.line_width = 0.0;
-    r.line_height = 0.24;
-    r.letter_spacing = 0.0;
-    r.width = 0;
-    r.height = 0;
+    r.size = 0.008;
+    r.letter_spacing = 0;
+    r.line_height = 0.4;
     r.vertical_alignment = TextVerticalAlignment.TOP;
     r.horizontal_alignment = TextHorizontalAlignment.LEFT;
+    return r;
+}
+
+function TextMesh(style, text, length)
+{
+    var r = Entity();
+    r.str = "";
+    r.style = style;
+    r.index = 0;
+    r.index_start = 0;
+    r.px = 0;
+    r.py = 0;
+    r.pz = 0;
+    r.bounds = Vec4(0,0,4,0);
+    r.last_white_space_index = 0;
+    r.last_white_space_px = 0;
+    r.last_white_space_advance = 0;
+    r.last_line_index = 0;
+    r.last_line_px = 0;
 
     var attributes = 
     {
-        position: VertexAttribute(2),
-        uv: VertexAttribute(2),
+        position: PositionAttribute(),
+        uv: UVAttribute(),
+        color: ColorAttribute(),
         index: VertexAttribute(1)
     };
 
-    var vb;
+    var vb = VertexBuffer(null, attributes);
+    var ib = IndexBuffer(null);
+
+    length = length || text.length;
+    alloc_vertex_buffer_memory(vb, length * 4);
+    alloc_index_buffer_memory(ib, length * 6);
+    
+    r.mesh = Mesh(vb, ib, MeshLayout.TRIANGLES);
+    bind_mesh(r.mesh);
+
     if(text)
     {
-        r.text = text;
-        vb = VertexBuffer(null, attributes);
-        alloc_vertex_buffer_memory(vb, text.length * 6);
-        r.mesh = Mesh(vb, null, MeshLayout.TRIANGLES);
-        bind_mesh(r.mesh);
-        update_text(r);
-    }
-    else
-    {
-        vb = VertexBuffer(null, attributes);
-        alloc_vertex_buffer_memory(vb, length * 6);
-        r.mesh = Mesh(vb, null, MeshLayout.TRIANGLES);
-        bind_mesh(r.mesh);
+        append_text(r, text);     
     }
 
     return r;
 }
 
-function add_glyph(tm, str, index)
+function is_whitespace(char_code)
 {
-    var font = tm.font;
-    var metric = font.glyphs;
-    var glyph = str[index];
+    return char_code === 32;
+}
 
-    var char_code = glyph.charCodeAt(0);
-    var m = char_code * font.glyph_stride;
-    //LOG(m);
-
-    var scale = tm.size;
-
-    var x  = metric[m+0];
-    var y  = metric[m+1];
-    var w  = font.grid_width * scale;
-    var h  = w;
-    var gw = metric[m+2] * scale;
-    var gh = metric[m+3] * scale;
-    var bx = metric[m+4] * scale; 
-    var by = metric[m+5] * scale; 
-    var ha = metric[m+6] * scale;
-
-    var hh = h / 2;
-    var hw = w / 2;
-
-    var kerning = 0;
-    if(index > 0)// && font.has_kerning === true)
-    {
-        kerning = get_kerning(font, str.charCodeAt(index-1), str.charCodeAt(index));
-        //LOG(kerning);
-        kerning *= scale;
-    }
-
-    var vb = tm.mesh.vertex_buffer;
-    var d = vb.data;  
+function push_glyph_vertex(vb, x,y,z,u,v, color, index)
+{
     var i = vb.offset;
+    var d = vb.data;
+
+    d[i  ] = x;
+    d[i+1] = y;
+    d[i+2] = z;
+    d[i+3] = u;
+    d[i+4] = v;
+    d[i+5] = color[0];
+    d[i+6] = color[1];
+    d[i+7] = color[2];
+    d[i+8] = color[3];
+    d[i+9] = index;
+
+    vb.offset += 10;
+    vb.count = vb.offset;
+}
+
+function push_glyph_triangle(ib)
+{
+    var ti = ib.triangle_offset; 
+    var d = ib.data;  
+    var i = ib.offset;
+
+    d[i  ] = ti + 0;
+    d[i+1] = ti + 1;
+    d[i+2] = ti + 3;
+    d[i+3] = ti + 0;
+    d[i+4] = ti + 3;
+    d[i+5] = ti + 2;
+
+    ib.offset += 6;
+    ib.triangle_offset += 4;
+    ib.count = ib.offset;
+}
+
+function add_glyph(tm, char_code, prev_code, is_last_glyph)
+{
+    var style = tm.style;
+    var font = style.font;
+    var scale = style.size;
+
+    var glyph = font.glyph_metric;
+    get_glyph_metric(glyph, font, scale, char_code, prev_code);
+
+    //quad dimensions
+    var hh = (font.grid_width * scale) / 2;
+    var hw = hh;
 
     // uvs
-    
-    var px = x / font.atlas.width; //uvx
-    var py = y / font.atlas.height; //uvy
+    var px = glyph.x / font.atlas.width; 
+    var py = glyph.y / font.atlas.height; 
     var pw = px + ((font.grid_width) / font.atlas.width);
     var ph = py + ((font.grid_width) / font.atlas.height);
     
-    var cx = tm.px + bx + kerning + tm.letter_spacing + (gw / 2);
-    var cy = (tm.py + by) - (gh / 2);
-    var left   = cx - hw;
-    var right  = cx + hw;
-    var top    = cy + hh;
-    var bottom = cy - hh;
+    var cx = tm.px + glyph.bx + glyph.kerning + (glyph.w / 2) + style.letter_spacing;
+    var cy = (tm.py + glyph.by) - (glyph.h / 2);
+    var lft = cx - hw;
+    var rht = cx + hw;
+    var top = cy + hh;
+    var btm = cy - hh;
 
-    d[i+0] = left;
-    d[i+1] = top;
-    d[i+2] = px;
-    d[i+3] = ph;
-    d[i+4] = index;
+    var abs_btm = Math.abs(btm);
+    if(abs_btm > tm.height) tm.height = abs_btm;
 
-    d[i+5] = left;
-    d[i+6] = bottom;
-    d[i+7] = px;
-    d[i+8] = py;
-    d[i+9] = index;
-   
-    d[i+10] = right;
-    d[i+11] = bottom;
-    d[i+12] = pw;
-    d[i+13] = py;
-    d[i+14] = index;
+    var vb = tm.mesh.vertex_buffer;
+    push_glyph_vertex(vb, lft, btm, tm.pz, px,py, style.color, tm.index);
+    push_glyph_vertex(vb, rht, btm, tm.pz, pw,py, style.color, tm.index);
+    push_glyph_vertex(vb, lft, top, tm.pz, px,ph, style.color, tm.index);
+    push_glyph_vertex(vb, rht, top, tm.pz, pw,ph, style.color, tm.index);
+    push_glyph_triangle(tm.mesh.index_buffer);
 
-    d[i+15] = right;   
-    d[i+16] = top;
-    d[i+17] = pw;
-    d[i+18] = ph;
-    d[i+19] = index;
+    var x_advance = glyph.ha + glyph.kerning + style.letter_spacing;
 
-    d[i+20] = left; 
-    d[i+21] = top;
-    d[i+22] = px;
-    d[i+23] = ph;
-    d[i+24] = index;
-   
-    d[i+25] = right;
-    d[i+26] = bottom;
-    d[i+27] = pw;
-    d[i+28] = py;
-    d[i+29] = index;
-
-    // TODO: switch to mesh indices as this is getting heavy
-
-    vb.offset += 30;
-    
-    tm.px += ha + kerning;// + tm.letter_spacing;
-
-    tm.width = right;
-    /*
-    var is_break = false;
-    if(glyph === " ")
+    if(is_whitespace(char_code)) 
     {
-        tm.last_break = i;
-        tm.pen_break = tm.px;
-        is_break = true;
+        tm.last_white_space_index = tm.index+1;
+        tm.last_white_space_px = tm.px;
+        tm.last_white_space_advance = x_advance;
     }
 
-    // line break or last char then do line shift
-    if(tm.line_width > 0)
+
+    // if we are fixed bounds and we are outside those bounds with whitespace to break from
+
+    if(tm.bounds[2] > 0 && 
+       tm.px > tm.bounds[2] &&
+       tm.last_white_space_index > tm.last_line_index)
     {
-        if(((tm.px > tm.line_width) && is_break) || index === (tm.text.length - 1))
-        {
-            var offset = 0;
-            switch(tm.horizontal_alignment)
-            {
-                case TextHorizontalAlignment.CENTER:
-                {
-                    offset = -right / 2;
-                    break;
-                }
-                case TextHorizontalAlignment.RIGHT:
-                {
-                    offset = -right;
-                    break;
-                }
-            }
+        tm.width = tm.bounds[2];
 
-            var line_start = tm.last_line;
-            var line_end = i + 26; 
-            for(var i = line_start; i < line_end; i += vb.stride) d[i] += offset;
+        // first go back and h align the previous line
+        var line_width = tm.last_white_space_px - tm.bounds[0];
+        var x_offset = -line_width;
+        var h_align = style.horizontal_alignment;
+        
+        if(h_align === TextHorizontalAlignment.CENTER) x_offset /= 2;
+        else if(h_align === TextHorizontalAlignment.LEFT) x_offset = 0;
+
+        var start = tm.last_line_index * (vb.stride * 4);
+        var end = tm.last_white_space_index * (vb.stride * 4);
+
+        for(var i = start; i < end; i += vb.stride) vb.data[i] += x_offset;
+
+        // drop everything from the last_line_index to here down a line and shove to the left
+
+        x_offset = -((tm.last_white_space_px + tm.last_white_space_advance) - tm.bounds[0]);
+        var y_offset = -style.line_height;
+
+        start = tm.last_white_space_index * (vb.stride * 4);
+        end = (tm.index+1) * (vb.stride * 4);
+
+        for(var i = start; i < end; i += vb.stride)
+        {
+            vb.data[i  ] += x_offset;
+            vb.data[i+1] -= style.line_height;
         }
 
-        // line breaks
-
-        if((tm.px > tm.line_width) && is_break)
-        {
-            tm.width = right;
-
-            var start = tm.last_break + vb.stride;
-            var end = i + 26;
-            var x_shift = -tm.pen_break;
-            var y_shift = -tm.line_height;
-
-            for(var i = start; i < end; i += vb.stride) 
-            {
-                d[i] += x_shift;
-                d[i+1] += y_shift;
-            }
-
-            //go back to last break and adjust x and y
-
-            tm.px += x_shift;
-            tm.py += y_shift;
-            tm.last_line = tm.last_break;
-        }
-        else if(tm.width < tm.line_width) tm.width = right;
+        tm.px += x_offset + x_advance;
+        tm.py -= style.line_height;
+        tm.last_line_index = tm.last_white_space_index;
     }
-    else tm.width = right;
+    else
+    {
+        tm.px += x_advance;
+    }
 
-    tm.height = Math.abs(bottom);
-    */
+    tm.index++;
+
+    if(is_last_glyph === true)
+    {
+        var line_width = tm.px - tm.bounds[0];
+        var x_offset = -line_width;
+        var h_align = style.horizontal_alignment;
+        
+        if(h_align === TextHorizontalAlignment.CENTER) x_offset /= 2;
+        else if(h_align === TextHorizontalAlignment.LEFT) x_offset = 0;
+
+        var start = tm.last_line_index * (vb.stride * 4);
+        var end = tm.index * (vb.stride * 4);
+
+        for(var i = start; i < end; i += vb.stride)
+        {
+            vb.data[i] += x_offset;
+        }
+
+        var rhs = tm.px + x_advance;
+        if(rhs > tm.width) tm.width = rhs;
+        tm.width = Math.abs(tm.width - tm.bounds[0]);
+
+        start = tm.index_start;
+        var y_offset = tm.height;
+        var v_align = style.vertical_alignment;
+
+        if(v_align === TextVerticalAlignment.CENTER) y_offset /= 2;
+        else if(v_align === TextVerticalAlignment.TOP) y_offset = 0;
+
+        for(var i = start; i < end; i += vb.stride)
+        {
+            vb.data[i+1] += y_offset;
+        }
+    }
 }
 
 function reset_text(tm)
@@ -2178,70 +2630,59 @@ function reset_text(tm)
 
     tm.px = 0;
     tm.py = 0;
+    tm.pz = 0;
     tm.width = 0;
     tm.height = 0;
-    tm.last_line = 0;
     tm.index = 0;
-    tm.text = "";
+    tm.index_start = 0;
+    tm.last_white_space_index = 0;
+    tm.last_white_space_px = 0;
+    tm.last_white_space_advance = 0;
+    tm.last_line_index = 0;
+    tm.last_line_px = 0;
+    set_vec4(tm.bounds, 0,0,0,0);
+    //tm.text = "";
 }
+
+function update_text_mesh(tm)
+{
+    update_mesh(tm.mesh);    
+}
+
+/*
+function set_text_mesh(tm, str)
+{
+    tm.str = str;
+    reset_text(tm);
+    append_text(tm, str);
+}
+*/
 
 function append_text(tm, str)
 {
-    tm.text += str;
-    update_text(tm);
-}
-
-function set_text(tm, str)
-{
-    reset_text(tm);
-    tm.text = str;
-    update_text(tm); 
-}
-
-function update_text(tm)
-{
-    for(var i = tm.index; i < tm.text.length; ++i) add_glyph(tm, tm.text, i);
-    tm.index = tm.text.length;
-
-    var y_offset = 0;
-    switch(tm.vertical_alignment)
+    var n = str.length;
+    var prev_code = -1;
+    for(var i = 0; i < n-1; ++i)
     {
-        case TextVerticalAlignment.CENTER:
-        {
-            y_offset = tm.height / 2;
-            break;
-        }
-        case TextVerticalAlignment.BOTTOM:
-        {
-            y_offset = tm.height;
-            break;
-        }
+        var char_code = str.charCodeAt(i);
+        add_glyph(tm, char_code, prev_code, false);
+        prev_code = char_code;
     }
-
-    var vb = tm.mesh.vertex_buffer;
-    for(var i = 0; i < vb.data.length; i += vb.stride) vb.data[i+1] += y_offset; 
-
-    update_mesh(tm.mesh);
+    add_glyph(tm, str.charCodeAt(n-1), prev_code, true);
 }
 
 
 function draw_text(text, shader, camera)
 {
-    // TODO: reduce this AMAP
     use_shader(shader);
 
     var mvp = _Mat4();
     mat4_mul(mvp, text.world_matrix, camera.view_projection);
 
     set_uniform('mvp', mvp);
-    set_uniform('buffer', text.buffer);
-    set_uniform('gamma', text.gamma);
-    set_uniform('theta', text.theta);
-    set_uniform('zeta', text.zeta);
-    set_uniform('color', text.color);
-    set_uniform('texture', text.font.atlas);
+    set_uniform('texture', text.style.font.atlas);
 
-    draw_mesh(shader, text.mesh);
+    draw_mesh(text.mesh);
 
     mat4_stack.index--;
 }
@@ -2250,6 +2691,8 @@ function Font()
     var r = {};
     r.name;
     r.atlas = null;
+    r.unicode_start;
+    r.unicode_end;
     r.num_glyphs;
     r.grid_width;
     r.glyph_stride;
@@ -2261,8 +2704,43 @@ function Font()
     return r;
 }
 
+function GlyphMetric()
+{
+    var r = {};
+    r.x  = 0;
+    r.y  = 0;
+    r.w  = 0;
+    r.h  = 0;
+    r.bx = 0; 
+    r.by = 0; 
+    r.ha = 0;
+    r.kerning = 0;
+    //TODO: line height // r.va??
+    return r;
+}
+
+function get_glyph_metric(r, font, scale, char_code, prev_code)
+{
+    var i = (char_code - font.unicode_start) * font.glyph_stride;
+    var m = font.glyphs;
+    r.x  = m[i+0];
+    r.y  = m[i+1];
+    r.w  = m[i+2] * scale;
+    r.h  = m[i+3] * scale;
+    r.bx = m[i+4] * scale; 
+    r.by = m[i+5] * scale; 
+    r.ha = m[i+6] * scale;
+    if(prev_code > 0) 
+    {
+        r.kerning = get_kerning(font, char_code, prev_code) * scale;
+    }
+    else r.kerning = 0;
+}
+
 function get_kerning(font, a,b)
 {
+    if(font.has_kerning === false) return 0;
+
     var result = 0;
 
     var h = 5381;
@@ -2295,6 +2773,8 @@ function read_font(ag)
 {
     var r = Font();
     r.name = read_string();
+    r.unicode_start = read_i32();
+    r.unicode_end = read_i32();
     r.num_glyphs = read_i32();
     r.grid_width = read_i32();
     r.glyph_stride = read_i32();
@@ -2312,27 +2792,37 @@ function read_font(ag)
         r.kerning = read_f32(r.num_kerning_values);
     }
 
-    r.atlas = read_texture();
+    r.atlas = read_texture('png');
+    r.glyph_metric = GlyphMetric();
 
     if(ag) ag.fonts[r.name] = r;
     return r;
 }
+var _ENTITY_COUNT = 0;
+
 function Entity(x,y,z, parent)
 {
 	var e = {};
 	e.name;
-	e.id;
+	e.id = _ENTITY_COUNT;
+	_ENTITY_COUNT++;
 	e.parent = null;
 	e.children = [];
 	e.active = true;
 	e.dirty = true;
 	e.position = Vec3(x,y,z);
+	e.world_position = Vec3();
 	e.scale = Vec3(1,1,1);
 	e.rotation = Vec4(0,0,0,1);
 	e.local_matrix = Mat4();
 	e.world_matrix = Mat4();
 	if(parent) set_parent(e, parent);
 	return e;
+}
+
+function set_mvp(m, entity, camera)
+{
+	mat4_mul(m, entity.world_matrix, camera.view_projection);
 }
 
 function set_active(e, val)
@@ -2415,7 +2905,8 @@ function Camera(near, far, fov, view, ortho)
 function UICamera(view)
 {
 	var c = Camera(0.01,1,60, view, true);
-    set_vec3(c.position, view[2] / 2, view[3] / 2, 0);
+    set_vec3(c.position, view[2] / 2, -view[3] / 2, 0);
+    update_camera(c);
     return c;
 }
 
@@ -2432,15 +2923,16 @@ function update_camera_projection(c, view)
 		perspective_projection(c.projection, c.near, c.far, c.aspect, c.fov);
 	}
 }
+
 function update_camera(c)
 {
 	update_entity(c, true);
 	mat4_inverse_affine(c.view, c.world_matrix);
 	mat4_mul(c.view_projection, c.view, c.projection);
-
-	//mat3_from_mat4(c.normal, c.view);
-	//mat3_inverse(c.normal, c.normal);
-	//mat3_transposed(c.normal, c.normal);
+	
+	mat3_from_mat4(c.normal, c.view);
+	mat3_inverse(c.normal, c.normal);
+	mat3_transposed(c.normal, c.normal);
 }
 function free_look(c, dt, vertical_limit)
 {
@@ -2530,6 +3022,7 @@ function WebGL(canvas, options)
 	for(var i = 0; i < supported_extensions.length; ++i)
 	{
 		var ext = supported_extensions[i];
+		if(ext.startsWith('MOZ')) continue;
 	    GL.extensions[ext] = GL.getExtension(ext);
 	}
 
@@ -2632,7 +3125,7 @@ function convert_mesh_layout(type)
 	{
 		case MeshLayout.TRIANGLES: return GL.TRIANGLES;
 		case MeshLayout.LINES: 	   return GL.LINES;
-		case MeshLayout.TRI_STRIP: return GL.TRIANGLE_STRIP;
+		case MeshLayout.STRIP:	   return GL.TRIANGLE_STRIP;
 
 		default: console.error('Invalid mesh layout');
 	}
@@ -2739,7 +3232,6 @@ function update_texture(t)
 	}
 	if(t.from_element === true)
 	{
-		
 		GL.texImage2D(GL.TEXTURE_2D, 0, format, format, size, t.data);
 	}
 	else if(t.compressed === true)
@@ -2864,8 +3356,7 @@ function bind_instance_buffers(buffers)
     for(var k in buffers)
     {
         var b = buffers[k];
-        if(b.id !== null) continue;
-        b.id = GL.createBuffer();
+        if(b.id === null) b.id = GL.createBuffer();
     }
     update_instance_buffers(buffers);
 }
@@ -2891,7 +3382,7 @@ function set_instance_attributes(shader, buffers)
 
         GL.bindBuffer(GL.ARRAY_BUFFER, buffer.id);
         GL.enableVertexAttribArray(sa);
-        GL.vertexAttribPointer(sa, 3, GL.FLOAT,false, 12, 0);
+        GL.vertexAttribPointer(sa, buffer.stride, GL.FLOAT,buffer.normalized, buffer.stride * 4, 0);
         ext.vertexAttribDivisorANGLE(sa, 1);
     }
 }
@@ -3030,9 +3521,9 @@ function set_uniform(name, value)
 }
 
 
-function draw_mesh(shader, mesh)
+function draw_mesh(mesh)
 {
-	set_attributes(shader, mesh);
+	set_attributes(_active_shader, mesh);
 
 	var layout = convert_mesh_layout(mesh.layout);
 	
@@ -3047,10 +3538,12 @@ function draw_mesh(shader, mesh)
     }
 }
 
-function draw_mesh_instanced(mesh, instances, shader, count)
+function draw_mesh_instanced(mesh, instances, count)
 {
 	var ext = GL.extensions.ANGLE_instanced_arrays;
-	set_instance_attributes(shader, instances);
+
+    set_attributes(_active_shader, mesh);
+	set_instance_attributes(_active_shader, instances);
 
 	var layout = convert_mesh_layout(mesh.layout);
 
@@ -3170,6 +3663,9 @@ function bind_render_target(t)
 	bind_texture(t.color);
 	bind_texture(t.depth);
 
+	update_texture(t.color);
+	update_texture(t.depth);
+
 	t.frame_buffer = GL.createFramebuffer();
 	GL.bindFramebuffer(GL.FRAMEBUFFER, t.frame_buffer);
 
@@ -3179,6 +3675,9 @@ function bind_render_target(t)
 	//DEBUG
 	verify_render_target();
 	//END	
+
+	GL.bindFramebuffer(GL.FRAMEBUFFER, null);
+	GL.bindRenderbuffer(GL.RENDERBUFFER, null);
 }
 
 function set_render_target_attachment(attachment, texture)
@@ -3187,13 +3686,13 @@ function set_render_target_attachment(attachment, texture)
 	GL.framebufferTexture2D(GL.FRAMEBUFFER, attachment, GL.TEXTURE_2D, texture.id, 0);
 }
 
-function set_render_target(target, view)
+function set_render_target(target)
 {
 	if(target === null)
 	{
 		GL.bindFramebuffer(GL.FRAMEBUFFER, null);
 		GL.bindRenderbuffer(GL.RENDERBUFFER, null);
-		set_viewport(view);
+		set_viewport(app.view);
 	}
 	else
 	{
@@ -3208,7 +3707,7 @@ function set_render_target(target, view)
 
 function verify_webgl_context()
 {
-	if(GL.isContextLost()) console.error('GL context lost');
+	if(GL.isContextLost && GL.isContextLost()) console.error('GL context lost');
 }
 
 function verify_render_target()
@@ -3234,12 +3733,6 @@ function log_webgl_info()
 	LOG("Max Vertex Uniform Vectors: " + GL.getParameter(GL.MAX_VERTEX_UNIFORM_VECTORS));
 	LOG("Max Frament Uniform Vectors: " + GL.getParameter(GL.MAX_FRAGMENT_UNIFORM_VECTORS));
 	LOG("Max Varying Vectors: " + GL.getParameter(GL.MAX_VARYING_VECTORS));
-
-	var supported_extensions = GL.getSupportedExtensions();
-	for(var i = 0; i < supported_extensions.length; ++i)
-	{
-		console.log(supported_extensions[i]);
-	}
 
 	var info = GL.getExtension('WEBGL_debug_renderer_info');
 	if(info) 
@@ -3408,6 +3901,17 @@ function update_input()
 			t.delta[1] = t.position[1] - t.last_position[1];
 			t.last_position[0] = t.position[0];
 			t.last_position[1] = t.position[1];
+			//break; //wut?
+		}
+
+		for(var i = 0; i < input.MAX_TOUCHES; ++i)
+		{
+			var t = input.touches[i];
+			if(t.is_touching === false) continue;
+			input.mouse.position[0] = t.position[0];
+			input.mouse.position[1] = t.position[1];
+			input.mouse.delta[0] = t.delta[0];
+			input.mouse.delta[1] = t.delta[1];
 			break;
 		}
 	}
@@ -3430,6 +3934,7 @@ function update_input()
 		}
 
 		vec_sub(input.mouse.delta, input.mouse.position, input.mouse.last_position);
+
 		vec_eq(input.mouse.last_position, input.mouse.position);
 	}
 }
@@ -3464,7 +3969,7 @@ function on_key_up(e)
 }
 function on_mouse_move(e)
 {
-	set_vec3(input.mouse.position, e.clientX, e.clientY, 0);
+	set_vec3(input.mouse.position, e.clientX * app.res, e.clientY * app.res, 0);
 }
 function on_mouse_wheel(e)
 {
@@ -3552,30 +4057,51 @@ function on_touch_end(e)
 	}
 	//e.preventDefault();
 }
-function GLDraw(buffer_size, shader)
+function GLDraw(buffer_size)
 {
 	var r = {};
 	r.color = Vec4(1,1,1,1);
 	r.matrix = Mat4();
-	r.shader = shader;
 
-	var attributes = 
+	var update_rate = BufferUpdateRate.DYNAMIC;
+
+	// LINES
+
+	r.line_shader = app.assets.shaders.basic;
+	var line_attributes = 
 	{
-		position: VertexAttribute(3),
-		color: VertexAttribute(4, true)
+		position: PositionAttribute(),
+		color: ColorAttribute()
 	};
 
-	var vb = VertexBuffer(null, attributes, BufferUpdateRate.DYNAMIC);
+	var vb = VertexBuffer(null, line_attributes, update_rate);
 	alloc_vertex_buffer_memory(vb, buffer_size);
     r.lines = Mesh(vb, null, MeshLayout.LINES);
     bind_mesh(r.lines);
 
-    vb = VertexBuffer(null, attributes, BufferUpdateRate.DYNAMIC);
+    // TRIANGLES
+
+    r.tri_shader = app.assets.shaders.rect;
+    var tri_attributes = 
+    {
+    	position: PositionAttribute(),
+    	uv: UVAttribute(),
+    	radius: VertexAttribute(1),
+    	color: ColorAttribute()
+    };
+
+    vb = VertexBuffer(null, tri_attributes, update_rate);
 	alloc_vertex_buffer_memory(vb, buffer_size);
 
-    var ib = IndexBuffer(new Uint32Array(buffer_size), BufferUpdateRate.DYNAMIC);
+    var ib = IndexBuffer(new Uint32Array(buffer_size), update_rate);
     r.triangles = Mesh(vb, ib, MeshLayout.TRIANGLES);
     bind_mesh(r.triangles);
+
+    // TEXT
+
+    r.text_shader = app.assets.shaders.text;
+    r.text_style = TextStyle(app.assets.fonts.space_mono);
+    r.text = TextMesh(r.text_style, "", 2048);
 
 	return r;
 }
@@ -3586,19 +4112,25 @@ function reset_gl_draw(ctx)
 	set_vec4(ctx.color, 1,1,1,1);
 	clear_mesh_buffers(ctx.lines);
 	clear_mesh_buffers(ctx.triangles);
+	reset_text(ctx.text);
 }
 
 function render_gl_draw(ctx, camera)
 {
-	var shader = ctx.shader;
 	update_mesh(ctx.lines);
 	update_mesh(ctx.triangles);
 
-	use_shader(shader);
+	use_shader(ctx.line_shader);
 	set_uniform('mvp', camera.view_projection);
-	draw_mesh(shader, ctx.lines);
-	draw_mesh(shader, ctx.triangles);
+	draw_mesh(ctx.lines);
 
+	use_shader(ctx.tri_shader);
+	set_uniform('mvp', camera.view_projection);
+	draw_mesh(ctx.triangles);
+
+	update_mesh(ctx.text.mesh);
+	draw_text(ctx.text, ctx.text_shader, camera);
+	
 	reset_gl_draw(ctx);
 }
 
@@ -3710,14 +4242,37 @@ function gl_push_line_segment(start,end,thickness,depth, mesh, color, matrix)
 
 	vec3_stack.index = index;
 }
-/*
-function draw_quad(ctx, x,y,w,h)
-{
-	draw_quad_abs(ctx, x - (w/2), y - (h/2), w,h); 
-}
-*/
 
-function gl_push_rect(r, depth, mesh, color, matrix)
+function draw_quad(ctx, p,w,h,r)
+{
+	var hw = w / 2;
+	var hh = h / 2;
+	var rect = _Vec4(p[0]-hw,p[1]+hh,w,h);
+	gl_push_rect(rect, p[2], r, ctx.triangles, ctx.color, ctx.matrix); 
+	vec4_stack.index--;
+}
+
+function draw_quad_f(ctx, x,y,w,h,r)
+{
+	var rect = _Vec4(x,y,w,h);
+	gl_push_rect(rect, 0.0, r, ctx.triangles, ctx.color, ctx.matrix); 
+	vec4_stack.index--;
+}
+
+function draw_text_f(ctx, x,y, str)
+{
+	var t = ctx.text;
+	t.width = 0;
+	t.height = 0;
+	t.bounds[0] = x;
+    t.px = x;
+    t.py = y;
+    t.index_start = t.index;
+    t.style.color = ctx.color;
+    append_text(t, str);
+}
+
+function gl_push_rect(r, depth, radius, mesh, color, matrix)
 {
 	var d = mesh.vertex_buffer.data;
 	var o = mesh.vertex_buffer.offset;
@@ -3730,39 +4285,51 @@ function gl_push_rect(r, depth, mesh, color, matrix)
 	d[o  ] = r[0];
 	d[o+1] = r[1] - r[3];
 	d[o+2] = z;
-	d[o+3] = c[0];
-	d[o+4] = c[1];
-	d[o+5] = c[2];
-	d[o+6] = c[3];
+	d[o+3] = 0;
+	d[o+4] = 0;
+	d[o+5] = radius;
+	d[o+6] = c[0];
+	d[o+7] = c[1];
+	d[o+8] = c[2];
+	d[o+9] = c[3];
 
 	//br
-	d[o+7] = r[0] + r[2];
-	d[o+8] = r[1] - r[3];
-	d[o+9] = z;
-	d[o+10] = c[0];
-	d[o+11] = c[1];
-	d[o+12] = c[2];
-	d[o+13] = c[3];
+	d[o+10] = r[0] + r[2];
+	d[o+11] = r[1] - r[3];
+	d[o+12] = z;
+	d[o+13] = 1;
+	d[o+14] = 0;
+	d[o+15] = radius;
+	d[o+16] = c[0];
+	d[o+17] = c[1];
+	d[o+18] = c[2];
+	d[o+19] = c[3];
 
 	//tl
-	d[o+14] = r[0];
-	d[o+15] = r[1];
-	d[o+16] = z;
-	d[o+17] = c[0];
-	d[o+18] = c[1];
-	d[o+19] = c[2];
-	d[o+20] = c[3];
+	d[o+20] = r[0];
+	d[o+21] = r[1];
+	d[o+22] = z;
+	d[o+23] = 0;
+	d[o+24] = 1;
+	d[o+25] = radius;
+	d[o+26] = c[0];
+	d[o+27] = c[1];
+	d[o+28] = c[2];
+	d[o+29] = c[3];
 
 	//tr
-	d[o+21] = r[0] + r[2];
-	d[o+22] = r[1];
-	d[o+23] = z;
-	d[o+24] = c[0];
-	d[o+25] = c[1];
-	d[o+26] = c[2];
-	d[o+27] = c[3];
+	d[o+30] = r[0] + r[2];
+	d[o+31] = r[1];
+	d[o+32] = z;
+	d[o+33] = 1;
+	d[o+34] = 1;
+	d[o+35] = radius;
+	d[o+36] = c[0];
+	d[o+37] = c[1];
+	d[o+38] = c[2];
+	d[o+39] = c[3];
 
-	mesh.vertex_buffer.offset += 28;
+	mesh.vertex_buffer.offset += 40;
 
 	//indices
 
@@ -3780,6 +4347,7 @@ function gl_push_rect(r, depth, mesh, color, matrix)
 
 	mesh.index_buffer.triangle_offset += 4;
 	mesh.index_buffer.offset += 6;
+
 }
 
 
@@ -3940,29 +4508,90 @@ function draw_bounds(ctx, b)
 	draw_wire_cube(ctx, w,h,d);
 	mat4_identity(ctx.matrix);
 }
+
 function draw_wire_mesh(ctx, mesh, matrix)
 {
-	mat4_eq(ctx.matrix, matrix);
+//	mat4_eq(ctx.matrix, matrix);
+	
+	var vb = mesh.vertex_buffer.data;
+	var ib = mesh.index_buffer.data;
+	var n = mesh.index_buffer.count / 3;
 	var stride = mesh.vertex_buffer.stride;
-	var n = mesh.vertex_count / 3;
-	var d = mesh.vertex_buffer.data;
+
+	var A = _Vec3();
+	var B = _Vec3();
+	var C = _Vec3();
+
 	var c = 0;
 	for(var i = 0; i < n; ++i)
 	{
-		var stack = vec_stack.index;
-		var ta = _Vec3(d[c], d[c+1], d[c+2]);
-		c += stride;
-		var tb = _Vec3(d[c], d[c+1], d[c+2]);
-		c += stride;
-		var tc = _Vec3(d[c], d[c+1], d[c+2]);
-		c += stride;
-		gl_push_line(ta,tb, ctx.lines, ctx.color, ctx.matrix);
-		gl_push_line(tb,tc, ctx.lines, ctx.color, ctx.matrix);
-		gl_push_line(tc,ta, ctx.lines, ctx.color, ctx.matrix);
-		vec_stack.index = stack;
+		var ta = ib[c  ] * stride;
+		var tb = ib[c+1] * stride;
+		var tc = ib[c+2] * stride;
+
+		set_vec3(A, vb[ta], vb[ta+1], vb[ta+2]);
+		set_vec3(B, vb[tb], vb[tb+1], vb[tb+2]);
+		set_vec3(C, vb[tc], vb[tc+1], vb[tc+2]);
+
+		gl_push_line(A,B, ctx.lines, ctx.color, ctx.matrix);
+		gl_push_line(B,C, ctx.lines, ctx.color, ctx.matrix);
+		gl_push_line(C,A, ctx.lines, ctx.color, ctx.matrix);
+
+		c += 3;
 	}
-	mat4_identity(ctx.matrix);
+
+	vec3_stack.index -= 3;
+//	mat4_identity(ctx.matrix);
 }
+
+function draw_wire_camera(ctx, camera)
+{
+	var index = vec3_stack.index;
+	vec_eq(ctx.matrix, camera.world_matrix);
+
+	var hw = 1;
+	var hh = 1;
+	var z =  0;
+
+	var zero = _Vec3(0,0,1);
+	var tl = _Vec3(-hw, hh, z);
+	var tr = _Vec3( hw, hh, z);
+	var bl = _Vec3(-hw,-hh, z);
+	var br = _Vec3( hw,-hh, z);
+
+	var inv = _Mat4();
+    mat4_inverse(inv, camera.projection);
+    mat4_mul_point(tl, inv, tl);
+    mat4_mul_point(tr, inv, tr);
+    mat4_mul_point(bl, inv, bl);
+    mat4_mul_point(br, inv, br);
+
+	set_vec4(ctx.color, 0.5,0.5,0.5,1.0);
+	draw_line(ctx, zero, tl);
+	draw_line(ctx, zero, tr);
+	draw_line(ctx, zero, bl);
+	draw_line(ctx, zero, br);
+
+	draw_line(ctx, tl, tr);
+	draw_line(ctx, tr, br);
+	draw_line(ctx, br, bl);
+	draw_line(ctx, bl, tl);
+
+	set_vec3(bl, -hw * 0.3, hh + 0.1, z);
+	set_vec3(br,  hw * 0.3, hh + 0.1, z);
+	set_vec3(tl,  0, hh + 0.5, z);
+	mat4_mul_point(tl, inv, tl);
+    mat4_mul_point(bl, inv, bl);
+    mat4_mul_point(br, inv, br);
+
+	draw_line(ctx, bl, tl);
+	draw_line(ctx, tl, br);
+	draw_line(ctx, br, bl);
+
+	mat4_identity(ctx.matrix);
+	vec3_stack.index = index;
+}
+
 function draw_bezier(ctx, b, segments)
 {
 	var index = vec3_stack.index;
@@ -4006,10 +4635,521 @@ function draw_rig_transforms(ctx, rig)
 		draw_transform(ctx, rig.joints[i].world_matrix);
 	}
 }
-function quad_mesh(width, height)
+function DebugView(view, buffer_size)
 {
-	var w = width / 2;
-	var h = height / 2;
+    var r = {};
+    r.groups = [];
+    r.color;
+    r.matrix = Mat4();
+    r.padding = 5;
+    r.x = 0; 
+    r.y = 0;
+    r.width = 280;
+
+    r.text_style = TextStyle(app.assets.fonts.space_mono);
+    r.text = TextMesh(r.text_style, "test", 2048);
+    r.text_style.size = 0.6;
+
+    r.background = Vec4(0.1,0.1,0.1,0.8);
+    r.white = Vec4(1,1,1,1);
+    r.text_color = Vec4(0.5,0.5,0.5,1);
+    r.highlight = Vec4(0.3,0.6,0.9,1.0);
+    r.inactive_grey = Vec4(0.2,0.2,0.2,0.8);
+    r.active_grey = Vec4(0.25,0.25,0.25,1.0);
+
+    var update_rate = BufferUpdateRate.DYNAMIC;
+
+    // LINES
+
+    r.line_shader = app.assets.shaders.basic;
+    var line_attributes = 
+    {
+        position: PositionAttribute(),
+        color: ColorAttribute()
+    };
+
+    var vb = VertexBuffer(null, line_attributes, update_rate);
+    alloc_vertex_buffer_memory(vb, buffer_size);
+    r.lines = Mesh(vb, null, MeshLayout.LINES);
+    bind_mesh(r.lines);
+
+    // TRIANGLES
+
+    r.tri_shader = app.assets.shaders.basic;
+
+    var tri_attributes = 
+    {
+        position: PositionAttribute(),
+        uv: UVAttribute(),
+        radius: VertexAttribute(1),
+        color: ColorAttribute()
+    };
+
+    var vb = VertexBuffer(null, tri_attributes, update_rate);
+    alloc_vertex_buffer_memory(vb, buffer_size);
+
+    var ib = IndexBuffer(new Uint32Array(buffer_size), update_rate);
+    r.triangles = Mesh(vb, ib, MeshLayout.TRIANGLES);
+    bind_mesh(r.triangles);
+    
+    return r;
+}
+ 
+function DebugGroup(ctx, name, x,y)
+{
+    var g = {};
+    g.name = name;
+    g.x = x;
+    g.y = y;
+    g.px = 0;
+    g.py = 0;
+    g.visible = true;
+    g.is_dragging = false;
+    g.controls = [];
+    ctx.groups.push(g);
+    return g;
+}
+
+function UI_Label(name, value, group)
+{
+    var r = {};
+    r.type = 0;
+    r.name = name;
+    r.value = value;
+    r.height = 30;
+    if(group) group.controls.push(r);
+    return r;
+}
+
+function UI_Toggle(name, value, group)
+{
+    var r = {};
+    r.type = 2;
+    r.name = name;
+    r.value = value;
+    r.height = 30;
+    if(group) group.controls.push(r);
+    return r;
+}
+
+function UI_Slider_Control(min, max, value)
+{
+    var r = {};
+    r.min = min;
+    r.max = max;
+    r.value = value || min;
+    r.dragging = false;
+    return r;
+}
+
+function UI_Slider(name, min, max, value, group)
+{
+    var r = {};
+    r.type = 1;
+    r.height = 0;
+    r.name = name;
+    r.sliders = [];
+
+    if(value.length)
+    {
+        for(var i = 0; i < value.length; ++i)
+        {
+            r.sliders.push(UI_Slider_Control(min, max, value[i]));
+        }
+        r.value = new Float32Array(value.length);
+    }
+    else
+    {
+        r.sliders.push(UI_Slider_Control(min, max, value));
+        r.value = value;
+    }
+
+    if(group) group.controls.push(r);
+
+    return r;
+}
+
+function UI_Curve(name, value, group)
+{
+    var r = {};
+    r.name = name;
+    r.type = 3;
+    r.value = value;
+    r.height = 160;
+    r.handle_a = Vec3(0,0,0);
+    r.handle_b = Vec3(0,0,0);
+    r.dragging_a = false;
+    r.dragging_b = false;
+    if(group) group.controls.push(r);
+    return r;
+}
+
+function update_debug_view(ctx, screen)
+{
+    ctx.mx = input.mouse.position[0];
+    ctx.my = -input.mouse.position[1];
+    ctx.mdx = input.mouse.delta[0];
+    ctx.mdy = input.mouse.delta[1];
+    ctx.m_down = key_down(Keys.MOUSE_LEFT);
+    ctx.m_held = key_held(Keys.MOUSE_LEFT);
+    ctx.m_released = key_released(Keys.MOUSE_LEFT);
+ }
+
+function render_debug_view(ctx, camera)
+{
+    var n = ctx.groups.length;
+    for(var i = 0; i < n; ++i)
+    {
+        draw_ui_group(ctx, ctx.groups[i]);
+    }
+
+    disable_depth_testing();
+
+    use_shader(app.assets.shaders.rect);
+    set_uniform('mvp', camera.view_projection);
+    update_mesh(ctx.triangles);
+    draw_mesh(ctx.triangles);
+
+    use_shader(app.assets.shaders.basic);
+    set_uniform('mvp', camera.view_projection);
+    update_mesh(ctx.lines);
+    draw_mesh(ctx.lines);
+
+    update_mesh(ctx.text.mesh);
+    draw_text(ctx.text, app.assets.shaders.text, camera)
+
+    //reset
+    clear_mesh_buffers(ctx.triangles);
+    clear_mesh_buffers(ctx.lines);
+    reset_text(ctx.text);
+}
+
+function draw_ui_group(ctx, group)
+{
+    var hover = point_in_rect_fast(ctx.mx, ctx.my, group.x, group.y,ctx.width,20);
+
+    // TODO: hide button
+         
+    if(group.is_dragging === true)
+    {
+        if(ctx.m_released) group.is_dragging = false;
+        else
+        {
+            var screen = app.view;
+            group.x += ctx.mdx;
+            group.y -= ctx.mdy;
+
+            if(group.x < screen[0]) group.x = screen[0];
+            if(group.x > (screen[2] - ctx.width)) group.x = (screen[2] - ctx.width);
+            if(group.y < -screen[3]) group.y = -screen[3];
+            if(group.y > 0) group.y = 0;
+        }
+    }
+    else
+    {
+        if(hover && ctx.m_down) group.is_dragging = true;
+    }
+
+    if(hover || group.is_dragging) ctx.color = ctx.inactive_grey;
+    else ctx.color = ctx.background;
+    draw_quad_f(ctx, group.x, group.y, ctx.width,20, 0);
+
+    group.px = group.x;
+    group.py = group.y - 20;
+
+    var n = group.controls.length;
+    for(var i = 0; i < n; ++i)  
+    {
+        var control = group.controls[i];
+        switch(control.type)
+        {
+            case 0:
+            {
+                draw_ui_label(ctx, control, group.px, group.py);
+                group.py -= control.height;
+                break;
+            }
+            case 1:
+            {
+                draw_ui_slider(ctx, control, group.px, group.py);
+                group.py -= control.height;
+                break;
+            }
+            case 2:
+            {
+                draw_ui_toggle(ctx, control, group.px, group.py);
+                group.py -= control.height;
+                break;
+            }
+            case 3:
+            {
+                draw_ui_curve(ctx, control, group.px, group.py);
+                group.py -= control.height;
+                break;
+            }
+        }
+    }
+}
+
+function draw_ui_label(ctx, control, px,py)
+{
+    var x = px;
+    var y = py;
+    var w = ctx.width;
+    var h = control.height;
+
+    ctx.color = ctx.background;
+    draw_quad_f(ctx, x,y,w,h, 0);
+
+    // TODO: format string here?
+    ctx.color = ctx.text_color;
+    draw_text_f(ctx, x+5,y-20, control.name + ': ' + control.value.toString());
+}
+
+function draw_ui_slider(ctx, control, px,py)
+{
+    control.height = 0;
+
+    ctx.color = ctx.background;
+    draw_quad_f(ctx, px, py, ctx.width, 30, 0);
+
+    ctx.color = ctx.text_color;
+    draw_text_f(ctx, px + ctx.padding, py-25, control.name);
+    control.height += 30;
+
+    var y = py - 30;
+    if(control.value.length)
+    {
+        for(var i = 0; i < control.value.length; ++i)
+        {
+            var val = draw_slider_control(ctx, control.sliders[i], px,y);
+            control.value[i] = val;
+
+            y -= 30;
+            control.height += 30;
+        }
+    }
+    else 
+    {
+        draw_slider_control(ctx, control.sliders[0], px,y);
+        control.value = control.sliders[0].value;
+        control.height += 30;
+    }
+}
+
+function draw_slider_control(view, slider, px,py)
+{
+    var x = px;
+    var y = py;
+    var pad = view.padding;
+    var container_w = view.width;
+    var text_width = 50;
+    var bar_h = 20;
+    var bar_w = 200;
+    var container_h = bar_h + (pad * 2);
+    var range = slider.max - slider.min;
+
+    //draw bg
+    view.color = view.background;
+    draw_quad_f(view, x,y,container_w,container_h, 0);
+ 
+    x += pad;
+    y -= pad;
+
+    //check mouse
+    var hover = point_in_rect_fast(view.mx, view.my, x,y,bar_w,bar_h); 
+    if(hover && view.m_down) slider.dragging = true;
+    else if(view.m_released) slider.dragging = false;
+
+    //draw value bar background
+    if(slider.dragging || hover) 
+    {
+        view.color = view.active_grey;
+        draw_quad_f(view, x,y,bar_w,bar_h, 0);
+    }
+    else 
+    {
+        view.color = view.inactive_grey;
+        draw_quad_f(view, x,y,bar_w,bar_h, 0);
+    }
+
+    if(slider.dragging)
+    {
+        var dx = view.mx - x;
+        var percent = clamp(dx / bar_w, 0,1);
+        slider.value = slider.min + (range * percent);
+    }
+
+    // draw value bar
+    var percent = (slider.value - slider.min) / range;
+    view.color = view.highlight;
+    draw_quad_f(view, x,y, bar_w * percent, bar_h, 0);
+
+    // draw value string
+    x = px + bar_w + (pad * 3);
+    y = py;
+    var val_str = round_to(slider.value, 2).toString();
+
+    view.color = view.text_color;
+    draw_text_f(view, x, y-25, val_str);
+}
+  
+function draw_ui_toggle(ctx, control, px,py)
+{
+    var x = px;
+    var y = py;
+    var w = ctx.width;
+    var h = control.height;
+    var pad = ctx.padding;
+
+    //draw bg
+    ctx.color = ctx.background;
+    draw_quad_f(ctx, x,y,w,h, 0);
+ 
+    ctx.color = ctx.text_color;
+    draw_text_f(ctx, x+pad,y-20, control.name);
+    
+    x = (px + ctx.text.width);
+    y -= 8;
+
+    //check hover
+    var hover = point_in_rect_fast(ctx.mx, ctx.my, x,y,15,15);
+
+    //draw checkbox
+    if(hover) ctx.color = ctx.active_grey;
+    else ctx.color = ctx.inactive_grey;
+    draw_quad_f(ctx, x,y,15,15,0);
+ 
+    if(control.value === true) 
+    {
+        ctx.color = ctx.highlight;
+        draw_quad_f(ctx, x+5,y-5,5,5,0);
+    }
+    if(hover && ctx.m_down) control.value = !control.value;
+}
+
+function draw_ui_curve(ctx, control, px, py)
+{
+    var x = px;
+    var y = py;
+    var w = ctx.width;
+    var h = control.height;
+    var pad = ctx.padding;
+    var v3 = vec3_stack.index;
+
+    //draw bg
+    ctx.color = ctx.background;
+    draw_quad_f(ctx, x,y,w,h, 0);
+
+    h-= pad;
+ 
+    ctx.color = ctx.text_color;
+    draw_text_f(ctx, x+pad,y-20, control.name);
+
+    // draw curve box
+    w -= pad * 2;
+    y -= 30;
+    h -= 30;
+    x += pad;
+
+    ctx.color = ctx.inactive_grey;
+    draw_quad_f(ctx, x,y,w,h, 0);
+    
+    var curve = control.value.data;
+
+    control.handle_a[0] = x + (curve[4] * w);
+    control.handle_a[1] = y - ((1.0 - curve[5]) * h);
+    control.handle_b[0] = x + (curve[6] * w);
+    control.handle_b[1] = y - ((1.0-curve[7]) * h);
+
+    if(ctx.m_released)
+    {
+        control.dragging_a = false;
+        control.dragging_b = false;
+    }
+
+    var hover = point_in_rect_fast(ctx.mx, ctx.my, control.handle_a[0] - 5,control.handle_a[1] + 5,10,10);
+
+    if(hover && ctx.m_down) control.dragging_a = true;
+
+    if(control.dragging_a)
+    {
+        control.handle_a[0] += ctx.mdx;
+        control.handle_a[1] -= ctx.mdy;
+    }
+
+    control.handle_a[0] = clamp(control.handle_a[0], x-5, x+(w-5));
+    control.handle_a[1] = clamp(control.handle_a[1], (y-h)+5, y+5);
+
+    curve[4] = (control.handle_a[0] - x) / w;
+    curve[5] = 1.0 - ((y - control.handle_a[1]) / h);
+
+
+    if(hover || control.dragging_a) ctx.color = ctx.white;
+    else ctx.color = ctx.highlight;
+    draw_quad_f(ctx, control.handle_a[0],control.handle_a[1],10,10, 0.5);
+
+    ctx.color = ctx.highlight;
+    draw_line(ctx, _Vec3(x, y-h, 0), _Vec3(control.handle_a[0] + 5, control.handle_a[1] - 5, 0));
+
+    hover = point_in_rect_fast(ctx.mx, ctx.my, control.handle_b[0] - 5,control.handle_b[1] + 5,10,10);
+
+    if(hover && ctx.m_down) control.dragging_b = true;
+
+    if(control.dragging_b)
+    {
+        control.handle_b[0] += ctx.mdx;
+        control.handle_b[1] -= ctx.mdy;
+    }
+
+    control.handle_b[0] = clamp(control.handle_b[0], x-5, x+(w-5));
+    control.handle_b[1] = clamp(control.handle_b[1], (y-h)+5, y+5);
+
+    curve[6] = (control.handle_b[0] - x) / w;
+    curve[7] = 1.0 - ((y - control.handle_b[1]) / h);
+
+    if(hover || control.dragging_b) ctx.color = ctx.white;
+    else ctx.color = ctx.highlight;
+    draw_quad_f(ctx, control.handle_b[0],control.handle_b[1],10,10, 0.5);
+
+    ctx.color = ctx.highlight;
+    draw_line(ctx, _Vec3(x+w, y, 0), _Vec3(control.handle_b[0] + 5, control.handle_b[1] - 5, 0));
+
+    ctx.color = ctx.white;
+
+    var STEPS = 20;
+    var step = 1 / STEPS;
+    var t = step;
+
+    var a = _Vec3(0,0,0);
+    var b = _Vec3(1,1,0);
+
+    eval_curve(a, control.value, t, 0);
+    a[0] = x + (w * a[0]);
+    a[1] = y - (h * (1.0 - a[1]));
+    a[2] = 0;
+    
+    for(var i = 1; i < STEPS+1; ++i)
+    {
+        eval_curve(b, control.value, t, 2);
+
+        b[0] = x + (w * b[0]);
+        b[1] = y - (h * (1.0 - b[1]));
+        b[2] = 0;
+        t += step;
+
+        draw_line(ctx, a,b);
+        vec_eq(a,b);
+    }
+
+    vec3_stack.index = v3;
+}
+function quad_mesh(width, height, x_offset, y_offset)
+{
+    var w = width / 2;
+    var h = height / 2;
+    var x = x_offset || 0;
+    var y = y_offset || 0;
 
     var attributes = 
     {
@@ -4018,19 +5158,19 @@ function quad_mesh(width, height)
     };
     var vertices = new Float32Array(
     [
-        -w,-h, 0,0,
-         w,-h, 1,0,
-         w, h, 1,1,
-        -w,-h, 0,0,
-         w, h, 1,1,
-        -w, h, 0,1
+        -w + x,-h + y, 0,0,
+         w + x,-h + y, 1,0,
+         w + x, h + y, 1,1,
+        -w + x,-h + y, 0,0,
+         w + x, h + y, 1,1,
+        -w + x, h + y, 0,1
     ]);
     
     var vb = VertexBuffer(vertices, attributes);
     var mesh = Mesh(vb, null, MeshLayout.TRIANGLES);
     bind_mesh(mesh);
     update_mesh(mesh);
-	return mesh;
+    return mesh;
 }
 function LineMesh(points)
 {
@@ -4179,7 +5319,7 @@ function draw_line_mesh(lm, shader, camera)
     set_uniform('line_width', lm.thickness);
     set_uniform('color', lm.color);
     //set_uniform('dash', lm.dash);
-    draw_mesh(shader, lm.mesh);
+    draw_mesh(lm.mesh);
 
     mat4_stack.index--;
 }
@@ -4385,7 +5525,7 @@ function init()
     bind_assets(assets);
 
     assets.meshes.screen_quad = quad_mesh(2,2);
-    app.gl_draw = GLDraw(16000, assets.shaders.basic);
+    app.gl_draw = GLDraw(16000);
 
     app.root = Entity(null);
 
@@ -4396,15 +5536,38 @@ function init()
     app.ellipse = line_mesh_ellipse(1.0, 1.0, 30);
     set_parent(app.ellipse, app.root);
 
-    app.label = TextMesh(assets.fonts.bebas, 'Text');
-    set_parent(app.label, app.root);
+    // ASYNC VIDEO
+    //app.video = load_video_async('../../assets/bbb.mp4', 960, 540, app.sampler, TextureFormat.RGBA, true, true);
+
+    // MAIN OBJECT
+    app.monkey = Entity(0,0,0, app.root);
+
+    // TEXT
+
+    var copy = "Apparently we had reached a great height in the atmosphere, for the sky was a dead black, and the stars had ceased to twinkle. By the same illusion which lifts the horizon of the sea to the level of the spectator on a hillside, the sable cloud beneath was dished out, and the car seemed to float in the middle of an immense dark sphere, whose upper half was strewn with silver. Looking down into the dark gulf below, I could see a ruddy light streaming through a rift in the clouds.";
+    
+    app.text_style = TextStyle(assets.fonts.share_tech_mono);
+    app.display_text = TextMesh(app.text_style, copy);
+    update_text_mesh(app.display_text);
+    set_parent(app.display_text, app.root);
 
     // UI
-    /*
     app.ui_root = Entity(null);
     app.ui_camera = UICamera(app.view);
-    app.ui_draw = GLDraw(16000, assets.shaders.basic);
-    */
+
+    app.db_view = DebugView(app.view, 4096);
+    app.db_group = DebugGroup(app.db_view, 'Controls', 0,0);
+    app.label = UI_Label('Label', '', app.db_group);
+    app.slider = UI_Slider('Slider', 0, 10, _Vec3(0,0,0), app.db_group);
+    app.slider_b = UI_Slider('Other', 0, 10, 0, app.db_group);
+    app.toggle = UI_Toggle('Toggle', true, app.db_group);
+
+    app.curve = Curve(2, new Float32Array([0,0, 0,0, 0.5,0, 0.5,1, 1,1, 1,1]));
+    app.ui_curve = UI_Curve('curve', app.curve, app.db_group);
+
+    // RENDER TARGET
+    //app.render_target = RenderTarget(app.view, app.sampler);
+    
 
     set_clear_color(0.0, 0.0, 0.0, 1.0);
     set_viewport(app.view);
@@ -4426,22 +5589,22 @@ function update(t)
     }
 
     var dt = app.time.dt;
-    
-
 
     free_look(app.camera, dt, 80);
     update_camera(app.camera);
     update_entity(app.root, true);
 
-    //update_entity(app.ui_root, true);
-    //update_camera(app.ui_camera);
+    update_entity(app.ui_root, true);
+    update_camera(app.ui_camera);
 
     render();
-    //render_ui();
-    
+      
     update_input();
     clear_stacks();
+
+    //DEBUG
     verify_webgl_context();
+    //END
 }
 
 function render()
@@ -4454,30 +5617,46 @@ function render()
     var aspect = app.view[2] / app.view[3];
 
     clear_screen();
-    //set_blend_mode(BlendMode.DEFAULT);
-    //enable_depth_testing();
+    set_blend_mode(BlendMode.DEFAULT);
+    enable_depth_testing();
 
+    // IMPORTED MESH
     /*
-    use_shader(shaders.doh);
-    set_uniform('mvp', camera.view_projection);
-    draw_mesh(shaders.doh, meshes.screen_quad);
+    if(app.video.loaded === true)
+    {
+        update_texture(app.video);
+        use_shader(shaders.monkey);
+        set_mvp(mvp, app.monkey, camera);
+        set_uniform('mvp', mvp);
+        set_uniform('video', app.video);
+        draw_mesh(meshes.monkey);
+    }
     */
+    // LINE
 
     draw_line_mesh(app.ellipse, shaders.line, camera);
-    draw_text(app.label, shaders.text, camera);
 
-    /*
+    // TEXT
+
+    disable_depth_testing();
+    draw_text(app.display_text, shaders.text, camera);
+
+    // GL DRAW
+
     var ctx = app.gl_draw;
-    set_vec4(ctx.color, 1,0,0,1.0);
-    draw_line(ctx, _Vec3(0,0,0),_Vec3(1,0,0));
-    draw_line(ctx, _Vec3(0,0,0),_Vec3(0,1,0));
-    draw_line(ctx, _Vec3(0,0,0),_Vec3(0,0,1));
-    render_gl_draw(ctx, camera);
-    */
-}
+    set_vec4(ctx.color, 1.0,0.0,0.0,1.0);
+    draw_line(ctx, _Vec3(0,0,0), _Vec3(1,0,0));
+    
+    set_vec4(ctx.color, 0.0,1.0,0.0,1.0);
+    draw_line(ctx, _Vec3(0,0,0), _Vec3(0,1,0));
+    
+    set_vec4(ctx.color, 0.0,0.0,1.0,1.0);
+    draw_line(ctx, _Vec3(0,0,0), _Vec3(0,0,1));
+    render_gl_draw(ctx, app.camera);
+    
+    // UI
 
-function render_ui()
-{
-
+    update_debug_view(app.db_view, app.view);
+    render_debug_view(app.db_view, app.ui_camera);
 }
 

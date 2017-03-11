@@ -1,7 +1,7 @@
 import os
 import shutil
 import argparse
-from struct import pack
+from struct import pack, unpack
 
 LOG_LEVEL = 0
 
@@ -11,6 +11,11 @@ ASSET_TYPE_FONT = 2
 ASSET_TYPE_PNG = 3
 ASSET_TYPE_JPG = 15
 ASSET_TYPE_END = -1
+
+TEXTURE_RGB = 0
+TEXTURE_RGBA = 1
+TEXTURE_DEPTH = 2
+TEXTURE_GRAYSCALE = 3
 
 def copy_file(src, dest):
 	shutil.copy(src, dest)
@@ -66,9 +71,47 @@ def compile_binary(name, read_path, writer, type):
 def compile_img(name, read_path, writer, type):
 	log(read_path)
 	file = open(read_path, 'rb')
+	data = file.read()
+
+	width = 0
+	height = 0
+	fmt = TEXTURE_RGBA
+
+	if type is ASSET_TYPE_PNG:
+		w, h = unpack('>LL', data[16:24])
+		width = int(w)
+		height = int(h)
+		fmt = TEXTURE_RGBA
+
+	if type is ASSET_TYPE_JPG:
+		fmt = TEXTURE_RGB
+		try:
+			file.seek(0)
+			size = 2
+			ftype = 0
+			while not 0xc0 <= ftype <= 0xcf:
+				file.seek(size, 1)
+				byte = file.read(1)
+				while ord(byte) == 0xff:
+					byte = file.read(1)
+				ftype = ord(byte)
+				size = unpack('>H', file.read(2))[0] - 2
+			file.seek(1, 1)
+			h, w = unpack('>HH', file.read(4))
+			width = int(w)
+			height = int(h)
+		except Exception: 
+			pass
+
+	#print(width)
+	#print(height)
+	#print(fmt)
+
 	writer.i32(type)
 	writer.string(name)
-	data = file.read()
+	writer.i32(width)
+	writer.i32(height)
+	writer.i32(fmt)
 	writer.f64(len(data))
 	writer.bytes(data)
 	file.close()
@@ -84,8 +127,18 @@ def compile_font(name, read_path, writer):
 
 	img_path = read_path.replace('.font', '.fpng')
 	file = open(img_path, 'rb')
-	writer.string(name)
 	data = file.read()
+
+	w, h = unpack('>LL', data[16:24])
+	width = int(w)
+	height = int(h)
+	#print(width)
+	#print(height)
+
+	writer.string(name)
+	writer.i32(width)
+	writer.i32(height)
+	writer.i32(TEXTURE_RGB)
 	writer.f64(len(data))
 	writer.bytes(data)
 	file.close()

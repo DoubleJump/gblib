@@ -218,7 +218,7 @@ function vec_rotate_2D(r, v,a)
 {
 	var rad = a * DEG2RAD;
 	var cr = Math.cos(rad);
-	var sr = Math.sin(rad;)
+	var sr = Math.sin(rad);
 	r[0] = v[0] * cr - v[1] * sr;
     r[1] = v[0] * sr + v[1] * cr;
 }

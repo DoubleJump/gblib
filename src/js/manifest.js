@@ -17,6 +17,7 @@
 //import src/js/shader.js
 //import src/js/mesh.js
 //import src/js/texture.js
+//import src/js/render_target.js
 //import src/js/text.js
 //import src/js/font.js
 //import src/js/entity.js
@@ -25,6 +26,7 @@
 //import src/js/webgl.js
 //import src/js/input.js
 //import src/js/gl_draw.js
+//import src/js/debug_view.js
 //import src/js/quad.js
 //import src/js/line_mesh3D.js
 //import src/js/preloader.js

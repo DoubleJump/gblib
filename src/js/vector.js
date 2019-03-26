@@ -94,7 +94,7 @@ function vec_length(v)
 }
 function vec_distance(a, b)
 {
-	return Math.sqrt(vec_sqr_distance(a,b));
+	return Math.abs(Math.sqrt(vec_sqr_distance(a,b)));
 }
 function vec_sqr_distance(a, b)
 {
@@ -238,4 +238,11 @@ function vec_to_string(v, digits)
 	str += round_to(v[n-1], digits);
 	str += ']';
 	return str;
+}
+
+function angle_to_vec(r, angle)
+{
+	var a = angle * DEG2RAD;
+	r[0] = Math.cos(a);
+	r[1] = Math.sin(a);
 }

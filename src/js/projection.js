@@ -43,6 +43,17 @@ function polar_to_cartesian(r, a, b, radius)
     set_vec3(r, x,y,z);
 }
 
+function polar_to_cartesian_v(r, v, radius)
+{
+    var ar = v[0] * DEG2RAD;
+    var br = v[1] * DEG2RAD;
+
+    var x = radius * Math.cos(br) * Math.cos(ar);
+    var y = radius * Math.sin(br);
+    var z = radius * Math.cos(br) * Math.sin(ar);
+    set_vec3(r, x,y,z);
+}
+
 function lng_lat_to_cartesian(r, lng, lat, radius)
 {
     polar_to_cartesian(r, -lng + 90, lat, radius);
@@ -52,8 +63,8 @@ function world_to_screen(r, projection, world, view)
 {
     var wp = _Vec3(); 
     mat4_mul_projection(wp, projection, world);
-    r[0] = ((wp[0] + 1.0) / 2.0) * view[2];
-    r[1] = ((1.0 - wp[1]) / 2.0) * view[3];
+    r[0] = ((wp[0] + 1.0) / 2.0) * view[2];// / app.res;
+    r[1] = ((1.0 - wp[1]) / 2.0) * view[3];// / app.res;
     vec3_stack.index--;
 }
 

@@ -1,4 +1,4 @@
-function LineMesh(points)
+function LineMesh(points, thickness)
 {
 	var m = {};
 	m.stride = 2;

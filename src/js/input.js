@@ -1,12 +1,12 @@
-var KeyState = 
+var KeyState =
 {
 	RELEASED: 0,
 	UP: 1,
 	DOWN: 2,
 	HELD: 3,
-}
+};
 
-var Keys = 
+var Keys =
 {
 	MOUSE_LEFT: 0,
 	MOUSE_RIGHT: 1,
@@ -36,7 +36,7 @@ var Keys =
 	A: 65,
 	B: 66,
 	C: 67,
-	D: 68, 
+	D: 68,
 	E: 69,
 	F: 70,
 	G: 71,
@@ -59,86 +59,92 @@ var Keys =
 	X: 88,
 	Y: 89,
 	Z: 90,
-}
+};
 
 function Mouse()
 {
 	var m = {};
 	m.position = Vec3();
+	m.initial = Vec3();
 	m.last_position = Vec3();
 	m.delta = Vec3();
 	m.scroll = 0;
+	m.has_scrolled = false;
 	m.dy = 0;
 	m.ldy = 0;
 	return m;
 }
+/*
 function Gyro()
 {
 	var g = {};
 	g.acceleration = Vec3();
 	g.angular_acceleration = Vec3();
 	g.rotation = Vec4();
+	g.euler = Vec3();
 	g.updated = false;
 	return g;
 }
+*/
 function Touch ()
 {
 	var t = {};
 	t.id = -1;
 	t.is_touching = false;
 	t.position = Vec3();
+	t.initial = Vec3();
 	t.last_position = Vec3();
 	t.delta = Vec3();
 	t.updated = false;
+	t.state = KeyState.RELEASED;
 	return t;
 }
+/*
 function GamePad()
 {
 	var g = {};
 	return g;
 }
+*/
 
 var input;
 function Input(root)
 {
 	var r = {};
+	r.mouse = Mouse();
+	r.keys = new Uint8Array(256);
+	r.touches = new Array(5);
+	r.touch_count = 0;
+	//r.gyro = Gyro();
 	r.is_touch_device = is_touch_device();
+	r.scrolled = false;
+	r.scroll_lock = true;
+
 	if(!root) root = window;
-	
-	if(r.is_touch_device === true)
-	{
-		r.touches = [];
-		r.MAX_TOUCHES = 5;
-		for(var i = 0; i < r.MAX_TOUCHES; ++i) r.touches[i] = Touch();
-		
-		root.addEventListener("touchstart",  on_touch_start, false);
-	  	root.addEventListener("touchmove", on_touch_move, false);
-	  	root.addEventListener("touchend", on_touch_end, false);
 
-	  	r.gyro = Gyro();
-		window.addEventListener('devicemotion', on_device_motion);
-		window.addEventListener('deviceorientation', on_device_rotation);
-	}
-	else
-	{
-		r.mouse = Mouse();
-		r.keys = new Uint8Array(256);
+	r.MAX_TOUCHES = 5;
+	for(var i = 0; i < r.MAX_TOUCHES; ++i) r.touches[i] = Touch();
 
-		LOG('not a touch device');
+	root.addEventListener("touchstart",  on_touch_start, false);
+  	root.addEventListener("touchmove", on_touch_move, false);
+  	root.addEventListener("touchend", on_touch_end, false);
 
-		window.addEventListener('keydown', on_key_down);
-		window.addEventListener('keyup', on_key_up);
-		window.addEventListener('mouseup', on_key_up);
-		window.addEventListener('mousedown', on_key_down);
-		window.addEventListener('mousemove', on_mouse_move);
-		window.addEventListener('wheel', on_mouse_wheel);
-	}
+	//window.addEventListener('devicemotion', on_device_motion);
+	//window.addEventListener('deviceorientation', on_device_rotation);
+
+	window.addEventListener('keydown', on_key_down);
+	window.addEventListener('keyup', on_key_up);
+	root.addEventListener('mouseup', on_mouse_up);
+	root.addEventListener('mousedown', on_mouse_down);
+	root.addEventListener('mousemove', on_mouse_move);
+	root.addEventListener('wheel', on_mouse_wheel);
+	root.addEventListener('scroll', on_scroll);
 
 	input = r;
 	return r;
 }
 
-function is_touch_device() 
+function is_touch_device()
 {
 	return (('ontouchstart' in window)
 		|| (navigator.MaxTouchPoints > 0)
@@ -147,51 +153,60 @@ function is_touch_device()
 
 function update_input()
 {
-	if(input.is_touch_device === true)
+	var mouse = input.mouse;
+
+	input.touch_count = 0;
+	
+	if(input.is_touch_device)
 	{
+		var t;
 		for(var i = 0; i < input.MAX_TOUCHES; ++i)
 		{
-			var t = input.touches[i];
-			if(t.is_touching === false) continue;
-			t.delta[0] = t.position[0] - t.last_position[0];
-			t.delta[1] = t.position[1] - t.last_position[1];
-			t.last_position[0] = t.position[0];
-			t.last_position[1] = t.position[1];
-			//break; //wut?
+			t = input.touches[i];
+			if(t.is_touching) input.touch_count++;
+			vec_sub(t.delta, t.position, t.last_position);
+			vec_eq(t.last_position, t.position);
 		}
 
-		for(var i = 0; i < input.MAX_TOUCHES; ++i)
-		{
-			var t = input.touches[i];
-			if(t.is_touching === false) continue;
-			input.mouse.position[0] = t.position[0];
-			input.mouse.position[1] = t.position[1];
-			input.mouse.delta[0] = t.delta[0];
-			input.mouse.delta[1] = t.delta[1];
-			break;
-		}
+		t = input.touches[0];
+		mouse.position[0] = t.position[0] * app.res;
+		mouse.position[1] = t.position[1] * app.res;
+		vec_eq(mouse.delta, t.delta);
 	}
 	else
 	{
-		for(var i = 0; i < 256; ++i)
-		{
-			if(input.keys[i] === KeyState.DOWN) input.keys[i] = KeyState.HELD;
-			else if(input.keys[i] === KeyState.UP) input.keys[i] = KeyState.RELEASED;
-		}
+		vec_sub(mouse.delta, mouse.position, mouse.last_position);
+	}
 
-		if(input.mouse.dy === input.mouse.ldy)
-		{
-			input.mouse.scroll = 0;
-		}
-		else
-		{
-			input.mouse.scroll = input.mouse.dy;
-			input.mouse.ldy = input.mouse.dy;
-		}
+	mouse.scroll = 0;
+	if(mouse.has_scrolled === true)
+	{
+		if(mouse.dy > 0) mouse.scroll = 1; 
+		else if(mouse.dy < 0) mouse.scroll = -1;
+		mouse.has_scrolled = false;
+	}
 
-		vec_sub(input.mouse.delta, input.mouse.position, input.mouse.last_position);
+	input.scrolled = false;
 
-		vec_eq(input.mouse.last_position, input.mouse.position);
+	vec_eq(mouse.last_position, mouse.position);
+}
+
+function update_key_states()
+{
+	if(input.is_touch_device)
+	{
+		for(var i = 0; i < input.MAX_TOUCHES; ++i)
+		{
+			var t = input.touches[i];
+			if(t.state === KeyState.DOWN) t.state = KeyState.HELD;
+			else if(t.state === KeyState.UP) t.state = KeyState.RELEASED;
+		}
+	}
+
+	for(var i = 0; i < 256; ++i)
+	{
+		if(input.keys[i] === KeyState.DOWN) input.keys[i] = KeyState.HELD;
+		else if(input.keys[i] === KeyState.UP) input.keys[i] = KeyState.RELEASED;
 	}
 }
 
@@ -212,7 +227,6 @@ function key_released(code)
 	return input.keys[code] === KeyState.RELEASED || input.keys[code] === KeyState.UP;
 }
 
-
 function on_key_down(e)
 {
 	var kc = e.keyCode || e.button;
@@ -227,11 +241,34 @@ function on_mouse_move(e)
 {
 	set_vec3(input.mouse.position, e.clientX * app.res, e.clientY * app.res, 0);
 }
-function on_mouse_wheel(e)
+function on_mouse_down(e)
 {
-	input.mouse.dy = e.deltaY;
+	var x = e.clientX * app.res;
+	var y = e.clientY * app.res;
+	set_vec3(input.mouse.position, x,y,0);
+	set_vec3(input.mouse.initial, x,y,0);
+	input.keys[Keys.MOUSE_LEFT] = KeyState.DOWN;
+}
+function on_mouse_up(e)
+{
+	var x = e.clientX * app.res;
+	var y = e.clientY * app.res;
+	set_vec3(input.mouse.position, x,y,0);
+	input.keys[Keys.MOUSE_LEFT] = KeyState.UP;
 }
 
+function on_mouse_wheel(e)
+{
+	input.mouse.has_scrolled = true;
+	var dy = e.wheelDeltaY || e.deltaY * -1;
+	input.mouse.dy = dy;
+	if(input.scroll_lock === true) e.preventDefault();
+}
+function on_scroll(e)
+{
+	input.scrolled = true;
+}
+/*
 function on_device_motion(e)
 {
 	var l = e.acceleration;
@@ -243,9 +280,11 @@ function on_device_motion(e)
 function on_device_rotation(e)
 {
 	quat_set_euler_f(input.gyro.rotation, e.beta, e.gamma, e.alpha);
+	set_vec3(input.gyro.euler, e.beta, e.gamma, e.alpha);
+
 	input.gyro.updated = true;
 }
-
+*/
 function on_touch_start(e)
 {
 	var n = e.changedTouches.length;
@@ -257,22 +296,26 @@ function on_touch_start(e)
 		{
 			var t = input.touches[j];
 			if(t.is_touching === true) continue;
-			var x = it.screenX;
-			var y = it.screenY;
-			set_vec3(t.position, x, y, 0);
+			t.state = KeyState.DOWN;
+			var x = it.clientX;
+			var y = it.clientY;
+			set_vec3(t.position, x,y,0);
 			set_vec3(t.last_position, x,y,0);
 			set_vec3(t.delta, 0,0,0);
+			set_vec3(t.initial, x,y,0);
 			t.is_touching = true;
 			t.id = it.identifier;
 			t.updated = true;
 			break;
 		}
 	}
-	//e.preventDefault();
+	if(input.scroll_lock === true) e.preventDefault();
 }
+
 function on_touch_move(e)
 {
 	var n = e.changedTouches.length;
+
 	for(var i = 0; i < n; ++i)
 	{
 		var it = e.changedTouches[i];
@@ -283,16 +326,17 @@ function on_touch_move(e)
 			if(it.identifier === t.id)
 			{
 				t.is_touching = true;
-				var x = it.screenX;
-				var y = it.screenY;
+				var x = it.clientX;
+				var y = it.clientY;
 				set_vec3(t.position, x, y, 0);
 				t.updated = true;
 				break;
 			}
 		}
 	}
-	//e.preventDefault();
+	if(input.scroll_lock === true) e.preventDefault();
 }
+
 function on_touch_end(e)
 {
 	var n = e.changedTouches.length;
@@ -307,9 +351,15 @@ function on_touch_end(e)
 				t.is_touching = false;
 				t.id = -1;
 				t.updated = true;
+				t.state = KeyState.UP;
+				var x = it.clientX;
+				var y = it.clientY;
+				set_vec3(t.position, x, y, 0);
+				set_vec3(t.last_position, x,y,0);
+				set_vec3(t.delta, 0,0,0);
 				break;
 			}
 		}
 	}
-	//e.preventDefault();
+	if(input.scroll_lock === true) e.preventDefault();
 }

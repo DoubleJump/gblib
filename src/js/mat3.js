@@ -25,6 +25,7 @@ function mat3_from_mat4(r, m)
 	r[7] = m[9]; 
 	r[8] = m[10];
 }
+
 function mat3_identity(m)
 {
 	m[0] = 1; m[1] = 0; m[2] = 0;
@@ -77,19 +78,22 @@ function mat3_mul(r, a,b)
 	t[8] = a[6] * b[2] + a[7] * b[5] + a[8] * b[8];
 	vec_eq(r,t);
 }
+
 function mat3_transposed(r,m)
 {
 	var t = _Mat3();
-	t[0] = m[4];
+	t[0] = m[0];
 	t[1] = m[3];
 	t[2] = m[6]; 
 	t[3] = m[1];
+	t[4] = m[4];
 	t[5] = m[7]; 
 	t[6] = m[2]; 
 	t[7] = m[5];
-	t[8] = m[0];
+	t[8] = m[8];
 	vec_eq(r,t);
 }
+
 function mat3_set_position(m, x, y)
 {
 	m[2] = x;
@@ -139,4 +143,11 @@ function mat3_compose_f(m, x,y, sx,sy, r)
 function mat3_compose(m, p, s, r)
 {
 	mat3_compose_f(m, p[0], p[1], s[0], s[1], r);
+}
+
+function get_normal_matrix(r, model)
+{
+	mat3_from_mat4(r, model);
+    mat3_inverse(r, r);
+    mat3_transposed(r, r);
 }

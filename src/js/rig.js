@@ -90,3 +90,23 @@ function read_rig_action(ag)
     if(ag) ag.animations[animation.name] = animation;
     return animation;
 }
+
+/*
+function bone_transform(rig, weight)
+{
+	var n = 1.0 / (weight[1] + weight[3]);
+	var wA = n * weight[3];
+	var iA = (weight[2] | 0) * 16;
+
+	var wB = n * weight[1];
+	var iB = (weight[1] | 0) * 16;
+
+	return n * weight.w * rig[int(weight.z)] + n * weight.y * rig[int(weight.x)];
+}
+
+mat4 bone_transform(vec4 weight)
+{
+	float n = 1.0 / (weight.y + weight.w);
+	return n * weight.w * rig[int(weight.z)] + n * weight.y * rig[int(weight.x)];
+}
+*/

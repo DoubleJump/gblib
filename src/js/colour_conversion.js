@@ -1,3 +1,23 @@
+function hex_to_rgb(hex, normalize) 
+{
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+
+    if(!result) return null;
+
+    var r = parseInt(result[1], 16);
+    var g = parseInt(result[2], 16);
+    var b = parseInt(result[3], 16);
+
+    if(normalize)
+    {
+        r /= 255;
+        g /= 255;
+        b /= 255;
+    }
+
+    return [r,g,b,1];
+}
+
 function RGB_to_HSB(rgb, hsb)
 {
     var r = rgb[0];
@@ -100,4 +120,11 @@ function HSB_to_RGB(hsb, rgb)
             rgb[2] = q;
             break;
     }
+}
+
+function datGUI_to_webgl_color(c)
+{
+    var r = _Vec3();
+    vec_div_f(r, c, 255);
+    return r;
 }

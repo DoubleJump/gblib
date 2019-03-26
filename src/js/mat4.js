@@ -67,14 +67,17 @@ function mat4_determinant(m)
 function mat4_transposed(r, m)
 {
 	var t = _Mat4();
+	t[ 0] = m[ 0]
 	t[ 1] = m[ 4]; 
 	t[ 2] = m[ 8]; 
 	t[ 3] = m[12];
-	t[ 4] = m[ 1]; 
+	t[ 4] = m[ 1];
+	t[ 5] = m[ 5];
 	t[ 6] = m[ 9]; 
 	t[ 7] = m[13];
 	t[ 8] = m[ 2]; 
-	t[ 9] = m[ 6]; 
+	t[ 9] = m[ 6];
+	t[10] = m[10]; 
 	t[11] = m[14];
 	t[12] = m[ 3]; 
 	t[13] = m[ 7]; 

@@ -1,6 +1,6 @@
 var _ENTITY_COUNT = 0;
 
-function Entity(x,y,z, parent)
+function Entity(x,y,z, parent, draw_info)
 {
 	var e = {};
 	e.name;
@@ -16,6 +16,13 @@ function Entity(x,y,z, parent)
 	e.rotation = Vec4(0,0,0,1);
 	e.local_matrix = Mat4();
 	e.world_matrix = Mat4();
+	e.draw_info = draw_info ||
+	{
+		shader: null,
+		mesh: null,
+		instance_mesh: null,
+		instance_count: 0,
+	};
 	if(parent) set_parent(e, parent);
 	return e;
 }
@@ -23,6 +30,22 @@ function Entity(x,y,z, parent)
 function set_mvp(m, entity, camera)
 {
 	mat4_mul(m, entity.world_matrix, camera.view_projection);
+}
+
+function set_normal_matrix(m, entity, camera)
+{
+	var m4 = mat4_stack.index;
+
+	var model_view = _Mat4();
+    mat4_mul(model_view, entity.world_matrix, camera.view_matrix);
+
+    var inv_model_view = _Mat4();
+    mat4_inverse(inv_model_view, model_view);
+    mat4_transposed(inv_model_view, inv_model_view);
+
+    mat3_from_mat4(m, inv_model_view);
+
+    mat4_stack.index = m4;
 }
 
 function set_active(e, val)
@@ -72,17 +95,17 @@ function rotate_entity(e, v)
 	quat_mul(e.rotation, rotation, e.rotation);
 }
 
-function update_entity(e, force)
+function update_entity(e)
 {
-	if(force === true || e.dirty === true)
-	{
+	//if(force === true || e.dirty === true)
+	//{
 		mat4_compose(e.local_matrix, e.position, e.scale, e.rotation);
-		
+
 		if(e.parent === null) vec_eq(e.world_matrix, e.local_matrix);
 		else mat4_mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
 
 		var n = e.children.length;
-		for(var i = 0; i < n; ++i) 
+		for(var i = 0; i < n; ++i)
 		{
 			var index = mat4_stack.index;
 			update_entity(e.children[i], true);
@@ -90,5 +113,5 @@ function update_entity(e, force)
 		}
 
 		e.dirty = false;
-	}
+	//}
 }

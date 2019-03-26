@@ -310,8 +310,9 @@ function triangle_ray(h, a,b,c, r)
 function mesh_ray(h, m, matrix, r)
 {
 	var index = vec3_stack.index;
-	var stride = gb.mesh.get_stride(m);
-	h.t = gb.math.MAX_F32;
+	var vb = m.vertex_buffer;
+	var stride = vb.stride;
+	h.t = Number.MAX_VALUE;
 	
 	var has_hit = false;
 	var point = _Vec3();
@@ -322,8 +323,8 @@ function mesh_ray(h, m, matrix, r)
 	var tb = _Vec3();
 	var tc = _Vec3();
 
-	var n = m.vertex_buffer.count / 3;
-	var d = m.vertex_buffer.data;
+	var n = vb.count / 3;
+	var d = vb.data;
 	var c = 0;
 	for(var i = 0; i < n; ++i)
 	{

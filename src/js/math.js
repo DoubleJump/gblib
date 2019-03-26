@@ -10,6 +10,7 @@ var TWO_PI = 2 * PI;
 var FOUR_PI = 4 * PI;
 var EPSILON = 2.2204460492503131e-16;
 
+
 function radians(v)
 {
 	return v * DEG2RAD;
@@ -74,7 +75,7 @@ function smoothstep(min, max, val)
 	var x = Math.max(0, Math.min(1, (val-min) / (max-min)));
 	return x * x * (3 - 2 * x);
 }
-
+/*
 function compare_normal(N, R, rotation) 
 { 
 	var index = vec3_stack.index;
@@ -86,7 +87,7 @@ function compare_normal(N, R, rotation)
     vec3_stack.index = index;
     return result;
 }
-
+*/
 function move_towards(val, target, rate)
 {
 	var result = val;
@@ -112,6 +113,26 @@ function smooth_float_towards(val, target, rate, epsilon)
 	if(Math.abs(delta) < E) return target;
 	result += delta * rate;
 	return result;
+}
+
+function smooth_angle_towards(val, target, rate, epsilon)
+{
+	var E = epsilon || 0.0001;
+
+	var delta = (target - val);
+	if(Math.abs(delta) > 0.5)
+	{
+		if(target < val) target += 1;
+		else val += 1;
+	}
+	delta = (target - val);
+	
+	var result = val;
+	delta = clamp(delta, -rate, rate);
+	if(Math.abs(delta) < E) return target;
+	result += delta * rate;
+	return result;
+	//return wrap_value(result, 0,1);
 }
 
 function smooth_vec_towards(val, target, rate, epsilon)
@@ -141,4 +162,16 @@ function wrap_angle(value)
 function wrap_normal(value)
 {
 	return wrap_value(value, 0,1);
+}
+
+function wave_t(t)
+{
+	// 1 -> -1 -> 1 over 1 second
+	return Math.sin(t) / TAU;
+}
+
+function pulse_t(t)
+{
+	// 1 -> 0 -> 1 over 1 second
+	return ((Math.sin(t) / TAU) + 1.0) * 0.5;
 }

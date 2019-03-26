@@ -1,16 +1,24 @@
-function AssetGroup()
+function AssetGroup(name)
 {
     var r = {};
+    r.name = name;
+    r.load_count = 0;
+    r.loaded = false;
+    r.is_loading = false;
+    r.load_progress = 0;
+    r.onload = null;
+
     r.shaders = {};
     r.meshes = {};
     r.textures = {};
-    r.fonts = {};
-    r.animations = {};
-    r.rigs = {};
-    r.curves = {};
+    //r.fonts = {};
+    //r.animations = {};
+    //r.rigs = {};
+    //r.curves = {};
+    //r.sounds = {};
     return r;
 }
-var AssetType = 
+var AssetType =
 {
     SHADER: 0,
     SCENE: 1,
@@ -28,12 +36,84 @@ var AssetType =
     RIG_ACTION: 12,
     CURVE: 13,
     CUBEMAP: 14,
+    SOUNDS: 15,
     END: -1
+}
+
+function load_assets(ag, urls, onload)
+{
+    // LOG('Loading Asset Group: ' + ag.name);
+
+    ag.onload = onload;
+
+    for(var k in urls)
+    {
+        var url = urls[k];
+        var path = url.match(/[^\\/]+$/)[0];
+        var name = path.split(".")[0];
+        var type = path.split(".")[1];
+
+        //LOG('Loading: ' + path);
+
+        ag.load_count++;
+
+        switch(type)
+        {
+            case 'txt':
+            {
+                var rq = Request(
+                {
+                    url: url,
+                    success: function(data)
+                    {
+                        read_asset_file(data, ag);
+                        ag.load_count--;
+                        update_load_progress(ag);
+                    },
+                });
+
+                break;
+            }
+            case 'png':
+            case 'jpg':
+            {
+                ag.textures[name] = load_texture_async(url, ag);
+                break;
+            }
+            case 'json':
+            {
+                var rq = Request(
+                {
+                    url: url,
+                    response_type: 'text',
+                    success: function(data)
+                    {
+                        app.translations = JSON.parse(data);
+
+                        ag.load_count--;
+                        update_load_progress(ag);
+                    },
+                });
+            }
+            default: break;
+        }
+
+    }
+}
+
+function update_load_progress(ag)
+{
+    if(ag.load_count === 0)
+    {
+        //ag.loaded = true;
+        // LOG('Asset Group: ' + ag.name + ' loaded');
+        if(ag.onload) ag.onload();
+    }
 }
 
 function bind_assets(assets)
 {
-    for(var k in assets.shaders) 
+    for(var k in assets.shaders)
     {
         bind_shader(assets.shaders[k]);
     }
@@ -43,24 +123,25 @@ function bind_assets(assets)
         bind_mesh(m);
         update_mesh(m);
     }
-    for(var k in assets.textures) 
+    for(var k in assets.textures)
     {
         var t = assets.textures[k];
         bind_texture(t);
         update_texture(t);
     }
-    for(var k in assets.fonts) 
-    {
-        var f = assets.fonts[k];
-        bind_texture(f.atlas);
-        update_texture(f.atlas);
-    }
+    // for(var k in assets.fonts)
+    // {
+    //     var f = assets.fonts[k];
+    //     bind_texture(f.atlas);
+    //     update_texture(f.atlas);
+    // }
+
+    assets.loaded = true;
 }
 
-function read_asset_file(data)
+function read_asset_file(data, assets)
 {
-    var br = BinaryReader(data, true);
-    var assets = AssetGroup();
+    var br = BinaryReader(data, 4);
 
     set_reader_ctx(br);
 
@@ -73,21 +154,24 @@ function read_asset_file(data)
                 case AssetType.SHADER: { read_shader(assets); break; }
                 case AssetType.SCENE: { read_scene(assets); break; }
                 case AssetType.FONT: { read_font(assets); break; }
-                case AssetType.PNG: { read_texture('png', assets); break; }
-                case AssetType.JPG: { read_texture('jpg', assets); break; }
+                // case AssetType.PNG: { read_texture('png', assets); break; }
+                // case AssetType.JPG: { read_texture('jpg', assets); break; }
                 case AssetType.END: { complete = true; break; }
                 default: { complete = true; }
             }
         }
 
     end_reader_ctx();
-    
+
     return assets;
 }
 
 function read_scene(ag)
 {
+    var size = read_i32();
     var name = read_string();
+    var offset = _BR.offset;
+    var pad = get_padding(_BR.alignment, size);
 
     var complete = false;
     while(complete === false)
@@ -109,4 +193,6 @@ function read_scene(ag)
             default: { complete = true; }
         }
     }
+
+    _BR.offset = offset + size + pad;
 }

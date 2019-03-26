@@ -1,61 +1,105 @@
-function Canvas(container, view)
+function GLState()
 {
-	var canvas = document.createElement('canvas');
-    canvas.width = view[2];
-    canvas.height = view[3];
-    container.appendChild(canvas);
-    return canvas;
+	var r = {};
+
+	r.shader = null;
+	r.render_buffer = null;
+	r.frame_buffer = null;
+	r.array_buffer = null;
+	r.index_buffer = null;
+	r.texture = null;
+
+	r.blending = null;
+	r.blend_mode = null;
+	r.depth_testing = null;
+	r.depth_write = null;
+	r.depth_mode = null;
+	r.depth_min = null;
+	r.depth_max = null;
+
+	r.scissor = null;
+	r.culling = null;
+	r.winding_order = null;
+	r.line_width = null;
+	r.dither = null;
+
+	return r;
 }
+
+var DepthMode =
+{
+	DEFAULT: 0,
+	NEVER: 1,
+	LESS: 2,
+	LESS_OR_EQUAL: 3,
+	EQUAL: 4,
+	GREATER: 5,
+	NOT_EQUAL: 6,
+	GREATER_OR_EQUAL: 7,
+	ALWAYS: 8,
+};
+
+var BlendMode =
+{
+	DEFAULT: 0,
+	NONE: 1,
+	DARKEN: 2,
+	LIGHTEN: 3,
+	DIFFERENCE: 4,
+	MULTIPLY: 5,
+	SCREEN: 6,
+	INVERT: 7,
+};
+
 
 var GL = null;
 function WebGL(canvas, options)
 {
-    GL = canvas.getContext('webgl', options);
-    if(!GL)
-    {
-    	console.error('Webgl not supported');
-    	return false;
-    }
+    GL = canvas.getContext('webgl', options) ||
+    	 canvas.getContext('experimental-webgl', options);
 
    	GL.extensions = {};
     var supported_extensions = GL.getSupportedExtensions();
 	for(var i = 0; i < supported_extensions.length; ++i)
 	{
 		var ext = supported_extensions[i];
-		if(ext.startsWith('MOZ')) continue;
+		if(ext.indexOf('MOZ') === 0) continue;
 	    GL.extensions[ext] = GL.getExtension(ext);
 	}
 
     GL._parameters = {};
 	GL._parameters.num_texture_units = GL.getParameter(GL.MAX_TEXTURE_IMAGE_UNITS);
 
-	GL.clearColor(1.0, 1.0, 1.0, 1.0);
-	GL.enable(GL.SCISSOR_TEST);
+	GL._parameters.max_anisotropy = null;
+	var anisotropic = GL.extensions.EXT_texture_filter_anisotropic;
+	if(anisotropic !== undefined)
+	{
+		GL._parameters.max_anisotropy = GL.getParameter(anisotropic.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+	}
 
-	reset_webgl_state(GL);
-
-	// DEBUG
-	//log_webgl_info(GL);
-	// END
+	GL._state = GLState();
+	reset_webgl_state();
 
 	return GL;
 }
 
-function reset_webgl_state(GL)
+function reset_webgl_state()
 {
 	var n = GL._parameters.num_texture_units;
-	for(var i = 0; i < n; ++i) 
+	for(var i = 0; i < n; ++i)
 	{
 		GL.activeTexture(GL.TEXTURE0 + i);
 		GL.bindTexture(GL.TEXTURE_2D, null);
 		GL.bindTexture(GL.TEXTURE_CUBE_MAP, null);
 	}
-	GL.bindBuffer(GL.ARRAY_BUFFER, null);
-	GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, null);
-	GL.bindRenderbuffer(GL.RENDERBUFFER, null);
-	GL.bindFramebuffer(GL.FRAMEBUFFER, null);
+
+	set_render_target(null);
 
 	enable_backface_culling();
+	enable_scissor_testing();
+	GL.cullFace(GL.BACK);
+	GL.frontFace(GL.CCW);
+
 	enable_depth_testing(GL.LEQUAL);
 	set_blend_mode(BlendMode.DEFAULT);
 }
@@ -67,46 +111,200 @@ function set_viewport(rect)
 	GL.scissor(rect[0], rect[1], rect[2], rect[3]);
 }
 
-function set_clear_color(r,g,b,a)
+function set_clear_color(c)
+{
+	GL.clearColor(c[0],c[1],c[2],c[3]);
+}
+function set_clear_color_f(r,g,b,a)
 {
 	GL.clearColor(r,g,b,a);
 }
 
-function clear_screen()
+function clear_screen(mode)
 {
-	GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
+	mode = mode || (GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
+	GL.clear(mode);
+}
+
+function enable_dithering()
+{
+	if(GL._state.dither === true) return;
+	GL._state.dither = true;
+
+	GL.enable(GL.DITHER);
+}
+function disable_dithering()
+{
+	if(GL._state.dither === false) return;
+	GL._state.dither = false;
+
+	GL.disable(GL.DITHER);
 }
 
 function enable_backface_culling()
 {
+	if(GL._state.culling === true) return;
+	GL._state.culling = true;
+
 	GL.enable(GL.CULL_FACE);
-	GL.cullFace(GL.BACK);
-	GL.frontFace(GL.CCW);
 }
 function disable_backface_culling()
 {
+	if(GL._state.culling === false) return;
+	GL._state.culling = false;
+
 	GL.disable(GL.CULL_FACE);
 }
 
 function enable_depth_testing(mode)
 {
+	if(GL._state.depth_testing === true) return;
+	GL._state.depth_testing = true;
+
 	GL.enable(GL.DEPTH_TEST);
-	if(mode) GL.depthFunc(mode); 
+	if(mode) GL.depthFunc(mode);
 }
 
 function disable_depth_testing()
 {
+	if(GL._state.depth_testing === false) return;
+	GL._state.depth_testing = false;
+
 	GL.disable(GL.DEPTH_TEST);
+}
+
+function enable_scissor_testing()
+{
+	if(GL._state.scissor_testing === true) return;
+	GL._state.scissor_testing = true;
+
+	GL.enable(GL.SCISSOR_TEST);
+}
+
+function disable_scissor_testing()
+{
+	if(GL._state.scissor_testing === false) return;
+	GL._state.scissor_testing = false;
+
+	GL.disable(GL.SCISSOR_TEST);
+}
+
+function enable_stencil_testing()
+{
+	if(GL._state.stencil_testing === true) return;
+	GL._state.stencil_testing = true;
+	GL.enable(GL.STENCIL_TEST);
+}
+
+function disable_stencil_testing()
+{
+	if(GL._state.stencil_testing === false) return;
+	GL._state.stencil_testing = false;
+	GL.disable(GL.STENCIL_TEST);
+}
+
+function enable_alpha_blending()
+{
+	if(GL._state.blending === true) return;
+	GL._state.blending = true;
+	GL.enable(GL.BLEND);
+}
+
+function disable_alpha_blending()
+{
+	if(GL._state.blending === false) return;
+	GL._state.blending = false;
+	GL.disable(GL.BLEND);
 }
 
 function set_depth_range(min, max)
 {
+	var state = GL._state;
+	if(state.depth_min === min && state.depth_max === max) return;
+	state.depth_min = min;
+	state.depth_max = max;
+
 	GL.depthRange(min, max);
 }
 
 function set_line_width(val)
 {
+	if(GL._state.line_width === val) return;
+	GL._state.line_width = val;
+
 	GL.lineWidth(val);
+}
+
+function set_texture(texture)
+{
+	var id = texture.id;
+	//if(GL._state.texture === id) return;
+	//GL._state.texture = id;
+	GL.bindTexture(GL.TEXTURE_2D, id);
+}
+
+function set_array_buffer(buffer)
+{
+	if(buffer === GL._state.array_buffer) return;
+
+	if(buffer === null)
+	{
+		GL.bindBuffer(GL.ARRAY_BUFFER, null);
+		GL._state.array_buffer = null;
+	}
+	else
+	{
+		GL.bindBuffer(GL.ARRAY_BUFFER, buffer.id);
+		GL._state.array_buffer = buffer.id;
+	}
+}
+
+function set_index_buffer(buffer)
+{
+	if(buffer === GL._state.index_buffer) return;
+
+	if(buffer === null)
+	{
+		GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, null);
+		GL._state.array_buffer = null;
+	}
+	else
+	{
+		GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, buffer.id);
+		GL._state.array_buffer = buffer.id;
+	}
+}
+
+function set_shader(shader)
+{
+	if(GL._state.shader === shader) return;
+	GL._state.shader = shader;
+    GL.useProgram(shader.id);
+}
+
+function set_render_target(target)
+{
+	var rb = null;
+	var fb = null;
+
+	if(target)
+	{
+		rb = target.render_buffer || null;
+		fb = target.frame_buffer || null;
+	}
+
+	if(GL._state.frame_buffer !== fb)
+	{
+		GL.bindFramebuffer(GL.FRAMEBUFFER, fb);
+	}
+
+	if(GL._state.render_buffer !== rb)
+	{
+		GL.bindRenderbuffer(GL.RENDERBUFFER, rb);
+	}
+
+	GL._state.render_buffer = rb;
+	GL._state.frame_buffer = fb;
 }
 
 function convert_update_rate(type)
@@ -126,6 +324,7 @@ function convert_mesh_layout(type)
 		case MeshLayout.TRIANGLES: return GL.TRIANGLES;
 		case MeshLayout.LINES: 	   return GL.LINES;
 		case MeshLayout.STRIP:	   return GL.TRIANGLE_STRIP;
+		case MeshLayout.POINTS:     return GL.POINTS;
 
 		default: console.error('Invalid mesh layout');
 	}
@@ -137,56 +336,62 @@ function bind_mesh(mesh)
 	{
 		mesh.vertex_buffer.id = GL.createBuffer();
 	}
-	if(mesh.index_buffer !== null && mesh.index_buffer.id === null) 
+	if(mesh.index_buffer !== null && mesh.index_buffer.id === null)
 	{
 		mesh.index_buffer.id = GL.createBuffer();
 	}
 }
+/*
 function unbind_mesh(mesh)
 {
-	GL.bindBuffer(GL.ARRAY_BUFFER, mesh.vertex_buffer.id);
-	GL.bufferData(GL.ARRAY_BUFFER, 1, GL.STATIC_DRAW);
-	GL.deleteBuffer(mesh.vertex_buffer.id);
+	var vb = mesh.vertex_buffer;
+	var ib = mesh.index_buffer;
 
-	if(mesh.index_buffer)
+	set_array_buffer(vb);
+	GL.bufferData(GL.ARRAY_BUFFER, 1, GL.STATIC_DRAW);
+	GL.deleteBuffer(vb.id);
+
+	if(ib !== null)
 	{
-		GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, mesh.index_buffer.id);
+		set_index_buffer(ib);
 		GL.bufferData(GL.ELEMENT_ARRAY_BUFFER, 1, GL.STATIC_DRAW);
 		GL.deleteBuffer(mesh.index_buffer.id);
 	}
 
-	mesh.vertex_buffer.id = null;
-	mesh.index_buffer.id = null;
-	GL.bindBuffer(GL.ARRAY_BUFFER, null);
-	GL.bufferData(GL.ELEMENT_ARRAY_BUFFER, null);
+	vb.id = null;
+	ib.id = null;
+	set_array_buffer(null);
+	set_index_buffer(null);
 }
+*/
+
 function update_mesh(mesh)
 {
 	var vb = mesh.vertex_buffer;
 	var ib = mesh.index_buffer;
 
-	GL.bindBuffer(GL.ARRAY_BUFFER, vb.id);
+	set_array_buffer(vb);
 	GL.bufferData(GL.ARRAY_BUFFER, vb.data, convert_update_rate(vb.update_rate));
-	GL.bindBuffer(GL.ARRAY_BUFFER, null);
-
+	set_array_buffer(null);
 
 	if(ib !== null)
 	{
 		ib.byte_size = GL.UNSIGNED_INT;
-		GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, ib.id);
+		set_index_buffer(ib);
 		GL.bufferData(GL.ELEMENT_ARRAY_BUFFER, ib.data, convert_update_rate(ib.update_rate));
-		GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, null);
+		set_index_buffer(null);
 	}
 }
+
 function update_mesh_range(mesh, start, end)
 {
 	var vb = mesh.vertex_buffer;
 	//var start = vb.update_start * vb.stride;
 	var view = vb.data.subarray(start, end);
 
-	GL.bindBuffer(GL.ARRAY_BUFFER, vb.id);
+	set_array_buffer(vb);
 	GL.bufferSubData(GL.ARRAY_BUFFER, start * 4, view);
-	GL.bindBuffer(GL.ARRAY_BUFFER, null);
+	set_array_buffer(null);
 }
 
 
@@ -211,18 +416,21 @@ function convert_texture_format(format)
 		default: console.error('Invalid texture format');
 	}
 }
+
 function bind_texture(texture)
 {
 	if(texture.id === null) texture.id = GL.createTexture();
 }
+
 function unbind_texture(texture)
 {
 	GL.deleteTexture(texture.id);
 	texture.id = null;
 }
+
 function update_texture(t)
 {
-	GL.bindTexture(GL.TEXTURE_2D, t.id);
+	set_texture(t);
 	var size = convert_texture_size(t);
 	var format = convert_texture_format(t.format);
 
@@ -242,7 +450,7 @@ function update_texture(t)
 	{
 		GL.texImage2D(GL.TEXTURE_2D, 0, format, t.width, t.height, 0, format, size, t.data);
 	}
-	
+
 	if(t.use_mipmaps === true)
 	{
 		GL.generateMipmap(GL.TEXTURE_2D);
@@ -256,18 +464,18 @@ function set_sampler(sampler)
 	GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_S, sampler.s);
 	GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_T, sampler.t);
 	GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, sampler.up);
-	GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, sampler.down);	
+	GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, sampler.down);
 
 	var ext = GL.extensions.EXT_texture_filter_anisotropic;
 	if(ext !== undefined)
 	{
-		var max_anisotropy = GL.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+		var max_anisotropy = GL._parameters.max_anisotropy;
 		var anisotropy = clamp(sampler.anisotropy, 0, max_anisotropy);
 
 		GL.texParameterf
 		(
-			GL.TEXTURE_2D, 
-			ext.TEXTURE_MAX_ANISOTROPY_EXT, 
+			GL.TEXTURE_2D,
+			ext.TEXTURE_MAX_ANISOTROPY_EXT,
 			anisotropy
 		);
 	}
@@ -282,14 +490,22 @@ function bind_shader(s)
     GL.compileShader(vs);
 
     var success = GL.getShaderParameter(vs, GL.COMPILE_STATUS);
-    if(success === false) console.error("Shader Compile Error: " + GL.getShaderInfoLog(vs));
+    if(success === false)
+    {
+    	console.error(s.name);
+    	console.error("Shader Compile Error: " + GL.getShaderInfoLog(vs));
+    }
 
     var fs = GL.createShader(GL.FRAGMENT_SHADER);
     GL.shaderSource(fs, s.fragment_src);
     GL.compileShader(fs);
 
     success = GL.getShaderParameter(fs, GL.COMPILE_STATUS);
-    if(success === false) console.error("Shader Compile Error: " + GL.getShaderInfoLog(fs));
+    if(success === false)
+    {
+    	console.error(s.name);
+    	console.error("Shader Compile Error: " + GL.getShaderInfoLog(fs));
+    }
 
 	s.id = GL.createProgram();
     GL.attachShader(s.id, vs);
@@ -297,7 +513,11 @@ function bind_shader(s)
     GL.linkProgram(s.id);
 
     success = GL.getProgramParameter(s.id, GL.LINK_STATUS);
-    if(success === false) console.error("Shader Link Error: " + GL.getProgramInfoLog(s.id));
+    if(success === false)
+    {
+    	console.error(s.name);
+    	console.error("Shader Link Error: " + GL.getProgramInfoLog(s.id));
+    }
 
     var n = GL.getProgramParameter(s.id, GL.ACTIVE_ATTRIBUTES);
     for(var i = 0; i < n; ++i)
@@ -312,15 +532,21 @@ function bind_shader(s)
     {
         var active_uniform = GL.getActiveUniform(s.id, i);
         var uniform = {};
+        var name = active_uniform.name;
         uniform.location = GL.getUniformLocation(s.id, active_uniform.name);
         uniform.type = active_uniform.type;
         uniform.size = active_uniform.size;
+
+        if(uniform.size > 1)
+        {
+	    	name = name.substring(0,name.indexOf('[0]'));
+	    }
         if(uniform.type === GL.SAMPLER_2D)
         {
         	uniform.sampler_index = sampler_index;
         	sampler_index++;
         }
-        s.uniforms[active_uniform.name] = uniform;
+        s.uniforms[name] = uniform;
     }
 
     s.vertex_src = null;
@@ -329,78 +555,12 @@ function bind_shader(s)
     return s;
 }
 
-function unbind_shader(shader)
-{
-
-}
-
-function set_attributes(shader, mesh)
-{
-	var vb = mesh.vertex_buffer;
-	GL.bindBuffer(GL.ARRAY_BUFFER, vb.id);
-
-	for(var k in vb.attributes)
-	{
-		var sa = shader.attributes[k];
-        var va = vb.attributes[k];
-        //ASSERT(va !== undefined, 'Shader ' + shader.name + ' needs attribute ' + k + ' but mesh ' + mesh.name + ' does not have it');
-        if(sa === undefined) continue;
-        if(va === undefined) continue;
-		GL.enableVertexAttribArray(sa);
-		GL.vertexAttribPointer(sa, va.size, GL.FLOAT, va.normalized, vb.stride * 4, va.offset * 4);
-	}
-}
-
-function bind_instance_buffers(buffers)
-{
-    for(var k in buffers)
-    {
-        var b = buffers[k];
-        if(b.id === null) b.id = GL.createBuffer();
-    }
-    update_instance_buffers(buffers);
-}
-
-function update_instance_buffers(buffers)
-{
-    for(var k in buffers)
-    {
-        var b = buffers[k];
-        GL.bindBuffer(GL.ARRAY_BUFFER, b.id);
-        GL.bufferData(GL.ARRAY_BUFFER, b.data, GL.STATIC_DRAW);
-    }
-}
-
-function set_instance_attributes(shader, buffers)
-{
-	var ext = GL.extensions.ANGLE_instanced_arrays;
-    for(var k in buffers)
-    {
-        var buffer = buffers[k];
-        var sa = shader.attributes[k];
-        if(sa === undefined) continue;
-
-        GL.bindBuffer(GL.ARRAY_BUFFER, buffer.id);
-        GL.enableVertexAttribArray(sa);
-        GL.vertexAttribPointer(sa, buffer.stride, GL.FLOAT,buffer.normalized, buffer.stride * 4, 0);
-        ext.vertexAttribDivisorANGLE(sa, 1);
-    }
-}
-
-var _active_shader = null;
-function use_shader(shader)
-{
-	if(_active_shader === shader) return;
-	_active_shader = shader;
-    GL.useProgram(shader.id);
-}
-
 function set_uniform(name, value)
 {
-	var uniform = _active_shader.uniforms[name];
+	var uniform = GL._state.shader.uniforms[name];
 
 	//DEBUG
-	if(uniform === null || uniform === undefined) 
+	if(uniform === null || uniform === undefined)
 	{
 		//console.warning('Uniform not found');
 		return;
@@ -416,27 +576,27 @@ function set_uniform(name, value)
 		{
 			if(size > 1)
 			{
-				GL.uniform1fv(loc, value); 
+				GL.uniform1fv(loc, value);
 				return;
 			}
-			GL.uniform1f(loc, value); 
+			GL.uniform1f(loc, value);
 			return;
 		}
-		case GL.FLOAT_VEC2: 
+		case GL.FLOAT_VEC2:
 		{
 			if(size > 1)
 			{
-				GL.uniform2fv(loc, value); 
+				GL.uniform2fv(loc, value);
 				return;
 			}
-			GL.uniform2f(loc, value[0], value[1]); 
+			GL.uniform2f(loc, value[0], value[1]);
 			return;
 		}
         case GL.FLOAT_VEC3:
         {
         	if(size > 1)
 			{
-				GL.uniform3fv(loc, value); 
+				GL.uniform3fv(loc, value);
 				return;
 			}
         	GL.uniform3f(loc, value[0], value[1], value[2]);
@@ -446,10 +606,10 @@ function set_uniform(name, value)
         {
         	if(size > 1)
 			{
-				GL.uniform4fv(loc, value); 
+				GL.uniform4fv(loc, value);
 				return;
 			}
-        	GL.uniform4f(loc, value[0], value[1], value[2], value[3]); 
+        	GL.uniform4f(loc, value[0], value[1], value[2], value[3]);
         	return;
         }
         case GL.BOOL:
@@ -465,7 +625,7 @@ function set_uniform(name, value)
         {
 			GL.uniform1i(loc, uniform.sampler_index);
 			GL.activeTexture(GL.TEXTURE0 + uniform.sampler_index);
-			GL.bindTexture(GL.TEXTURE_2D, value.id);
+			set_texture(value);
 			return;
 		}
 		/*
@@ -478,39 +638,41 @@ function set_uniform(name, value)
         {
         	if(size > 1)
 			{
-				GL.uniform1iv(loc, value); 
+				GL.uniform1iv(loc, value);
 				return;
 			}
-        	GL.uniform1i(loc, value); 
+        	GL.uniform1i(loc, value);
         	return;
         }
-		case GL.INT_VEC2: 
+        /*
+		case GL.INT_VEC2:
 		{
 			if(size > 1)
 			{
-				GL.uniform2iv(loc, value); 
+				GL.uniform2iv(loc, value);
 			}
 			GL.uniform2i(loc, value[0], value[1]);
 			return;
 		}
-        case GL.INT_VEC3: 
+        case GL.INT_VEC3:
         {
         	if(size > 1)
 			{
-        		GL.uniform3iv(loc, value); 
+        		GL.uniform3iv(loc, value);
         	}
 			GL.uniform3i(loc, value[0], value[1], value[2]);
         	return;
         }
-        case GL.INT_VEC4: 
+        case GL.INT_VEC4:
         {
         	if(size > 1)
 			{
-        		GL.uniform4iv(loc, size, value); 
+        		GL.uniform4iv(loc, size, value);
         	}
 			GL.uniform4i(loc, value[0], value[1], value[2], value[3]);
         	return;
         }
+        */
         // DEBUG
 		default:
 		{
@@ -520,61 +682,127 @@ function set_uniform(name, value)
 	}
 }
 
+function set_attributes(shader, mesh)
+{
+	var ext = GL.extensions.ANGLE_instanced_arrays;
+
+	var vb = mesh.vertex_buffer;
+	set_array_buffer(vb);
+
+	for(var k in vb.attributes)
+	{
+		var sa = shader.attributes[k];
+        var va = vb.attributes[k];
+        //ASSERT(va !== undefined, 'Shader ' + shader.name + ' needs attribute ' + k + ' but mesh ' + mesh.name + ' does not have it');
+        if(sa === undefined) continue;
+        if(va === undefined) continue;
+		GL.enableVertexAttribArray(sa);
+		GL.vertexAttribPointer(sa, va.size, GL.FLOAT, va.normalized, vb.stride * 4, va.offset * 4);
+		ext.vertexAttribDivisorANGLE(sa, 0);
+	}
+}
+
+function bind_instance_buffers(buffers)
+{
+    for(var k in buffers)
+    {
+        var b = buffers[k];
+        if(b.id === null) b.id = GL.createBuffer();
+    }
+    update_instance_buffers(buffers);
+}
+
+
+function update_instance_buffer(b, rate)
+{
+	set_array_buffer(b);
+    GL.bufferData(GL.ARRAY_BUFFER, b.data, rate || GL.STATIC_DRAW);
+}
+
+
+function update_instance_buffers(buffers)
+{
+    for(var k in buffers)
+    {
+        var b = buffers[k];
+        set_array_buffer(b);
+        GL.bufferData(GL.ARRAY_BUFFER, b.data, GL.STATIC_DRAW);
+    }
+}
+
+function set_instance_attributes(shader, buffers)
+{
+	var ext = GL.extensions.ANGLE_instanced_arrays;
+    for(var k in buffers)
+    {
+        var b = buffers[k];
+        var sa = shader.attributes[k];
+        if(sa === undefined) continue;
+
+        set_array_buffer(b);
+        GL.enableVertexAttribArray(sa);
+        GL.vertexAttribPointer(sa, b.stride, GL.FLOAT, b.normalized, b.stride * 4, 0);
+        ext.vertexAttribDivisorANGLE(sa, 1);
+    }
+}
 
 function draw_mesh(mesh)
 {
-	set_attributes(_active_shader, mesh);
-
+	set_attributes(GL._state.shader, mesh);
 	var layout = convert_mesh_layout(mesh.layout);
-	
+
 	if(mesh.index_buffer !== null)
 	{
-		GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, mesh.index_buffer.id);
+		set_index_buffer(mesh.index_buffer);
     	GL.drawElements(layout, mesh.index_buffer.count, GL.UNSIGNED_INT, 0);
 	}
     else
     {
     	GL.drawArrays(layout, 0, mesh.vertex_buffer.count);
     }
+
+    set_array_buffer(null);
+    set_index_buffer(null);
 }
 
 function draw_mesh_instanced(mesh, instances, count)
 {
 	var ext = GL.extensions.ANGLE_instanced_arrays;
 
-    set_attributes(_active_shader, mesh);
-	set_instance_attributes(_active_shader, instances);
+    set_attributes(GL._state.shader, mesh);
+	set_instance_attributes(GL._state.shader, instances);
 
 	var layout = convert_mesh_layout(mesh.layout);
 
 	if(mesh.index_buffer !== null)
 	{
-		GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, mesh.index_buffer.id);
+		set_index_buffer(mesh.index_buffer);
     	ext.drawElementsInstancedANGLE(layout, mesh.index_buffer.count, GL.UNSIGNED_INT, 0, count);
 	}
     else
     {
     	ext.drawArraysInstancedANGLE(layout, 0, mesh.vertex_buffer.count, count);
     }
+
+    set_array_buffer(null);
+    set_index_buffer(null);
 }
 
-
-var BlendMode = 
+function draw_call(shader, mesh, uniforms, instances, count)
 {
-	DEFAULT: 0,
-	NONE: 1,
-	DARKEN: 2,
-	LIGHTEN: 3,
-	DIFFERENCE: 4,
-	MULTIPLY: 5,
-	SCREEN: 6,
-	INVERT: 7,
+	set_shader(shader);
+	for(var u in uniforms) set_uniform(u, uniforms[u]);
+	if(instances)
+	{
+		draw_mesh_instanced(mesh, instances, count);
+	}
+	else draw_mesh(mesh);
 }
 
 function set_blend_mode(mode)
 {
-	if(mode === BlendMode.NONE) GL.disable(GL.BLEND);
-	else GL.enable(GL.BLEND);
+	if(GL._state.blend_mode === mode) return;
+	GL._state.blend_mode = mode;
 
 	switch(mode)
 	{
@@ -629,21 +857,12 @@ function set_blend_mode(mode)
 	}
 }
 
-var DepthMode = 
-{
-	DEFAULT: 0,
-	NEVER: 1,
-	LESS: 2,
-	LESS_OR_EQUAL: 3,
-	EQUAL: 4,
-	GREATER: 5,
-	NOT_EQUAL: 6,
-	GREATER_OR_EQUAL: 7,
-	ALWAYS: 8,
-}
 
 function set_depth_mode(mode)
 {
+	if(GL._state.depth_mode === mode) return;
+	GL._state.depth_mode === mode;
+
 	switch(mode)
 	{
 		case DepthMode.NEVER: GL.depthFunc(GL.NEVER); return;
@@ -660,57 +879,28 @@ function set_depth_mode(mode)
 
 function bind_render_target(t)
 {
-	bind_texture(t.color);
-	bind_texture(t.depth);
-
-	update_texture(t.color);
-	update_texture(t.depth);
-
+	if(t.frame_buffer !== null) return;
 	t.frame_buffer = GL.createFramebuffer();
-	GL.bindFramebuffer(GL.FRAMEBUFFER, t.frame_buffer);
-
-	set_render_target_attachment(GL.COLOR_ATTACHMENT0, t.color);
-	set_render_target_attachment(GL.DEPTH_ATTACHMENT, t.depth);
-
-	//DEBUG
-	verify_render_target();
-	//END	
-
-	GL.bindFramebuffer(GL.FRAMEBUFFER, null);
-	GL.bindRenderbuffer(GL.RENDERBUFFER, null);
 }
 
-function set_render_target_attachment(attachment, texture)
+function set_render_target_color(texture)
 {
-	GL.bindTexture(GL.TEXTURE_2D, texture.id);
-	GL.framebufferTexture2D(GL.FRAMEBUFFER, attachment, GL.TEXTURE_2D, texture.id, 0);
+	set_texture(texture);
+	GL.framebufferTexture2D(GL.FRAMEBUFFER, GL.COLOR_ATTACHMENT0, GL.TEXTURE_2D, texture.id, 0);
 }
 
-function set_render_target(target)
+function set_render_target_depth(texture)
 {
-	if(target === null)
-	{
-		GL.bindFramebuffer(GL.FRAMEBUFFER, null);
-		GL.bindRenderbuffer(GL.RENDERBUFFER, null);
-		set_viewport(app.view);
-	}
-	else
-	{
-		GL.bindFramebuffer(GL.FRAMEBUFFER, target.frame_buffer);
-		GL.bindRenderbuffer(GL.RENDERBUFFER, target.render_buffer);
-		set_viewport(target.view);
-	}
+	set_texture(texture);
+	GL.framebufferTexture2D(GL.FRAMEBUFFER, GL.DEPTH_ATTACHMENT, GL.TEXTURE_2D, texture.id, 0);
 }
-
-
-//DEBUG
 
 function verify_webgl_context()
 {
 	if(GL.isContextLost && GL.isContextLost()) console.error('GL context lost');
 }
 
-function verify_render_target()
+function verify_frame_buffer()
 {
 	var status = GL.checkFramebufferStatus(GL.FRAMEBUFFER);
 	if(status != GL.FRAMEBUFFER_COMPLETE)
@@ -718,27 +908,3 @@ function verify_render_target()
 		console.error('Error creating framebuffer: ' +  status);
 	}
 }
-
-function log_webgl_info()
-{
-	LOG("Shader High Float Precision: " + GL.getShaderPrecisionFormat(GL.FRAGMENT_SHADER, GL.HIGH_FLOAT));
-	LOG("AA Size: " + GL.getParameter(GL.SAMPLES));
-	LOG("Max Texture Size: " + GL.getParameter(GL.MAX_TEXTURE_SIZE) + "px");
-	LOG("Max Cube Map Size: " + GL.getParameter(GL.MAX_CUBE_MAP_TEXTURE_SIZE) + "px");
-	LOG("Max Render Buffer Size: " + GL.getParameter(GL.MAX_RENDERBUFFER_SIZE) + "px");
-	LOG("Max Vertex Shader Texture Units: " + GL.getParameter(GL.MAX_VERTEX_TEXTURE_IMAGE_UNITS));
-	LOG("Max Fragment Shader Texture Units: " + GL.getParameter(GL.MAX_TEXTURE_IMAGE_UNITS));
-	LOG("Max Combined Texture Units: " + GL.getParameter(GL.MAX_COMBINED_TEXTURE_IMAGE_UNITS));
-	LOG("Max Vertex Shader Attributes: " + GL.getParameter(GL.MAX_VERTEX_ATTRIBS));
-	LOG("Max Vertex Uniform Vectors: " + GL.getParameter(GL.MAX_VERTEX_UNIFORM_VECTORS));
-	LOG("Max Frament Uniform Vectors: " + GL.getParameter(GL.MAX_FRAGMENT_UNIFORM_VECTORS));
-	LOG("Max Varying Vectors: " + GL.getParameter(GL.MAX_VARYING_VECTORS));
-
-	var info = GL.getExtension('WEBGL_debug_renderer_info');
-	if(info) 
-	{
-		LOG("Renderer: " + GL.getParameter(info.UNMASKED_RENDERER_WEBGL));
-		LOG("Vendor:" + GL.getParameter(info.UNMASKED_VENDOR_WEBGL));
-	}
-}
-//END

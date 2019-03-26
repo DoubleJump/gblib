@@ -1,0 +1,6 @@
+vec2 env_map_equirect(vec3 norm, float flip) 
+{
+	float phi = acos(-norm.y);
+	float theta = atan(flip * norm.x, norm.z) + PI;
+	return vec2(theta / (TAU), phi / PI);
+}

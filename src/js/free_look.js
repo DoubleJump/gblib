@@ -6,7 +6,8 @@ function free_look(c, dt, vertical_limit)
 		c.angle = Vec3();
 		c.velocity = Vec3();
 	}
-	if(key_down(Keys.F) === true) c.fly_mode = !c.fly_mode;
+	
+	if(key_down(Keys.F)) c.fly_mode = !c.fly_mode;
 	if(c.fly_mode === false) return;
 
 	var v3_index = vec3_stack.index;
@@ -25,6 +26,11 @@ function free_look(c, dt, vertical_limit)
 		c.angle[0] = 0;
 		c.angle[1] = 0;
 	}
+	if(key_down(Keys.P))
+	{
+		LOG(c.angle)
+		LOG(c.position)
+	}
 
 	var rot_x = _Vec4(0,0,0,1);
 	var rot_y = _Vec4(0,0,0,1);
@@ -41,6 +47,7 @@ function free_look(c, dt, vertical_limit)
 
 	var accel = _Vec3();
 	var MOVE_SPEED = 0.5;
+	if(key_held(Keys.SHIFT)) MOVE_SPEED *= 2;
 
 	if(key_held(Keys.A)) accel[0] = -MOVE_SPEED * dt;
 	else if(key_held(Keys.D)) accel[0] = MOVE_SPEED * dt;

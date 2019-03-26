@@ -147,7 +147,7 @@ function UI_Curve(name, value, group)
     return r;
 }
 
-function update_debug_view(ctx, screen)
+function update_debug_view(ctx)
 {
     ctx.mx = input.mouse.position[0];
     ctx.my = -input.mouse.position[1];

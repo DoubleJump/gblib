@@ -2,15 +2,16 @@ var MeshLayout =
 {
 	TRIANGLES: 0,
 	LINES: 1,
-	STRIP: 2
-}
+	STRIP: 2,
+	POINTS: 3,
+};
 
 var BufferUpdateRate = 
 {
 	STATIC: 0,
 	DYNAMIC: 1,
 	STREAM: 2,
-}
+};
 
 function VertexAttribute(size, norm)
 {
@@ -56,8 +57,8 @@ function VertexBuffer(data, attributes, rate)
 	
 	if(data)
 	{
-		r.count = r.data.length / r.stride;
-		r.capacity = r.data.length / r.stride;
+		r.count = (r.data.length / r.stride)|0;
+		r.capacity = (r.data.length / r.stride)|0;
 	}
 
 	return r;
@@ -142,15 +143,24 @@ function resize_index_buffer(ib, count, copy)
 	}
 }
 
-function InstancedVertexBuffer(data, stride, normalized)
+
+function InstanceBuffer(count, attrs)
 {
-    var r = {};
-    r.id = null;
-    r.data = data;
-    r.stride = stride;
-    r.normalized = normalized;
-    r.count = data.length / stride;
-    return r;
+	var r = {};
+	for(var a in attrs)
+	{
+		var attr = attrs[a];
+		var buffer = {};
+		buffer.id = null;
+		buffer.data = new Float32Array(count * attr.size);
+		buffer.stride = attr.size;
+		buffer.count = count;
+		buffer.normalized = attr.normalized;
+		r[a] = buffer;
+	}
+	bind_instance_buffers(r);
+
+	return r;
 }
 
 function Mesh(vb, ib, layout)
@@ -169,7 +179,7 @@ function read_mesh(ag)
 	var vb_data = read_f32(vb_size);
 	var ib_size = read_i32();
 	var ib_data = null;
-	if(ib_size > 0) ib_data = read_u32(ib_size);
+	if(ib_size > 0) ib_data = read_i32(ib_size);
 
 	var attributes = {};
 	var num_attributes = read_i32();
@@ -189,4 +199,9 @@ function read_mesh(ag)
     mesh.name = name;
 	if(ag) ag.meshes[name] = mesh;
 	return mesh;
+}
+
+function recalculate_normals(mesh)
+{
+	
 }

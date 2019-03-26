@@ -1,12 +1,12 @@
-function LineMesh(points)
+function LineMesh(points, thickness)
 {
 	var r = Entity();
-	r.thickness = 0.02;
+	r.thickness = thickness || 0.02;
 	r.color = Vec4(1.0,1.0,1.0,1.0);
 	r.num_points;
 	r.points = points || null;
 	r.length = 0;
-	r.dash = 200;
+	//r.dash = 200;
 
 	var attributes = 
     {
@@ -14,7 +14,7 @@ function LineMesh(points)
         previous: VertexAttribute(3, false),
         next: VertexAttribute(3, false),
         direction: VertexAttribute(1, false),
-        dist: VertexAttribute(1, false)
+        //dist: VertexAttribute(1, false)
     };
 
     var vb = VertexBuffer(null, attributes);
@@ -58,8 +58,8 @@ function update_line_mesh(lm)
 	var current = _Vec3();
 	var prev = _Vec3();
 	var next = _Vec3();
-	var segment = _Vec3();
-	var distance = 0;
+	//var segment = _Vec3();
+	//var distance = 0;
 	var flip = 1;
 
 	var index = 0;
@@ -84,8 +84,8 @@ function update_line_mesh(lm)
 			set_vec3(next, pts[ii+3], pts[ii+4], pts[ii+5]);
 		}
 
-		vec_sub(segment, current, prev);
-		distance += vec_length(segment);
+		//vec_sub(segment, current, prev);
+		//distance += vec_length(segment);
 
 		for(var j = 0; j < num_node_verts; ++j)
 		{
@@ -108,11 +108,11 @@ function update_line_mesh(lm)
 			vb.data[index+9] = flip;
 			flip *= -1;
 
-			vb.data[index+10] = distance;
-			index+=11;
+			//vb.data[index+10] = distance;
+			index+=10;
 		}
 	}
-	lm.length = distance;
+	//lm.length = distance;
 
 	index = 0;
 	var offset = 0;
@@ -131,6 +131,7 @@ function update_line_mesh(lm)
 	update_mesh(lm.mesh);
 }
 
+/*
 function draw_line_mesh(lm, shader, camera)
 {
     use_shader(shader);
@@ -149,7 +150,9 @@ function draw_line_mesh(lm, shader, camera)
 
     mat4_stack.index--;
 }
+*/
 
+/*
 function line_mesh_ellipse(rx, ry, res)
 {
 	var points = [];
@@ -232,3 +235,4 @@ function line_mesh_curve(curve, res)
 	}
 	return LineMesh(points);
 }
+*/

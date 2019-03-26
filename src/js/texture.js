@@ -17,14 +17,17 @@ function Sampler(s,t,up,down,anisotropy)
 }
 function default_sampler()
 {
-	return Sampler(GL.CLAMP_TO_EDGE, GL.CLAMP_TO_EDGE, GL.LINEAR, GL.LINEAR, 16);
+	return Sampler(GL.CLAMP_TO_EDGE, GL.CLAMP_TO_EDGE, GL.LINEAR, GL.LINEAR, 1);
+}
+function repeat_sampler()
+{
+	return Sampler(GL.REPEAT, GL.REPEAT, GL.LINEAR, GL.LINEAR, 1);
 }
 
 function Texture(width, height, data, sampler, format, bytes_per_pixel)
 {
 	var t = {};
 	t.id = null;
-	//t.index = 0;
 	t.data = data;
 	t.format = format;
 	t.width = width;
@@ -34,7 +37,7 @@ function Texture(width, height, data, sampler, format, bytes_per_pixel)
 	t.from_element = false;
 	t.sampler = sampler;
 	t.flip = false;
-	t.loaded = false;
+	//t.loaded = true;
 	t.gl_releasable = false;
 	return t;
 }
@@ -56,16 +59,23 @@ function texture_from_dom(img, sampler, format, flip)
 	return t;
 }
 
-function load_texture_async(url, sampler, format, flip)
+function load_texture_group(base_path, urls)
 {
-	var t = empty_texture(sampler, format);
+	var path = '';
+	for(var u in urls)
+	{
+		if(base_path) path = base_path + urls[u];
+		load_texture_async(path);
+	}
+}
+
+function load_texture_async(url, ag)
+{
+	var t = empty_texture();
+	//t.loaded = false;
 	t.from_element = true;
 	t.use_mipmaps = false;
-	t.flip = flip || false;
-
-	var name = url.match(/[^\\/]+$/)[0];
-	name = name.split(".")[0];
-    app.assets.textures[name] = t;
+	t.flip = true;
 
 	var img = new Image();
     img.onload = function(e)
@@ -73,11 +83,13 @@ function load_texture_async(url, sampler, format, flip)
     	t.width = img.width;
     	t.height = img.height;
     	t.data = img;
-    	t.loaded = true;
-    	bind_texture(t);
-    	update_texture(t);
+    	//t.loaded = true;
+
+    	ag.load_count--;
+    	update_load_progress(ag);
     }
 	img.src = url;
+	return t;
 }
 
 function load_video_async(url, width, height, sampler, format, mute, autoplay)
@@ -117,12 +129,23 @@ function load_video_async(url, width, height, sampler, format, mute, autoplay)
 function rgba_texture(width, height, pixels, sampler)
 {
 	var t = Texture(width, height, pixels, sampler, TextureFormat.RGBA, 4);
+	bind_texture(t);
+	update_texture(t);
 	return t;
 }
 function depth_texture(width, height, sampler)
 {
 	var t = Texture(width, height, null, sampler, TextureFormat.DEPTH, 4);
+	bind_texture(t);
+	update_texture(t);
 	return t;
+}
+
+function resize_texture(t, w, h)
+{
+	t.width = w;
+	t.height = h;
+	update_texture(t);
 }
 
 function read_texture(type, ag)
@@ -139,6 +162,7 @@ function read_texture(type, ag)
     img.src = encoding + uint8_to_base64(bytes);
 
     var t = Texture(width, height, img, app.sampler, format, 4);
+    
 	t.from_element = true;
 	t.use_mipmaps = false;
 	t.flip = true;

@@ -1,83 +1,40 @@
 var app = {};
 
-var AppState = 
+var AppState =
 {
+    DEBUG: -1,
     INIT: 0,
-    RUNNING: 1,
+    LOADING: 1,
+    INTRO: 2,
+    RUNNING: 3,
 };
 
-function main()
+function app_start(lang, gl_info)
 {
-    // DEBUG
-    window.addEventListener('focus', function()
-    { 
-        console.log('FOCUS'); 
-        app.has_focus = true; 
-    });
-    window.addEventListener('blur', function()
-    { 
-        console.log('BLUR'); 
-        app.has_focus = false; 
-    });
-    // END
+    console.log('app start')
 
+    app.gl_info = gl_info;
     app.has_focus = true;
-    app.state = AppState.INIT;
-   
-
-    // LOAD ASSETS
-    app.preloader = Preloader(app.container);
-    app.assets_loaded = false;
-
-    /*
-    var r = Request('arraybuffer', 'assets/assets.bin.gz');
-    r.setRequestHeader('accept-encoding','gzip');
-    r.setRequestHeader('content-encoding','gzip');
-    */
-    var r = Request('arraybuffer', 'assets/assets.bin');
-    r.onprogress = function(e)
-    {
-        var percent_loaded =  e.loaded / e.total;
-        update_preloader(app.preloader, percent_loaded);
-    }
-    r.onload = function(e)
-    {
-        //app.assets = read_asset_file(e.target.response);
-        app.assets_loaded = true;
-        init_webgl(e.target.response);
-    }
-    r.send();
-}
-
-function init_webgl(asset_file)
-{
-    hide_preloader(app.preloader);
-
+    app.resize = false;
+    app.do_resize = false;
+    app.auto_init = true;
+    app.resize_timer = 0;
     app.res = window.devicePixelRatio;
-    var container = document.querySelector('.app');
-    app.container = container;
-
-    var container_width = container.clientWidth;
-    var container_height = container.clientHeight;
-    var width = container_width * app.res;
-    var height = container_height * app.res;
-
-    app.time = Time();
-    app.view = Vec4(0,0,width,height);
-    app.canvas = Canvas(container, app.view);
-
-    // SCALES TO DEVICE PIXEL RATIO
-    var dw = -((width - container_width) / 2);
-    var dh = -((height - container_height) / 2);
-    app.canvas.style.transform = 'translateX(' + dw +'px) translateY('+dh+'px) scale(' + (1/app.res) + ')';
-
+    app.container = document.querySelector('.canvas-container');
+    app.time = Timer();
+    app.ticker = Ticker();
+    app.canvas = Canvas(app.container);
+    app.view = Vec4(0,0,app.canvas.width, app.canvas.height);
     app.input = Input(app.container);
+    
+    var aa = true;
+    if(app.res > 1.5 || app.view[2] > 3000) aa = false;
     app.webgl = WebGL(app.canvas,
     {
         alpha: false,
         depth: true,
         stencil: false,
-        antialias: true,
+        antialias: aa,
         premultipliedAlpha: false,
         preserveDrawingBuffer: false,
         preferLowPowerToHighPerformance: false,
@@ -85,9 +42,123 @@ function init_webgl(asset_file)
     });
 
     app.sampler = default_sampler();
-    app.assets = read_asset_file(asset_file);
-    init();
+
+    window.addEventListener('focus', function()
+    {
+        console.log('FOCUS');
+        app.has_focus = true;
+    });
+    window.addEventListener('blur', function()
+    {
+        console.log('BLUR');
+        app.has_focus = false;
+    });
+    window.addEventListener('resize', function()
+    {
+        app.resize = true;
+        app.resize_timer = 0;
+    });
+
+    app.assets = AssetGroup('common');
+    load_assets(app.assets,
+    [
+        'assets/common.txt',
+    ],
+    function()
+    {
+        bind_assets(app.assets);
+    });
+
+
+    app.debug_tools = Debug_Tools();
+
+    app.state = AppState.INIT;
+
+    requestAnimationFrame(update);
 }
 
+function update(t)
+{
+    requestAnimationFrame(update);
 
-window.addEventListener('load', main);
+    var ticker = app.ticker;
+    advance_ticker(ticker);
+
+    if(app.resize === true)
+    {
+        app.resize_timer += ticker.dt;
+        if(app.resize_timer > 0.5)
+        {
+            app.do_resize = true;
+        }
+    }
+  
+    if(app.has_focus)
+    {
+        switch(app.state)
+        {
+            case AppState.INIT:
+            
+                app.screen_quad = quad_mesh(2,2,0);
+                app.quad = quad_mesh(1,1,0);
+                app.gl_draw = GL_Draw(16000);
+                app.vector = Vector();
+
+                set_viewport(app.view);
+                set_clear_color_f(0,0,0,1);
+                clear_screen();
+                clear_stacks();
+
+                app.state = AppState.LOADING;
+
+            break;
+            case AppState.LOADING:
+
+                if(app.auto_init && app.assets.loaded)
+                {
+                    app.state = AppState.RUNNING;
+                }
+
+            break;
+            case AppState.RUNNING:
+
+                if(app.time.paused) break;
+
+                if(app.do_resize)
+                {
+                    resize_canvas(app.canvas, app.container);
+                    app.view[2] = app.canvas.width;
+                    app.view[3] = app.canvas.height;
+                }
+
+                //console.log(ticker.frames_to_tick)
+                for(var i = 0; i < ticker.frames_to_tick; ++i)
+                {
+                    update_input();
+                    advance_timer(app.time, ticker.advance);
+                    update_vector(app.vector, ticker.advance);
+                    update_key_states();
+
+                    if(app.do_resize)
+                    {
+                        console.log('resized');
+                        app.do_resize = false;
+                        app.resize = false;
+                        app.resize_timer = 0;
+                    }
+                }
+
+                if(ticker.frames_to_tick > 0)
+                {
+                    render_vector(app.vector);
+                }
+                
+                update_debug_fps();
+                
+
+            break;
+        }
+    }
+
+    clear_stacks();
+}

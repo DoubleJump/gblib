@@ -1,0 +1,7 @@
+{
+    "dependencies": {
+        "uglify-js": "3.4.9",
+        "uglifycss": "0.0.29",
+        "html-minifier": "3.5.21"
+    }
+}

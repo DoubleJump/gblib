@@ -66,12 +66,28 @@ function eval_curve_f(curve, t)
 	return r[1];
 }
 
-function read_curve()
+function eval_curve_n(r, curve, t)
 {
-    var is_2d = read_boolean(br);
+	var n = curve.dimension;
+	var d = curve.data;
+	var len = d.length;
+
+	var t_start = d[n];
+	var t_end = d[len-(n*2)];
+	var tn = lerp(t_start, t_end, t);
+	eval_time_curve(r, curve, tn);
+}
+
+function read_curve(ag)
+{
+	var name = read_string();
+    var is_2d = read_boolean();
     var num_points = read_i32();
-    var points;
-    if(is_2d === true) points = read_f32(num_points * 6);
-    else points = read_f32(num_points * 9);
-    return points;
+    var data;
+    var dimensions = 2;
+    if(is_2d === false) dimensions = 3; 
+    data = read_f32(num_points * (dimensions * 3));
+    var curve = Curve(dimensions, data);
+    if(ag) ag.curves[name] = curve;
+    return curve;
 }

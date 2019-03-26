@@ -152,8 +152,8 @@ function quat_from_to(r, from, to)
 function quat_look_at(r, from, to, forward)
 {
 	var t = _Vec3();
-	vec_sub(temp, from, to);
-	vec_normalized(temp, temp);
+	vec_sub(t, from, to);
+	vec_normalized(t, t);
 	quat_from_to(r, forward, to);
 }
 

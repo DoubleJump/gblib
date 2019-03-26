@@ -1,19 +1,60 @@
 var _BR;
 
-function BinaryReader(buffer)
+function BinaryReader(buffer, alignment)
 {
     var r = {};
     r.buffer = buffer;
+    r.alignment = alignment || 4;
     r.bytes = new DataView(buffer);
     r.offset = 0;
     return r;
 }
 
-function Request(response_type, url)
+function Request(params)
 {
     var r = new XMLHttpRequest();
-    r.open('GET', url, true);
-    r.responseType = response_type;
+
+    var type = params.type || 'GET';
+    r.open(type, params.url, true);
+
+    r.responseType = params.response_type || 'arraybuffer';
+    
+    if(params.fail)
+    {
+        r.error = params.fail;
+        r.abort = params.fail;
+    }
+
+    if(params.headers)
+    {
+        for(var k in params.headers)
+        {
+            var h = params.headers[k];
+            r.setRequestHeader(k, h);
+        }
+    }
+
+    r.onload = function(e)
+    {
+        if(e.target.status === 200)
+        {
+            params.success(e.target.response);
+        }
+        else 
+        {
+            if(params.fail) params.fail(e);
+        }
+    }
+
+    if(params.onchange)
+        r.onreadystatechange = params.onchange;
+
+    if(params.onprogress) 
+        r.onprogress = params.progress;
+
+    if(params.auto_send !== false)
+        r.send();
+
     return r;
 }
 
@@ -94,12 +135,17 @@ function read_f64(count)
     return r;
 }
 
+function get_padding(alignment, size)
+{
+    return (alignment - size % alignment) % alignment;
+}
+
 function read_string()
 {
-    var pad = read_i32();
-    var len = read_i32();
-    var r = String.fromCharCode.apply(null, new Uint8Array(_BR.buffer, _BR.offset, len));
-    _BR.offset += len + pad;
+    var size = read_u32();
+    var pad = get_padding(_BR.alignment, size);
+    var r = String.fromCharCode.apply(null, new Uint8Array(_BR.buffer, _BR.offset, size));
+    _BR.offset += size + pad;
     return r;
 }
 

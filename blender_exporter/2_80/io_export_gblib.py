@@ -58,6 +58,10 @@ TEXTURE_REPEAT = 0
 TEXTURE_CLAMP = 1
 TEXTURE_EXTEND = 2
 
+LAMP_TYPE_POINT = 0
+LAMP_TYPE_SUN = 1
+LAMP_TYPE_SPOT = 2
+
 GB_MATRIX = mathutils.Matrix.Rotation(radians(-90.0), 4, 'X')
 
 def round_vec3(v):
@@ -416,7 +420,7 @@ class GB_UL_export_gblib(bpy.types.Operator, ExportHelper):
 	export_vertex_colors : BoolProperty(name="Export Vertex Colors", description="Export vetex colors", default=True)
 	export_lamps : BoolProperty(name="Export Lamps", description="Export lamps", default=True)
 	export_cameras : BoolProperty(name="Export Cameras", description="Export cameras", default=True)
-	export_cameras : BoolProperty(name="Export Curves", description="Export curves", default=True)
+	export_curves : BoolProperty(name="Export Curves", description="Export curves", default=True)
 	export_objects : BoolProperty(name="Export Objects", description="Export objects", default=True)
 	export_materials : BoolProperty(name="Export Materials", description="Export materials", default=True)
 
@@ -454,20 +458,13 @@ class GB_UL_export_gblib(bpy.types.Operator, ExportHelper):
 		exported_materials = []
 
 		for ob in objects:
-			if self.export_objects:
-				writer.object(self, ob)
-
-			if ob.type == 'MESH' and not ob.data.name in exported_meshes:
-				writer.mesh(self, ob, graph)
-				exported_meshes.append(ob.data.name)
-				print("Mesh: " + ob.data.name)
-
 			if ob.type == 'CAMERA' and self.export_cameras:
 				camera = ob.data
 				if not camera in exported_cameras:
 					writer.camera(self, ob, camera)
 					exported_cameras.append(camera)
 					print("Camera: " + camera.name)
+					continue
 
 			if ob.type == 'LAMP' and self.export_lamps:
 				lamp = ob.data
@@ -475,6 +472,7 @@ class GB_UL_export_gblib(bpy.types.Operator, ExportHelper):
 					writer.lamp(self, ob, lamp)
 					exported_lamps.append(lamp)
 					print("Lamp: " + lamp.name)
+					continue
 
 			if ob.type == 'CURVE' and self.export_curves:
 				curve = ob.data
@@ -482,6 +480,16 @@ class GB_UL_export_gblib(bpy.types.Operator, ExportHelper):
 					writer.curve(self, ob, curve)
 					exported_curves.append(curve)
 					print("Curve: " + curve.name)
+					continue
+
+			if self.export_objects:
+				writer.object(self, ob)
+				print("Object: " + ob.name)
+
+			if ob.type == 'MESH' and not ob.data.name in exported_meshes:
+				writer.mesh(self, ob, graph)
+				exported_meshes.append(ob.data.name)
+				print("Mesh: " + ob.data.name)
 
 			if len(ob.material_slots) > 0 and self.export_materials:
 				material = ob.material_slots[0].material

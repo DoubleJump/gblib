@@ -72,9 +72,10 @@ class FileWriter:
 
 
 def compile_binary(name, read_path, writer, type):
-	log(read_path)
 	writer.i32(type)
 	file_size = os.path.getsize(read_path)
+	log(read_path + ": " + str(file_size) + " bytes")
+
 	writer.u32(file_size)
 
 	file = open(read_path, 'rb')
@@ -134,54 +135,18 @@ def compile_glsl(name, read_path, writer):
 	writer.string(vertex_src)
 	writer.string(fragment_src)
 
-def compile_img(name, read_path, writer, type):
+'''
+def compile_font(name, read_path, writer):
 	log(read_path)
 	file = open(read_path, 'rb')
-	data = file.read()
-
-	width = 0
-	height = 0
-	fmt = TEXTURE_RGBA
-
-	if type is ASSET_TYPE_PNG:
-		w, h = unpack('>LL', data[16:24])
-		width = int(w)
-		height = int(h)
-		fmt = TEXTURE_RGBA
-
-	if type is ASSET_TYPE_JPG:
-		fmt = TEXTURE_RGB
-		try:
-			file.seek(0)
-			size = 2
-			ftype = 0
-			while not 0xc0 <= ftype <= 0xcf:
-				file.seek(size, 1)
-				byte = file.read(1)
-				while ord(byte) == 0xff:
-					byte = file.read(1)
-				ftype = ord(byte)
-				size = unpack('>H', file.read(2))[0] - 2
-			file.seek(1, 1)
-			h, w = unpack('>HH', file.read(4))
-			width = int(w)
-			height = int(h)
-		except Exception:
-			pass
-
-	#print(width)
-	#print(height)
-	#print(fmt)
-
-	writer.i32(type)
+	writer.i32(ASSET_TYPE_FONT)
+	file_size = os.path.getsize(read_path)
+	writer.u32(file_size)
 	writer.string(name)
-	writer.i32(width)
-	writer.i32(height)
-	writer.i32(fmt)
-	writer.f64(len(data))
+	data = file.read()
 	writer.bytes(data)
 	file.close()
-
+'''
 
 def compile_assets(dir, write_path):
 	writer = FileWriter(write_path)
@@ -195,48 +160,35 @@ def compile_assets(dir, write_path):
 
 			if file_type == 'glsl': compile_glsl(name, path, writer)
 			elif file_type == 'scene': compile_binary(name, path, writer, ASSET_TYPE_SCENE)
-			elif file_type == 'font': compile_font(name, path, writer)
+			elif file_type == 'font': compile_binary(name, path, writer, ASSET_TYPE_FONT)
 			elif file_type == 'png': compile_img(name, path, writer, ASSET_TYPE_PNG)
 			elif file_type == 'jpg': compile_img(name, path, writer, ASSET_TYPE_JPG)
+			elif file_type == 'pvr': compile_binary(name, path, writer, ASSET_TYPE_PVR)
+			elif file_type == 'DDS': compile_binary(name, path, writer, ASSET_TYPE_DDS)
 
 	writer.i32(ASSET_TYPE_END)
 	writer.close()
 
 
-def read_js(read_path, output, debug):
+def read_js(read_path, output):
 	log(read_path)
-	read_state = 0
-	file = open(read_path, 'r')
-	for line in file:
-		if line.startswith('//import'):
-			path = line.split('//import ')[1].rstrip('\n').rstrip('\r')
-			read_js(path, output, debug)
-		else:
-
-			if read_state is 0:
-				if not debug:
-					if   line.find('//DEBUG') is not -1: read_state = 1
-					elif line.find('ASSERT')  is not -1: continue
-					elif line.find('LOG') 	  is not -1: continue
-					else: output.append(line)
-				else:
-					output.append(line)
-
-			elif read_state is 1:
-				if line.find('//END') is not -1: read_state = 0
-				elif debug is True: output.append(line)
-
-	output.append('\n')
+	file = open(read_path, 'rb')
+	output.write(file.read())
 	file.close()
 
-
-def compile_js(read_path, write_path, debug):
+def compile_js(read_path, write_path):
 
 	output = [];
-	file = open(write_path, 'w')
-	read_js(read_path, output, debug)
-	for line in output: file.write(line)
-	file.close()
+
+	manifest = open(read_path, 'r')
+	out_file = open(write_path, 'wb')
+
+	for line in manifest:
+		path = line.rstrip('\n').rstrip('\r')
+		read_js(path, out_file)
+	
+	out_file.close()
+	manifest.close()
 
 	log('')
 
@@ -246,17 +198,13 @@ def compile_markup(src, dst):
 	shutil.copy(src, dst)
 
 def log(msg):
-	if LOG_LEVEL == 1: print(msg)
+	print(msg)
 
 def build():
 
-	debug = True
-	minify = False
+	compile_js('src/js/manifest.txt', 'src/js/app.js')
 
-	global LOG_LEVEL
-	LOG_LEVEL = 1
-
-	compile_js('src/js/manifest.js', 'src/js/app.js', debug)
+	log('##### ASSETS #####')
 	compile_assets('src/common', 'build/assets/common.txt')
 
 	log('')

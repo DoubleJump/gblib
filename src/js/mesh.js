@@ -172,35 +172,6 @@ function Mesh(vb, ib, layout)
 	return r;
 }
 
-function read_mesh(ag)
-{
-	var name = read_string();
-	var vb_size = read_i32();
-	var vb_data = read_f32(vb_size);
-	var ib_size = read_i32();
-	var ib_data = null;
-	if(ib_size > 0) ib_data = read_i32(ib_size);
-
-	var attributes = {};
-	var num_attributes = read_i32();
-	for(var i = 0; i < num_attributes; ++i)
-	{
-		var attr_name = read_string();
-		var attr_size = read_i32();
-        var attr_norm = read_boolean();
-        attributes[attr_name] = VertexAttribute(attr_size, attr_norm);
-	}
-
-	var vb = VertexBuffer(vb_data, attributes);
-	var ib = null;
-	if(ib_data) ib = IndexBuffer(ib_data);
-
-	var mesh = Mesh(vb, ib, MeshLayout.TRIANGLES);
-    mesh.name = name;
-	if(ag) ag.meshes[name] = mesh;
-	return mesh;
-}
-
 function recalculate_normals(mesh)
 {
 	

@@ -14,7 +14,7 @@ function Debug_FPS()
 	`;
 	r.container = container;
 
-	r.frame_count = 75;
+	r.frame_count = 150;
 	var canvas = container.querySelector('canvas');
 	canvas.width = r.frame_count;
 	canvas.height = 75;
@@ -54,11 +54,9 @@ function update_debug_fps()
 	ctx.fillRect(0,0,w,h);
 
 	var px = 0;
-	//var py = 0;
 	var step = 1;//(w / r.frame_count) | 0;
 
 	ctx.fillStyle = '#FFFFFF';
-	
 
 	for(var i = 0; i < r.frame_count; ++i)
 	{
@@ -67,7 +65,7 @@ function update_debug_fps()
 		px += step;
 	}
 
-	r.fps.innerHTML = fps + ' fps';
+	r.fps.innerHTML = fps + ' fps ';
 }
 
 function on_fps_click(e)

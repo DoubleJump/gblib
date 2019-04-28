@@ -77,17 +77,3 @@ function eval_curve_n(r, curve, t)
 	var tn = lerp(t_start, t_end, t);
 	eval_time_curve(r, curve, tn);
 }
-
-function read_curve(ag)
-{
-	var name = read_string();
-    var is_2d = read_boolean();
-    var num_points = read_i32();
-    var data;
-    var dimensions = 2;
-    if(is_2d === false) dimensions = 3; 
-    data = read_f32(num_points * (dimensions * 3));
-    var curve = Curve(dimensions, data);
-    if(ag) ag.curves[name] = curve;
-    return curve;
-}

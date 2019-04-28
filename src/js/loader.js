@@ -8,7 +8,7 @@ function run_webgl_bootloader(options)
       has_extensions: true,
       has_parameters: true,
       extensions: {},
-      params: {},
+      parameters: {},
       info: {},
     };
 
@@ -63,7 +63,7 @@ function run_webgl_bootloader(options)
         {
             result.has_parameters = false;
         }
-        result.params[k] = p;
+        result.parameters[k] = p;
     }
 
     var render_info = GL.getExtension('WEBGL_debug_renderer_info');

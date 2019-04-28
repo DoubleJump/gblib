@@ -2,51 +2,72 @@ function Font()
 {
     var r = {};
     r.name;
-    r.atlas = null;
-    r.unicode_start;
-    r.unicode_end;
+    r.atlas = null; //GL.LINEAR
     r.num_glyphs;
-    r.grid_width;
-    r.glyph_stride;
-    r.num_glyphs;
-    r.has_kerning;
-    r.num_kerning_values;
-    r.max_tries;
     r.glyhs;
+    r.unicode_start;
+    r.has_kerning;
+    r.kerning;
+    r.ascent;
+    r.descent;
+    r.space_advance;
+    r.tab_advance;
+    r.x_height;
+    r.cap_height;
     return r;
 }
 
-function GlyphMetric()
+function Glyph()
 {
     var r = {};
-    r.x  = 0;
-    r.y  = 0;
-    r.w  = 0;
-    r.h  = 0;
-    r.bx = 0; 
-    r.by = 0; 
-    r.ha = 0;
-    r.kerning = 0;
-    //TODO: line height // r.va??
+    r.code_point = 0;
+    r.uv;
+    r.size;
+    r.horizontal_bearing;
+    r.vertical_bearing;
+    r.advance;
     return r;
 }
 
-function get_glyph_metric(r, font, scale, char_code, prev_code)
+function Kerning_Table()
 {
-    var i = (char_code - font.unicode_start) * font.glyph_stride;
-    var m = font.glyphs;
-    r.x  = m[i+0];
-    r.y  = m[i+1];
-    r.w  = m[i+2] * scale;
-    r.h  = m[i+3] * scale;
-    r.bx = m[i+4] * scale; 
-    r.by = m[i+5] * scale; 
-    r.ha = m[i+6] * scale;
-    if(prev_code > 0) 
+    var r = {};
+    r.count;
+    r.capacity;
+    r.keys;
+    r.values;
+    r.max_tries;
+    r.num_values;
+    r.min_hash;
+    r.max_hash;
+    return r;
+}
+
+function Kern_Key()
+{
+    var r = {};
+    r.code_point_a = 0;
+    r.code_point_b = 0;
+    r.key_index = 0;
+    return r;
+}
+
+function get_glyph_metric(font, code_point)
+{
+    //str.codePointAt()
+    //hash it
+    //look it up
+    //for now...
+    
+    var n = font.glyphs.length;
+    for(var i = 0; i < n; ++i)
     {
-        r.kerning = get_kerning(font, char_code, prev_code) * scale;
+        var g = font.glyphs[i];
+        if(g.code_point === code_point) return g;
     }
-    else r.kerning = 0;
+    
+    var character = String.fromCodePoint(code_point);
+    console.warn('Could not find glyph: ' +  character + ' in ' + font.name);
 }
 
 function get_kerning(font, a,b)
@@ -79,34 +100,4 @@ function get_kerning(font, a,b)
     }
 
     return result;
-}
-
-function read_font(ag)
-{
-    var r = Font();
-    r.name = read_string();
-    r.unicode_start = read_i32();
-    r.unicode_end = read_i32();
-    r.num_glyphs = read_i32();
-    r.grid_width = read_i32();
-    r.glyph_stride = read_i32();
-    r.glyphs = read_f32(r.num_glyphs * r.glyph_stride);
-
-    r.has_kerning = read_boolean();
-    if(r.has_kerning === true)
-    {
-        r.kerning_table_size = read_i32();
-        r.num_kerning_values = read_i32();
-        r.max_tries = read_i32();        
-        r.indices = read_i32(r.kerning_table_size);
-        r.a_keys = read_i32(r.num_kerning_values);
-        r.b_keys = read_i32(r.num_kerning_values);
-        r.kerning = read_f32(r.num_kerning_values);
-    }
-
-    r.atlas = read_texture('png');
-    r.glyph_metric = GlyphMetric();
-
-    if(ag) ag.fonts[r.name] = r;
-    return r;
 }

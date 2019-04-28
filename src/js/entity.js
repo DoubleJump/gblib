@@ -1,9 +1,19 @@
 var _ENTITY_COUNT = 0;
 
+var Entity_Type = 
+{
+	EMPTY: 0,
+	CAMERA: 1,
+	OBJECT: 2,
+	LAMP: 3,
+	TEXT: 4,
+};
+
 function Entity(x,y,z, parent, draw_info)
 {
 	var e = {};
 	e.name;
+	e.entity_type = Entity_Type.EMPTY;
 	e.id = _ENTITY_COUNT;
 	_ENTITY_COUNT++;
 	e.parent = null;
@@ -18,10 +28,11 @@ function Entity(x,y,z, parent, draw_info)
 	e.world_matrix = Mat4();
 	e.draw_info = draw_info ||
 	{
-		shader: null,
+		material: null,
 		mesh: null,
 		instance_mesh: null,
 		instance_count: 0,
+		transparent: false,
 	};
 	if(parent) set_parent(e, parent);
 	return e;
@@ -97,21 +108,18 @@ function rotate_entity(e, v)
 
 function update_entity(e)
 {
-	//if(force === true || e.dirty === true)
-	//{
-		mat4_compose(e.local_matrix, e.position, e.scale, e.rotation);
+	mat4_compose(e.local_matrix, e.position, e.scale, e.rotation);
 
-		if(e.parent === null) vec_eq(e.world_matrix, e.local_matrix);
-		else mat4_mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
+	if(e.parent === null) vec_eq(e.world_matrix, e.local_matrix);
+	else mat4_mul(e.world_matrix, e.local_matrix, e.parent.world_matrix);
 
-		var n = e.children.length;
-		for(var i = 0; i < n; ++i)
-		{
-			var index = mat4_stack.index;
-			update_entity(e.children[i], true);
-			mat4_stack.index = index;
-		}
+	var n = e.children.length;
+	for(var i = 0; i < n; ++i)
+	{
+		var index = mat4_stack.index;
+		update_entity(e.children[i], true);
+		mat4_stack.index = index;
+	}
 
-		e.dirty = false;
-	//}
+	e.dirty = false;
 }

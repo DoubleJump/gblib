@@ -94,8 +94,8 @@ function build_app_dev()
 	asset_compiler.on('close', function(data) 
 	{
 		// JS
-		copy_file('src/js/loader.js', 'build/js/loader.js');
 		copy_file('src/js/app.js', 'build/js/app.js');
+		copy_file('src/js/loader.js', 'build/js/loader.js');
 
 		// CSS
 		copy_file('src/css/style.css', 'build/css/style.css');

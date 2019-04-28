@@ -397,22 +397,65 @@ function update_mesh_range(mesh, start, end)
 
 function convert_texture_size(t)
 {
-	if(t.format === TextureFormat.DEPTH) return GL.UNSIGNED_SHORT;
+	/*
+	GL.UNSIGNED_BYTE;
+	GL.UNSIGNED_SHORT;
+	GL.UNSIGNED_SHORT_4_4_4_4;
+	GL.UNSIGNED_SHORT_5_5_5_1;
+	GL.UNSIGNED_SHORT_5_6_5;
+	GL.UNSIGNED_INT;
+	*/
 
 	switch(t.bytes_per_pixel)
 	{
-		case 4:  return GL.UNSIGNED_BYTE;
+		case 4: return GL.UNSIGNED_BYTE;
+		case 8: return GL.UNSIGNED_SHORT;
+		case 16: return GL.UNSIGNED_INT;
 		default: console.error('Invalid texture size');
 	}
 }
 function convert_texture_format(format)
 {
+	//var bptc = GL.extensions.EXT_texture_compression_bptc;
+	//var astc = GL.extensions.WEBGL_compressed_texture_astc;
+	//var etc = GL.extensions.WEBGL_compressed_texture_etc;
+	var dds = GL.extensions.WEBGL_compressed_texture_s3tc;
+	var pvr = GL.extensions.WEBGL_compressed_texture_pvrtc; 
+
 	switch(format)
 	{
+		// UNCOMPRESSED
 		case TextureFormat.RGB: return GL.RGB;
 		case TextureFormat.RGBA: return GL.RGBA;
 		case TextureFormat.DEPTH: return GL.DEPTH_COMPONENT;
 		case TextureFormat.GRAYSCALE: return GL.LUMINANCE;
+
+		// PVR
+		/*
+		case TextureFormat.RGB_PVRTC_2BPPV1: 
+		return pvr.;
+
+		case TextureFormat.RGBA_PVRTC_2BPPV1: 
+		return pvr.;
+
+		case TextureFormat.RGB_PVRTC_4BPPV1: 
+		return pvr.;
+
+		case TextureFormat.RGBA_PVRTC_4BPPV1:
+		return pvr.;
+		*/
+
+		// DDS
+		case TextureFormat.RGB_S3TC_DXT1: return dds.COMPRESSED_RGB_S3TC_DXT1_EXT;
+		case TextureFormat.RGBA_S3TC_DXT1: return dds.COMPRESSED_RGBA_S3TC_DXT1_EXT;
+		case TextureFormat.RGBA_S3TC_DXT3: return dds.COMPRESSED_RGBA_S3TC_DXT3_EXT;
+		case TextureFormat.RGBA_S3TC_DXT5: return dds.COMPRESSED_RGBA_S3TC_DXT5_EXT;
+
+		//ETC
+		case TextureFormat.RGB_ETC1: return GL.RGBA;
+
+		//ASTC
+
 		default: console.error('Invalid texture format');
 	}
 }
@@ -438,22 +481,24 @@ function update_texture(t)
 	{
 		GL.pixelStorei(GL.UNPACK_FLIP_Y_WEBGL, true);
 	}
-	if(t.from_element === true)
+
+	if(t.compressed === true)
+	{
+		for(var i = 0; i < t.num_mipmaps; ++i)
+		{
+			var mm = t.data[i];
+			GL.compressedTexImage2D(GL.TEXTURE_2D, i, format, mm.width, mm.height, 0, mm.data);
+		}
+	}
+	else if(t.from_element === true)
 	{
 		GL.texImage2D(GL.TEXTURE_2D, 0, format, format, size, t.data);
-	}
-	else if(t.compressed === true)
-	{
-		GL.compressedTexImage2D(GL.TEXTURE_2D, 0, format, t.width, t.height, 0, t.data);
+		if(t.num_mipmaps > 1) GL.generateMipmap(GL.TEXTURE_2D);
 	}
 	else
 	{
 		GL.texImage2D(GL.TEXTURE_2D, 0, format, t.width, t.height, 0, format, size, t.data);
-	}
-
-	if(t.use_mipmaps === true)
-	{
-		GL.generateMipmap(GL.TEXTURE_2D);
+		if(t.num_mipmaps > 1) GL.generateMipmap(GL.TEXTURE_2D);
 	}
 
 	set_sampler(t.sampler);

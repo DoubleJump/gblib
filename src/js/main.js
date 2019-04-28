@@ -12,6 +12,7 @@ var AppState =
 function app_start(lang, gl_info)
 {
     console.log('app start')
+    console.log(gl_info)
 
     app.gl_info = gl_info;
     app.has_focus = true;
@@ -63,6 +64,7 @@ function app_start(lang, gl_info)
     load_assets(app.assets,
     [
         'assets/common.txt',
+        'img/noto_jp.png'
     ],
     function()
     {
@@ -72,7 +74,7 @@ function app_start(lang, gl_info)
 
     app.debug_tools = Debug_Tools();
 
-    app.state = AppState.INIT;
+    app.state = AppState.LOADING;
 
     requestAnimationFrame(update);
 }
@@ -97,8 +99,18 @@ function update(t)
     {
         switch(app.state)
         {
+            case AppState.LOADING:
+
+                if(app.auto_init && app.assets.loaded)
+                {
+                    app.state = AppState.INIT;
+                }
+
+            break;
             case AppState.INIT:
             
+                app.state = AppState.RUNNING;
+
                 app.screen_quad = quad_mesh(2,2,0);
                 app.quad = quad_mesh(1,1,0);
                 app.gl_draw = GL_Draw(16000);
@@ -109,15 +121,6 @@ function update(t)
                 clear_screen();
                 clear_stacks();
 
-                app.state = AppState.LOADING;
-
-            break;
-            case AppState.LOADING:
-
-                if(app.auto_init && app.assets.loaded)
-                {
-                    app.state = AppState.RUNNING;
-                }
 
             break;
             case AppState.RUNNING:
@@ -146,15 +149,16 @@ function update(t)
                         app.resize = false;
                         app.resize_timer = 0;
                     }
+                    clear_stacks();
                 }
 
                 if(ticker.frames_to_tick > 0)
                 {
                     render_vector(app.vector);
+                    clear_stacks();
                 }
                 
                 update_debug_fps();
-                
 
             break;
         }

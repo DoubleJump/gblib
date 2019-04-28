@@ -1,10 +1,33 @@
+/*
+Desktop:
+BC1(DXT1) - opaque
+BC3(DXT5) - transparent
+iOS:
+PVR2, PVR4 - opaque or transparent
+Android:
+ETC1 - opaque
+ASTC_4x4, ASTC8x8 - transparent
+*/
+
 var TextureFormat = 
 {
 	RGB: 0,
 	RGBA: 1,
 	DEPTH: 2,
 	GRAYSCALE: 3,
-}
+
+	RGB_PVRTC_2BPPV1: 4,
+	RGBA_PVRTC_2BPPV1: 5,
+	RGB_PVRTC_4BPPV1: 6,
+	RGBA_PVRTC_4BPPV1: 7,
+
+	RGB_S3TC_DXT1: 8,
+	RGBA_S3TC_DXT1: 9,
+	RGBA_S3TC_DXT3: 10,
+	RGBA_S3TC_DXT5: 11,
+	RGB_ETC1: 12,
+};
+
 function Sampler(s,t,up,down,anisotropy)
 {
 	var r = {};
@@ -15,13 +38,24 @@ function Sampler(s,t,up,down,anisotropy)
 	r.anisotropy = anisotropy;
 	return r;
 }
+
 function default_sampler()
 {
 	return Sampler(GL.CLAMP_TO_EDGE, GL.CLAMP_TO_EDGE, GL.LINEAR, GL.LINEAR, 1);
 }
+
 function repeat_sampler()
 {
 	return Sampler(GL.REPEAT, GL.REPEAT, GL.LINEAR, GL.LINEAR, 1);
+}
+
+function Mipmap(width, height, data)
+{
+	var r = {};
+	r.width = width;
+	r.height = height;
+	r.data = data;
+	return r;
 }
 
 function Texture(width, height, data, sampler, format, bytes_per_pixel)
@@ -37,7 +71,9 @@ function Texture(width, height, data, sampler, format, bytes_per_pixel)
 	t.from_element = false;
 	t.sampler = sampler;
 	t.flip = false;
-	//t.loaded = true;
+	t.num_mipmaps = 1;
+	t.cubemap = false;
+	t.loaded = false;
 	t.gl_releasable = false;
 	return t;
 }
@@ -54,7 +90,6 @@ function texture_from_dom(img, sampler, format, flip)
 	format = format || TextureFormat.RGBA;
 	var t = Texture(img.width, img.height, img, sampler, format, 4);
 	t.from_element = true;
-	t.use_mipmaps = false;
 	t.flip = flip || false;
 	return t;
 }
@@ -69,13 +104,13 @@ function load_texture_group(base_path, urls)
 	}
 }
 
-function load_texture_async(url, ag)
+function load_texture_async(url, ag, compressed)
 {
 	var t = empty_texture();
 	//t.loaded = false;
 	t.from_element = true;
-	t.use_mipmaps = false;
 	t.flip = true;
+	t.compressed = compressed || false;
 
 	var img = new Image();
     img.onload = function(e)
@@ -96,7 +131,6 @@ function load_video_async(url, width, height, sampler, format, mute, autoplay)
 {
 	var t = empty_texture(sampler, format);
 	t.from_element = true;
-	t.use_mipmaps = false;
 	t.flip = false;
 
     var video = document.createElement('video');
@@ -135,7 +169,7 @@ function rgba_texture(width, height, pixels, sampler)
 }
 function depth_texture(width, height, sampler)
 {
-	var t = Texture(width, height, null, sampler, TextureFormat.DEPTH, 4);
+	var t = Texture(width, height, null, sampler, TextureFormat.DEPTH, 8);
 	bind_texture(t);
 	update_texture(t);
 	return t;
@@ -148,6 +182,7 @@ function resize_texture(t, w, h)
 	update_texture(t);
 }
 
+/*
 function read_texture(type, ag)
 {
     var name = read_string();
@@ -170,3 +205,4 @@ function read_texture(type, ag)
 	if(ag) ag.textures[name] = t;
     return t;
 }
+*/

@@ -15,7 +15,7 @@ function find(s, e)
 function find_all(s, e)
 {
 	var e = e || document;
-	return document.querySelectorAll(e);
+	return e.querySelectorAll(s);
 }
 
 function add_class(e, c)

@@ -7,15 +7,16 @@ function AssetGroup(name)
     r.is_loading = false;
     r.load_progress = 0;
     r.onload = null;
-
     r.shaders = {};
     r.meshes = {};
+    r.materials = {};
     r.textures = {};
-    //r.fonts = {};
-    //r.animations = {};
-    //r.rigs = {};
-    //r.curves = {};
-    //r.sounds = {};
+    r.fonts = {};
+    r.animations = {};
+    r.rigs = {};
+    r.curves = {};
+    r.sounds = {};
+    r.scenes = {};
     return r;
 }
 var AssetType =
@@ -25,6 +26,8 @@ var AssetType =
     FONT: 2,
     PNG: 3,
     JPG: 15,
+    DDS: 16,
+    PVR: 17,
     CAMERA: 4,
     LAMP: 5,
     MESH: 6,
@@ -37,6 +40,7 @@ var AssetType =
     CURVE: 13,
     CUBEMAP: 14,
     SOUNDS: 15,
+    WORLD: 16,
     END: -1
 }
 
@@ -105,8 +109,6 @@ function update_load_progress(ag)
 {
     if(ag.load_count === 0)
     {
-        //ag.loaded = true;
-        // LOG('Asset Group: ' + ag.name + ' loaded');
         if(ag.onload) ag.onload();
     }
 }
@@ -129,12 +131,6 @@ function bind_assets(assets)
         bind_texture(t);
         update_texture(t);
     }
-    // for(var k in assets.fonts)
-    // {
-    //     var f = assets.fonts[k];
-    //     bind_texture(f.atlas);
-    //     update_texture(f.atlas);
-    // }
 
     assets.loaded = true;
 }
@@ -154,10 +150,9 @@ function read_asset_file(data, assets)
                 case AssetType.SHADER: { read_shader(assets); break; }
                 case AssetType.SCENE: { read_scene(assets); break; }
                 case AssetType.FONT: { read_font(assets); break; }
-                // case AssetType.PNG: { read_texture('png', assets); break; }
-                // case AssetType.JPG: { read_texture('jpg', assets); break; }
-                case AssetType.END: { complete = true; break; }
-                default: { complete = true; }
+                case AssetType.PVR: { read_pvr(assets); break; }
+                case AssetType.DDS: { read_dds(assets); break; }
+                case AssetType.END: { complete = true; break; } default: { complete = true; }
             }
         }
 
@@ -173,26 +168,29 @@ function read_scene(ag)
     var offset = _BR.offset;
     var pad = get_padding(_BR.alignment, size);
 
+    var scene = Scene(name);
+
     var complete = false;
     while(complete === false)
     {
         var import_type = read_i32();
         switch(import_type)
         {
-            case AssetType.CAMERA: { read_camera(ag); break; }
-            case AssetType.LAMP: { read_lamp(ag); break; }
+            case AssetType.CAMERA: { read_camera(scene); break; }
+            case AssetType.LAMP: { read_lamp(scene); break; }
             case AssetType.MESH: { read_mesh(ag); break; }
             case AssetType.MATERIAL: { read_material(ag); break; }
-            case AssetType.ACTION: { read_animation(ag); break; }
-            case AssetType.EMPTY: { read_transform(ag); break; }
-            case AssetType.ENTITY: { read_entity(ag); break; }
-            case AssetType.RIG: { read_rig(ag); break; }
-            case AssetType.RIG_ACTION: { read_rig_action(ag); break; }
+            //case AssetType.ACTION: { read_animation(ag); break; }
+            case AssetType.ENTITY: { read_entity(scene); break; }
+            //case AssetType.RIG: { read_rig(ag); break; }
+            //case AssetType.RIG_ACTION: { read_rig_action(ag); break; }
             case AssetType.CURVE: { read_curve(ag); break; }
             case AssetType.END: { complete = true; break; }
             default: { complete = true; }
         }
     }
+
+    ag.scenes[name] = scene;
 
     _BR.offset = offset + size + pad;
 }

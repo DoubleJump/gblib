@@ -12,7 +12,7 @@ var TextVerticalAlignment =
     BOTTOM: 2,
 };
 
-function TextStyle(font)
+function Text_Style(font)
 {
     var r = {};
     r.font = font;
@@ -25,9 +25,10 @@ function TextStyle(font)
     return r;
 }
 
-function TextMesh(style, text, length)
+function Text_Mesh(style, text, length)
 {
     var r = Entity();
+    r.entity_type = Entity_Type.TEXT;
     r.str = "";
     r.style = style;
     r.index = 0;
@@ -117,28 +118,31 @@ function add_glyph(tm, char_code, prev_code, is_last_glyph)
     var font = style.font;
     var scale = style.size;
 
-    var glyph = font.glyph_metric;
-    get_glyph_metric(glyph, font, scale, char_code, prev_code);
+    var glyph = get_glyph_metric(font, char_code);
+    //var kerning = get_kerning(char_code, prev_code);
+    var kerning = 0;
 
     //quad dimensions
-    var hh = (font.grid_width * scale) / 2;
-    var hw = hh;
+    var hw = 16.0;
+    var hh = hw;
+
+    //console.log(glyph.horizontal_bearing[1])
 
     // uvs
-    var px = glyph.x / font.atlas.width; 
-    var py = glyph.y / font.atlas.height; 
-    var pw = px + ((font.grid_width) / font.atlas.width);
-    var ph = py + ((font.grid_width) / font.atlas.height);
+    var px = glyph.uv[0];
+    var py = glyph.uv[1];
+    var pw = glyph.uv[2];
+    var ph = glyph.uv[3];
     
-    var cx = tm.px + glyph.bx + glyph.kerning + (glyph.w / 2) + style.letter_spacing;
-    var cy = (tm.py + glyph.by) - (glyph.h / 2);
+    var cx = (tm.px + glyph.horizontal_bearing[0] + kerning + style.letter_spacing) + (glyph.size[0] / 2);
+    var cy = (tm.py + glyph.horizontal_bearing[1]) - (glyph.size[1] / 2);
     var lft = cx - hw;
     var rht = cx + hw;
     var top = cy + hh;
     var btm = cy - hh;
 
-    var abs_btm = Math.abs(btm);
-    if(abs_btm > tm.height) tm.height = abs_btm;
+    //var abs_btm = Math.abs(btm);
+    //if(abs_btm > tm.height) tm.height = abs_btm;
 
     var vb = tm.mesh.vertex_buffer;
     push_glyph_vertex(vb, lft, btm, tm.pz, px,py, style.color, tm.index);
@@ -147,18 +151,21 @@ function add_glyph(tm, char_code, prev_code, is_last_glyph)
     push_glyph_vertex(vb, rht, top, tm.pz, pw,ph, style.color, tm.index);
     push_glyph_triangle(tm.mesh.index_buffer);
 
-    var x_advance = glyph.ha + glyph.kerning + style.letter_spacing;
+    //var x_advance = glyph.advance[0]  style.letter_spacing;
+    var x_advance = glyph.advance[0] + kerning + style.letter_spacing;
 
+    /*
     if(is_whitespace(char_code)) 
     {
         tm.last_white_space_index = tm.index+1;
         tm.last_white_space_px = tm.px;
         tm.last_white_space_advance = x_advance;
     }
+    */
 
 
     // if we are fixed bounds and we are outside those bounds with whitespace to break from
-
+    /*
     if(tm.bounds[2] > 0 && 
        tm.px > tm.bounds[2] &&
        tm.last_white_space_index > tm.last_line_index)
@@ -200,9 +207,12 @@ function add_glyph(tm, char_code, prev_code, is_last_glyph)
     {
         tm.px += x_advance;
     }
+    */
 
+    tm.px += x_advance;
     tm.index++;
 
+    /*
     if(is_last_glyph === true)
     {
         var line_width = tm.px - tm.bounds[0];
@@ -236,6 +246,7 @@ function add_glyph(tm, char_code, prev_code, is_last_glyph)
             vb.data[i+1] += y_offset;
         }
     }
+    */
 }
 
 function reset_text(tm)
@@ -263,14 +274,14 @@ function update_text_mesh(tm)
     update_mesh(tm.mesh);    
 }
 
-/*
+
 function set_text_mesh(tm, str)
 {
     tm.str = str;
     reset_text(tm);
     append_text(tm, str);
+    update_mesh(tm.mesh)
 }
-*/
 
 function append_text(tm, str)
 {
@@ -288,11 +299,10 @@ function append_text(tm, str)
 
 function draw_text(text, shader, camera)
 {
-    use_shader(shader);
+    set_shader(shader);
 
     var mvp = _Mat4();
     mat4_mul(mvp, text.world_matrix, camera.view_projection);
-
     set_uniform('mvp', mvp);
     set_uniform('texture', text.style.font.atlas);
 

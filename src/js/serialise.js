@@ -61,6 +61,16 @@ function Request(params)
 function set_reader_ctx(ctx){ _BR = ctx; }
 function end_reader_ctx(){ _BR = null; }
 
+function reader_seek(ptr)
+{
+    _BR.offset = ptr;
+}
+
+function get_reader_offset()
+{
+    return _BR.offset;
+}
+
 function read_boolean()
 {
     var r = read_i32();
@@ -133,6 +143,15 @@ function read_f64(count)
     r = _BR.bytes.getFloat64(_BR.offset, true);
     _BR.offset += 8;
     return r;
+}
+
+function read_vec(r)
+{
+    var n = r.length;
+    for(var i = 0; i < n; ++i)
+    {
+        r[i] = read_f32();
+    } 
 }
 
 function get_padding(alignment, size)

@@ -15,6 +15,7 @@ function Debug_Console()
 		r.slots[i] = item;
 	}
 
+	/*
 	console.log = function(e)
 	{
 		var item = r.slots[r.slot_index];
@@ -54,6 +55,7 @@ function Debug_Console()
 		}
 		r.error(e);
 	}
-
+	*/
+	
 	return r;
 }

@@ -46,12 +46,12 @@ function read_material_input()
 	{
 		case 1: //FLOAT
 			result = read_f32();
-		break;
+			return result;
 		case 2: //TEXTURE
 			var name = read_string();
 			var sampler = Sampler();
 			var interpolation = read_i32();
-			if(interpolation === 0) //NEAREST
+			if(interpolation === 0)
 			{
 				sampler.up = GL.NEAREST;
 				sampler.down = GL.NEAREST; 
@@ -63,7 +63,7 @@ function read_material_input()
 			}
 
 			var clamping = read_i32();
-			if(clamping === 0) //REPEAT
+			if(clamping === 0)
 			{
 				sampler.s = GL.REPEAT;
 				sampler.t = GL.REPEAT;
@@ -76,21 +76,22 @@ function read_material_input()
 			return [name, sampler];
 		break;
 		case 3: //COLOR
-			input = read_f32(4);
+			result = read_f32(4);
+			return result;
 		break;
+		case 4: // EMPTY
+			return null;
 	}
 }
 
 function read_material(ag)
 {
 	var name = read_string();
-	console.log(name)
-
 	var type = read_i32();
 	if(type === Material_Type.PBR)
 	{
 		var m = PBR_Material(name);
-		m.inputs.albedo =  read_material_input();
+		m.inputs.albedo = read_material_input();
 		m.inputs.normal = read_material_input();
 		m.inputs.metallic = read_material_input();
 		m.inputs.specular = read_material_input();
@@ -136,6 +137,7 @@ function read_lamp(scene)
 	var l = Lamp();
 	l.name = read_string();
 	read_transform(l);
+	l.lamp_type = read_i32();
 	read_vec(l.color);
 	lamp.energy = read_f32();
 	lamp.distance = read_f32();

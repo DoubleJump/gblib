@@ -1,6 +1,6 @@
 var Material_Type = 
 {
-	PBR: 0,
+	PBR: 1,
 };
 
 function Material(name, type, inputs)
@@ -16,7 +16,7 @@ function PBR_Material(name)
 {
 	var inputs = 
 	{
-		albdeo: 1.0,
+		albedo: 1.0,
 		normal: 0.0,
 		metallic: 0.0,
 		specular: 0.5,

@@ -23,6 +23,9 @@ bl_info = {
 	"blender": (2, 80, 0),
 	"location": "File > Export > GBLIB (.scene)",
 	"description": "Export GBLIB Binary (.scene)",
+	"warning": "",
+    "wiki_url": "",
+    "tracker_url": "",
 	"category": "Import-Export"}
 	
 import bpy
@@ -170,6 +173,15 @@ class FileWriter:
 		self.i32(OB_TYPE_LAMP)
 		self.string(ob.name)
 		self.transform(ob)
+		if lamp.type == 'POINT':
+			self.i32(0)
+		elif lamp.type == 'SPOT':
+			self.i32(1)
+		elif lamp.type == 'SUN':
+			self.i32(2)
+		elif lamp.type == 'AREA':
+			self.i32(3)
+
 		self.vec3(lamp.color)
 		self.f32(lamp.energy)
 		self.f32(lamp.distance)
@@ -239,13 +251,12 @@ class FileWriter:
 		else:
 			self.i32(MIP_MAP_LINEAR)
 		
-		if node.repeat == 'Repeat':
+		if node.extension == 'Repeat':
 			self.i32(TEXTURE_REPEAT)
-		elif node.repeat == 'Clip':
+		elif node.extension == 'Clip':
 			self.i32(TEXTURE_CLAMP)
 		else:
 			self.i32(TEXTURE_EXTEND)
-
 
 	def material_slot(self, node, slot_name):
 		slot = node.inputs[slot_name]
@@ -254,6 +265,8 @@ class FileWriter:
 				self.material_color(slot)
 			elif slot.type == "VALUE":
 				self.material_float(slot)
+			elif slot.type == "VECTOR":
+				self.i32(MATERIAL_INPUT_EMPTY)
 		else:
 			input = slot.links[0].from_node
 			if input.type == "TEX_IMAGE":
@@ -271,8 +284,7 @@ class FileWriter:
 			material_output = material.node_tree.nodes["Material Output"]
 			surface_input = material_output.inputs[0].links[0].from_node
 
-			if surface_input.name is "Principled BSDF":
-				print("pbr")
+			if surface_input.name == "Principled BSDF":
 				pbr = surface_input
 				self.i32(OB_TYPE_MATERIAL)
 				self.string(material.name)

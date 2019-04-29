@@ -152,6 +152,7 @@ function read_asset_file(data, assets)
                 case AssetType.FONT: { read_font(assets); break; }
                 case AssetType.PVR: { read_pvr(assets); break; }
                 case AssetType.DDS: { read_dds(assets); break; }
+                case AssetType.MATERIAL: { read_material(assets); break; }
                 case AssetType.END: { complete = true; break; } default: { complete = true; }
             }
         }

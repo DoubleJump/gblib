@@ -455,6 +455,7 @@ function read_asset_file(data, assets)
                 case AssetType.FONT: { read_font(assets); break; }
                 case AssetType.PVR: { read_pvr(assets); break; }
                 case AssetType.DDS: { read_dds(assets); break; }
+                case AssetType.MATERIAL: { read_material(assets); break; }
                 case AssetType.END: { complete = true; break; } default: { complete = true; }
             }
         }
@@ -544,12 +545,12 @@ function read_material_input()
 	{
 		case 1: //FLOAT
 			result = read_f32();
-		break;
+			return result;
 		case 2: //TEXTURE
 			var name = read_string();
 			var sampler = Sampler();
 			var interpolation = read_i32();
-			if(interpolation === 0) //NEAREST
+			if(interpolation === 0)
 			{
 				sampler.up = GL.NEAREST;
 				sampler.down = GL.NEAREST; 
@@ -561,7 +562,7 @@ function read_material_input()
 			}
 
 			var clamping = read_i32();
-			if(clamping === 0) //REPEAT
+			if(clamping === 0)
 			{
 				sampler.s = GL.REPEAT;
 				sampler.t = GL.REPEAT;
@@ -574,21 +575,22 @@ function read_material_input()
 			return [name, sampler];
 		break;
 		case 3: //COLOR
-			input = read_f32(4);
+			result = read_f32(4);
+			return result;
 		break;
+		case 4: // EMPTY
+			return null;
 	}
 }
 
 function read_material(ag)
 {
 	var name = read_string();
-	console.log(name)
-
 	var type = read_i32();
 	if(type === Material_Type.PBR)
 	{
 		var m = PBR_Material(name);
-		m.inputs.albedo =  read_material_input();
+		m.inputs.albedo = read_material_input();
 		m.inputs.normal = read_material_input();
 		m.inputs.metallic = read_material_input();
 		m.inputs.specular = read_material_input();
@@ -4853,7 +4855,7 @@ function draw_text(text, shader, camera)
     mat4_stack.index--;
 }var Material_Type = 
 {
-	PBR: 0,
+	PBR: 1,
 };
 
 function Material(name, type, inputs)
@@ -4869,7 +4871,7 @@ function PBR_Material(name)
 {
 	var inputs = 
 	{
-		albdeo: 1.0,
+		albedo: 1.0,
 		normal: 0.0,
 		metallic: 0.0,
 		specular: 0.5,
@@ -6496,10 +6498,12 @@ function render_vector(r)
     set_uniform('texture', r.japanese.style.font.atlas);
     draw_mesh(r.japanese.mesh);
 
+    /*
     set_shader(shaders.texture);
     set_uniform('mvp', camera.view_projection);
     set_uniform('image', textures.boat);
     draw_mesh(meshes.pyramid);
+    */
 
 	if(app.debug_tools.mode === 'sizes')
 	{

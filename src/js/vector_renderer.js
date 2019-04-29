@@ -75,10 +75,12 @@ function render_vector(r)
     set_uniform('texture', r.japanese.style.font.atlas);
     draw_mesh(r.japanese.mesh);
 
+    /*
     set_shader(shaders.texture);
     set_uniform('mvp', camera.view_projection);
     set_uniform('image', textures.boat);
     draw_mesh(meshes.pyramid);
+    */
 
 	if(app.debug_tools.mode === 'sizes')
 	{

@@ -1,0 +1,4 @@
+fonts/NotoSansCJKjp-Regular.otf
+output/noto_jp.font
+output/noto_jp.png
+こんにちは

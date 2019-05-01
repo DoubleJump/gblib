@@ -169,7 +169,7 @@ function read_scene(ag)
     var offset = _BR.offset;
     var pad = get_padding(_BR.alignment, size);
 
-    var scene = Scene(name);
+    var scene = Scene(name, 1024);
 
     var complete = false;
     while(complete === false)

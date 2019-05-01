@@ -3,12 +3,13 @@ var Material_Type =
 	PBR: 1,
 };
 
-function Material(name, type, inputs)
+function Material(name, type, inputs, shader)
 {
 	var r = {};
 	r.name = name;
 	r.type = type;
 	r.inputs = inputs;
+	r.shader = shader;
 	return r;
 }
 

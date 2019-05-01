@@ -4,8 +4,9 @@ function Scene(name, max_entities)
 	r.root = Entity(0,0,0);
 	r.name = name;
 	r.MAX_ENTITIES = max_entities;
-	r.entity_count = 0;
+	r.entity_count = 1;
 	r.entities = new Array(max_entities);
+	r.entities[0] = r.root;
 	return r;
 }
 
@@ -21,7 +22,7 @@ function add_to_scene(scene, e)
 
 function update_scene(scene, dt)
 {
-	
+	update_entity(scene.root);
 }
 
 function render_scene(scene, camera)

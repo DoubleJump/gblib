@@ -1,3 +1,8 @@
+function read_ktx(ag)
+{
+	
+}
+
 function read_mesh(ag)
 {
 	var name = read_string();

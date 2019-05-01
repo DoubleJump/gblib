@@ -324,7 +324,7 @@ function convert_mesh_layout(type)
 		case MeshLayout.TRIANGLES: return GL.TRIANGLES;
 		case MeshLayout.LINES: 	   return GL.LINES;
 		case MeshLayout.STRIP:	   return GL.TRIANGLE_STRIP;
-		case MeshLayout.POINTS:     return GL.POINTS;
+		case MeshLayout.POINTS:    return GL.POINTS;
 
 		default: console.error('Invalid mesh layout');
 	}

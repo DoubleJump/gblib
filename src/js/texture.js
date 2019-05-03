@@ -26,6 +26,8 @@ var TextureFormat =
 	RGBA_S3TC_DXT3: 10,
 	RGBA_S3TC_DXT5: 11,
 	RGB_ETC1: 12,
+
+	KTX: 13,
 };
 
 function Sampler(s,t,up,down,anisotropy)
@@ -64,8 +66,10 @@ function Texture(width, height, data, sampler, format, bytes_per_pixel)
 	t.id = null;
 	t.data = data;
 	t.format = format;
+	t.internal_format = null;
 	t.width = width;
 	t.height = height;
+	t.depth = null;
 	t.bytes_per_pixel = bytes_per_pixel;
 	t.compressed = false;
 	t.from_element = false;
@@ -181,28 +185,3 @@ function resize_texture(t, w, h)
 	t.height = h;
 	update_texture(t);
 }
-
-/*
-function read_texture(type, ag)
-{
-    var name = read_string();
-    var width = read_i32();
-    var height = read_i32();
-    var format = read_i32();
-    var num_bytes = read_f64();
-    var bytes = read_bytes(num_bytes);
-    var encoding = 'data:image/' + type + ';base64,';
-
-    var img = new Image();
-    img.src = encoding + uint8_to_base64(bytes);
-
-    var t = Texture(width, height, img, app.sampler, format, 4);
-    
-	t.from_element = true;
-	t.use_mipmaps = false;
-	t.flip = true;
-	
-	if(ag) ag.textures[name] = t;
-    return t;
-}
-*/

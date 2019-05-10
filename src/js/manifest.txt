@@ -41,4 +41,4 @@ src/js/debug_fps.js
 src/js/debug_gui.js
 src/js/debug_gpu.js
 src/js/translation.js
-src/js/vector_renderer.js
+src/js/test_scene.js

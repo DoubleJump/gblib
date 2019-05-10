@@ -472,7 +472,7 @@ function read_scene(ag)
     var offset = _BR.offset;
     var pad = get_padding(_BR.alignment, size);
 
-    var scene = Scene(name);
+    var scene = Scene(name, 1024);
 
     var complete = false;
     while(complete === false)
@@ -636,6 +636,7 @@ function read_lamp(scene)
 	var l = Lamp();
 	l.name = read_string();
 	read_transform(l);
+	l.lamp_type = read_i32();
 	read_vec(l.color);
 	lamp.energy = read_f32();
 	lamp.distance = read_f32();
@@ -2429,6 +2430,8 @@ var TextureFormat =
 	RGBA_S3TC_DXT3: 10,
 	RGBA_S3TC_DXT5: 11,
 	RGB_ETC1: 12,
+
+	KTX: 13,
 };
 
 function Sampler(s,t,up,down,anisotropy)
@@ -2467,8 +2470,10 @@ function Texture(width, height, data, sampler, format, bytes_per_pixel)
 	t.id = null;
 	t.data = data;
 	t.format = format;
+	t.internal_format = null;
 	t.width = width;
 	t.height = height;
+	t.depth = null;
 	t.bytes_per_pixel = bytes_per_pixel;
 	t.compressed = false;
 	t.from_element = false;
@@ -2583,32 +2588,7 @@ function resize_texture(t, w, h)
 	t.width = w;
 	t.height = h;
 	update_texture(t);
-}
-
-/*
-function read_texture(type, ag)
-{
-    var name = read_string();
-    var width = read_i32();
-    var height = read_i32();
-    var format = read_i32();
-    var num_bytes = read_f64();
-    var bytes = read_bytes(num_bytes);
-    var encoding = 'data:image/' + type + ';base64,';
-
-    var img = new Image();
-    img.src = encoding + uint8_to_base64(bytes);
-
-    var t = Texture(width, height, img, app.sampler, format, 4);
-    
-	t.from_element = true;
-	t.use_mipmaps = false;
-	t.flip = true;
-	
-	if(ag) ag.textures[name] = t;
-    return t;
-}
-*/function read_pvr(ag) 
+}function read_pvr(ag) 
 {
 	var file_size = read_i32();
 	var name = read_string();
@@ -3418,7 +3398,7 @@ function convert_mesh_layout(type)
 		case MeshLayout.TRIANGLES: return GL.TRIANGLES;
 		case MeshLayout.LINES: 	   return GL.LINES;
 		case MeshLayout.STRIP:	   return GL.TRIANGLE_STRIP;
-		case MeshLayout.POINTS:     return GL.POINTS;
+		case MeshLayout.POINTS:    return GL.POINTS;
 
 		default: console.error('Invalid mesh layout');
 	}
@@ -3568,31 +3548,32 @@ function unbind_texture(texture)
 function update_texture(t)
 {
 	set_texture(t);
-	var size = convert_texture_size(t);
-	var format = convert_texture_format(t.format);
-
-	if(t.flip === true)
-	{
-		GL.pixelStorei(GL.UNPACK_FLIP_Y_WEBGL, true);
-	}
+	
+	if(t.flip === true) GL.pixelStorei(GL.UNPACK_FLIP_Y_WEBGL, true);
 
 	if(t.compressed === true)
 	{
 		for(var i = 0; i < t.num_mipmaps; ++i)
 		{
 			var mm = t.data[i];
-			GL.compressedTexImage2D(GL.TEXTURE_2D, i, format, mm.width, mm.height, 0, mm.data);
+			GL.compressedTexImage2D(GL.TEXTURE_2D, i, t.internal_format, mm.width, mm.height, 0, mm.data);
 		}
-	}
-	else if(t.from_element === true)
-	{
-		GL.texImage2D(GL.TEXTURE_2D, 0, format, format, size, t.data);
-		if(t.num_mipmaps > 1) GL.generateMipmap(GL.TEXTURE_2D);
 	}
 	else
 	{
-		GL.texImage2D(GL.TEXTURE_2D, 0, format, t.width, t.height, 0, format, size, t.data);
-		if(t.num_mipmaps > 1) GL.generateMipmap(GL.TEXTURE_2D);
+		var size = convert_texture_size(t);
+		var format = convert_texture_format(t.format);
+		
+		if(t.from_element === true)
+		{
+			GL.texImage2D(GL.TEXTURE_2D, 0, format, format, size, t.data);
+			if(t.num_mipmaps > 1) GL.generateMipmap(GL.TEXTURE_2D);
+		}
+		else
+		{
+			GL.texImage2D(GL.TEXTURE_2D, 0, format, t.width, t.height, 0, format, size, t.data);
+			if(t.num_mipmaps > 1) GL.generateMipmap(GL.TEXTURE_2D);
+		}
 	}
 
 	set_sampler(t.sampler);
@@ -4858,12 +4839,13 @@ function draw_text(text, shader, camera)
 	PBR: 1,
 };
 
-function Material(name, type, inputs)
+function Material(name, type, inputs, shader)
 {
 	var r = {};
 	r.name = name;
 	r.type = type;
 	r.inputs = inputs;
+	r.shader = shader;
 	return r;
 }
 
@@ -4887,8 +4869,9 @@ function Scene(name, max_entities)
 	r.root = Entity(0,0,0);
 	r.name = name;
 	r.MAX_ENTITIES = max_entities;
-	r.entity_count = 0;
+	r.entity_count = 1;
 	r.entities = new Array(max_entities);
+	r.entities[0] = r.root;
 	return r;
 }
 
@@ -4904,7 +4887,7 @@ function add_to_scene(scene, e)
 
 function update_scene(scene, dt)
 {
-	
+	update_entity(scene.root);
 }
 
 function render_scene(scene, camera)
@@ -5809,12 +5792,12 @@ function app_start(lang, gl_info)
 
     app.state = AppState.LOADING;
 
-    requestAnimationFrame(update);
+    requestAnimationFrame(app_update);
 }
 
-function update(t)
+function app_update(t)
 {
-    requestAnimationFrame(update);
+    requestAnimationFrame(app_update);
 
     var ticker = app.ticker;
     advance_ticker(ticker);
@@ -5847,13 +5830,12 @@ function update(t)
                 app.screen_quad = quad_mesh(2,2,0);
                 app.quad = quad_mesh(1,1,0);
                 app.gl_draw = GL_Draw(16000);
-                app.vector = Vector();
+                start();
 
                 set_viewport(app.view);
                 set_clear_color_f(0,0,0,1);
                 clear_screen();
                 clear_stacks();
-
 
             break;
             case AppState.RUNNING:
@@ -5872,7 +5854,7 @@ function update(t)
                 {
                     update_input();
                     advance_timer(app.time, ticker.advance);
-                    update_vector(app.vector, ticker.advance);
+                    update(ticker.advance);
                     update_key_states();
 
                     if(app.do_resize)
@@ -5887,7 +5869,7 @@ function update(t)
 
                 if(ticker.frames_to_tick > 0)
                 {
-                    render_vector(app.vector);
+                    render();
                     clear_stacks();
                 }
                 
@@ -6421,9 +6403,11 @@ function get_translated_text(key)
 	var result = app.translations[key]
 	if(!result) return key;
 	return result;
-}function Vector()
+}var test_scene = {};
+
+function start()
 {
-	var r = {};
+	var r = test_scene;
 
 	r.camera = Perspective_Camera(app.view);
 	r.ui_camera = UI_Camera(app.view);
@@ -6432,7 +6416,6 @@ function get_translated_text(key)
 	update_camera_projection(r.ui_camera, app.view);
 
 	r.root = Entity(0,0,-3);
-
 	
 	var font = app.assets.fonts.noto_jp;
 	font.atlas = app.assets.textures.noto_jp;
@@ -6442,12 +6425,12 @@ function get_translated_text(key)
 	r.japanese.position[1] = 5;
 	set_vec3(r.japanese.scale, 0.1,0.1,1.0);
 	update_mesh(r.japanese.mesh);
-
-	return r;
 }
 
-function update_vector(r, dt)
+function update(dt)
 {
+	var r = test_scene;
+
 	if(app.do_resize)
 	{
 		var view = app.view;
@@ -6468,8 +6451,10 @@ function update_vector(r, dt)
 	update_camera(r.ui_camera);
 }
 
-function render_vector(r)
+function render()
 {
+	var r = test_scene;
+
 	var shaders = app.assets.shaders;
 	var meshes = app.assets.meshes;
 	var textures = app.assets.textures;

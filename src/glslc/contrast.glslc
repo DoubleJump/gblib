@@ -1,0 +1,4 @@
+vec3 contrast(vec3 rgb, vec3 scale, vec3 bias)
+{
+	return rgb * scale + bias;
+}

@@ -231,8 +231,7 @@ function build_app_dev()
 
 	//TODO: turn processes into coroutines
 	//TODO: go through assets/img folder
-	compress_texture('src/assets/img/boat.png', 'src/assets/compressed_img/', Texture_Type.RGB);
-
+	//compress_texture('src/assets/img/boat.png', 'src/assets/compressed_img/', Texture_Type.RGB);
 	
 	var asset_args = 
 	[

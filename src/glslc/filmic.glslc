@@ -1,0 +1,7 @@
+vec3 filmic(vec3 rgb)
+{
+	const highp float jj = 0.22, jk=0.3, jl=0.1, jm=0.2, jn=.01, jo=0.3;
+	const highp float ju = 1.25;
+	highp vec3 eO = max(vec3(0.0),rgb - vec3(.004));
+	return (eO*((ju*jj)*eO+ju*vec3(jl*jk))+ju*vec3(jm*jn))/(eO*(jj*eO+vec3(jk))+vec3(jm*jo))-ju*vec3(jn/jo);
+}

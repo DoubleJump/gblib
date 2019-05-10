@@ -1,6 +1,8 @@
-function Vector()
+var test_scene = {};
+
+function start()
 {
-	var r = {};
+	var r = test_scene;
 
 	r.camera = Perspective_Camera(app.view);
 	r.ui_camera = UI_Camera(app.view);
@@ -9,7 +11,6 @@ function Vector()
 	update_camera_projection(r.ui_camera, app.view);
 
 	r.root = Entity(0,0,-3);
-
 	
 	var font = app.assets.fonts.noto_jp;
 	font.atlas = app.assets.textures.noto_jp;
@@ -19,12 +20,12 @@ function Vector()
 	r.japanese.position[1] = 5;
 	set_vec3(r.japanese.scale, 0.1,0.1,1.0);
 	update_mesh(r.japanese.mesh);
-
-	return r;
 }
 
-function update_vector(r, dt)
+function update(dt)
 {
+	var r = test_scene;
+
 	if(app.do_resize)
 	{
 		var view = app.view;
@@ -45,8 +46,10 @@ function update_vector(r, dt)
 	update_camera(r.ui_camera);
 }
 
-function render_vector(r)
+function render()
 {
+	var r = test_scene;
+
 	var shaders = app.assets.shaders;
 	var meshes = app.assets.meshes;
 	var textures = app.assets.textures;

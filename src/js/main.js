@@ -76,12 +76,12 @@ function app_start(lang, gl_info)
 
     app.state = AppState.LOADING;
 
-    requestAnimationFrame(update);
+    requestAnimationFrame(app_update);
 }
 
-function update(t)
+function app_update(t)
 {
-    requestAnimationFrame(update);
+    requestAnimationFrame(app_update);
 
     var ticker = app.ticker;
     advance_ticker(ticker);
@@ -114,13 +114,12 @@ function update(t)
                 app.screen_quad = quad_mesh(2,2,0);
                 app.quad = quad_mesh(1,1,0);
                 app.gl_draw = GL_Draw(16000);
-                app.vector = Vector();
+                start();
 
                 set_viewport(app.view);
                 set_clear_color_f(0,0,0,1);
                 clear_screen();
                 clear_stacks();
-
 
             break;
             case AppState.RUNNING:
@@ -139,7 +138,7 @@ function update(t)
                 {
                     update_input();
                     advance_timer(app.time, ticker.advance);
-                    update_vector(app.vector, ticker.advance);
+                    update(ticker.advance);
                     update_key_states();
 
                     if(app.do_resize)
@@ -154,7 +153,7 @@ function update(t)
 
                 if(ticker.frames_to_tick > 0)
                 {
-                    render_vector(app.vector);
+                    render();
                     clear_stacks();
                 }
                 

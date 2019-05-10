@@ -1,0 +1,5 @@
+vec3 saturate(vec3 rgb, float amount)
+{
+	float gray = dot(rgb, vec3(0.3,0.59,0.11));
+	return mix(vec3(gray), rgb, amount);
+}

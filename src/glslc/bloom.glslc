@@ -1,0 +1,4 @@
+vec3 bloom(vec3 rgb, vec3 color, sampler2D bloom_tex, vec2 st)
+{
+	return rgb + (color * texture2D(bloom,st).xyz);
+}

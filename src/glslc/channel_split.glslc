@@ -1,0 +1,27 @@
+float saw(float v, float d)
+{
+	return mod(v, d) * (d - floor(mod(v, d * 2.0)) * (d * 2.0)) + floor(mod(v, d * 2.0)); 
+}
+
+vec2 vec_lock(vec2 v)
+{
+	return vec2(saw(v.x, 1.0), saw(v.y, 1.0));
+}
+
+vec4 extract_r(vec4 c){ return vec4(c.r, 0.0, 0.0, c.a); }
+vec4 extract_g(vec4 c){ return vec4(0.0, c.g, 0.0, c.a); }
+vec4 extract_b(vec4 c){ return vec4(0.0, 0.0, c.b, c.a); }
+
+vec2 shift_x(vec2 vec, float offset)
+{
+	return vec_lock(vec2(vec.x + offset, vec.y));
+}
+
+vec4 channel_split(sampler2D image, vec2 st, float dispersion, float intensity)
+{
+	float sx = (channel_shift + rand(st) * dispersion) * intensity;
+	result = extract_r(texture2D(image, shift_x(st,  sx))) +
+			 extract_b(texture2D(image, shift_x(st, -sx))) +
+			 extract_g(texture2D(image, st));
+	return result;
+}

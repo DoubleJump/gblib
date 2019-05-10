@@ -1,0 +1,7 @@
+vec3 reinhard(vec3 rgb)
+{
+	vec3 result = rgb;
+	result *= 1.8;
+	float ji = dot(result,vec3(0.3333));
+	return clamp(result/(1.0+ji),0.0,1.0);
+}

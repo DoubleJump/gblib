@@ -1,0 +1,10 @@
+vec3 sharpen(vec3 rgb, sampler2D t, vec2 st, vec4 kernel)
+{
+	vec3 h = texture2D(t, st + kernel.xy).xyz;
+	h += texture2D(t, st - kernel.xy).xyz;
+	h += texture2D(t, st + kernel.zw).xyz;
+	h += texture2D(t, st - kernel.zw).xyz;
+	vec3 jd = sharpness.x * rgb - sharpness.y * h;
+	vec3 result = clamp(jd,-sharpness.z,sharpness.z);
+	return result;
+}

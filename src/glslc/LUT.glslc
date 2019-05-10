@@ -1,0 +1,10 @@
+vec3 LUT(vec3 rgb, sampler2D tex)
+{
+	vec3 result = clamp(rgb,0.0,1.0);
+	result = (255.0/256.0) * result + vec3(0.5/256.0);
+	result.x = texture2D(tex,result.xx).x;
+	result.y = texture2D(tex,result.yy).y;
+	result.z = texture2D(tex,result.zz).z;
+	result *= result;
+	return result;
+}

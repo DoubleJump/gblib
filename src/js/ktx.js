@@ -80,7 +80,7 @@ function read_ktx(ag)
 	t.num_mipmaps = num_mipmaps;
 	t.data = mipmaps;
 	t.format = TextureFormat.KTX;
-	t.internal_format = ;
+	t.internal_format = header[5];
 	t.compressed = true;
 	t.flip = true;
 	ag.Texture[name] = t;
